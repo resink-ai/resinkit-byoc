@@ -1,0 +1,53 @@
+taskmanager:
+  memory:
+    process:
+      size: 1728m
+  bind-host: 0.0.0.0
+  numberOfTaskSlots: 4
+jobmanager:
+  execution:
+    failover-strategy: region
+  rpc:
+    address: localhost
+    port: 6123
+  memory:
+    process:
+      size: 1600m
+  bind-host: 0.0.0.0
+rest:
+  bind-address: 0.0.0.0
+  address: 0.0.0.0
+parallelism:
+  default: 1
+env:
+  java:
+    opts:
+      all: --add-exports=java.base/sun.net.util=ALL-UNNAMED --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+
+# ENV CATALOG_STORE_PATH=/tmp/flink/catalog-store
+# ENV CATALOG_PATH=/tmp/flink/catalog
+# ENV DEFAULT_DB_PATH=/tmp/flink/mydb
+# ENV CHECKPOINTS_PATH=/tmp/flink/checkpoints
+# ENV SAVEPOINTS_PATH=/tmp/flink/savepoints
+# RUN mkdir -p $CATALOG_STORE_PATH $CATALOG_PATH $DEFAULT_DB_PATH $CHECKPOINTS_PATH $SAVEPOINTS_PATH
+execution:
+  checkpoints:
+    dir: file:///tmp/flink/checkpoints
+
+# Configure file catalog store
+table:
+  catalog-store:
+    kind: file
+    file:
+      path: file:///tmp/flink/catalog-store
+
+# Configure embedded scheduler
+workflow-scheduler:
+  type: embedded
+
+# Configure SQL gateway address and port
+sql-gateway:
+  endpoint:
+    rest:
+      address: 127.0.0.1
+      port: 8083

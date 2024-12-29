@@ -1,0 +1,29 @@
+name: MySQL to Doris
+
+# Source configuration
+source:
+  type: mysql
+  name: Sample MySQL Source
+  hostname: mysql
+  port: 3307
+  username: root
+  password: rootpassword
+  tables: mydatabase.\.*
+  server-id: 5401-5404
+  server-time-zone: UTC
+  scan.startup.mode: latest-offset
+  debezium.database.allowPublicKeyRetrieval: true
+
+# Sink configuration
+sink:
+  type: doris
+  fenodes: doris:8030
+  benodes: doris:8040
+  username: root
+  password: ""
+  table.create.properties.light_schema_change: true
+  table.create.properties.replication_num: 1
+
+pipeline:
+  name: MySQL to Doris Pipeline
+  parallelism: 2

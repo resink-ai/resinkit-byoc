@@ -1,0 +1,72 @@
+server:
+  port: 8000
+
+management:
+  server:
+    port: 7002
+  endpoint:
+    health:
+      show-details: always
+      group:
+        liveness:
+          include: "*"
+          exclude:
+            - db/flinkDataSource
+        readiness:
+          include: "*"
+          exclude:
+            - db/flinkDataSource
+    info:
+      enabled: true
+    env:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+      base-path: /
+
+spring:
+  application:
+    name: resink-app
+  datasource:
+    primary:
+      driver-class-name: org.h2.Driver
+      jdbc-url: jdbc:h2:file:/tmp/primary_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: ''
+      hikari:
+        connection-timeout: 30000
+        idle-timeout: 30000
+        max-lifetime: 1800000
+        maximum-pool-size: 10
+        minimum-idle: 5
+        pool-name: HikariCP
+    secondary:
+      driver-class-name: org.h2.Driver
+      jdbc-url: jdbc:h2:file:/tmp/secondary_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: ''
+      hikari:
+        connection-timeout: 30000
+        idle-timeout: 30000
+        max-lifetime: 1800000
+        maximum-pool-size: 10
+        minimum-idle: 5
+        pool-name: HikariCP
+    flink:
+      jdbc-url: jdbc:flink://localhost:8083
+      driver-class-name: org.apache.flink.table.jdbc.FlinkDriver
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 5
+        idle-timeout: 30000
+        pool-name: FlinkHikariPool
+
+# Swagger configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method

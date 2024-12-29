@@ -1,0 +1,25 @@
+name: MySQL to Kafka
+
+# Source configuration
+source:
+  type: mysql
+  name: Sample MySQL Source
+  hostname: mysql
+  port: 3307
+  username: root
+  password: rootpassword
+  tables: mydatabase.\.*
+  server-id: 5401-5404
+  server-time-zone: UTC
+  scan.startup.mode: latest-offset
+  debezium.database.allowPublicKeyRetrieval: true
+
+# Sink configuration
+sink:
+  type: kafka
+  name: Kafka Sink
+  properties.bootstrap.servers: PLAINTEXT://localhost:9092
+
+pipeline:
+  name: MySQL to Kafka Pipeline
+  parallelism: 2

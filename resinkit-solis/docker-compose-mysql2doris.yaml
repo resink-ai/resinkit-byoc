@@ -1,0 +1,51 @@
+services:
+  doris:
+    image: yagagagaga/doris-standalone
+    privileged: true
+    ports:
+      - "8030:8030"
+      - "8040:8040"
+      - "9030:9030"
+  mysql:
+    build:
+      context: .
+      dockerfile: Dockerfile.testmysql
+    environment:
+      MYSQL_DATABASE: mydatabase
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_TCP_PORT: 3307
+      MYSQLX_TCP_PORT: 33070
+    ports:
+      - "3307:3307"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  flink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: app/target/resinkit-0.0.1-SNAPSHOT.jar
+    ports:
+      - "8000:8000"
+      - "9092:9092"
+      - "8081:8081"
+      - "8083:8083"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3307
+      - MYSQL_DATABASE=mydatabase
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=rootpassword
+    depends_on:
+      - mysql
+    volumes:
+      - flink_data:/tmp/flink
+
+volumes:
+  mysql_data:
+  flink_data:
+
+## docker-compose -f docker-compose-testmysql.yaml -p resinkit-testmysql up -d
+## docker-compose -f docker-compose-testmysql.yaml -p resinkit-testmysql down
+## 
