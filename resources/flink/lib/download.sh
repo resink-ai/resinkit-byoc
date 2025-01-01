@@ -123,8 +123,10 @@ PAIMON_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/0.9.0/paimon-flink-action-0.9.0.jar
 )
 
-JDBC_DRIVERS=(
+MISC_DRIVERS=(
     https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.4.1/kafka-clients-3.4.1.jar
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
 )
 
 function download_all {
@@ -143,8 +145,8 @@ function download_all {
         download_and_extract "$url"
     done
 
-    echo "Downloading jdbc drivers"
-    for url in "${JDBC_DRIVERS[@]}"; do
+    echo "Downloading misc drivers"
+    for url in "${MISC_DRIVERS[@]}"; do
         download_and_extract "$url"
     done
 

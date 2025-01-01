@@ -58,6 +58,7 @@ COPY resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink
 COPY resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
 COPY resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
 COPY resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
+COPY resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
 
 ###################### NGNIX ######################
 # RUN rm /etc/nginx/sites-enabled/default

@@ -29,7 +29,7 @@ public class FlinkSqlExecutionService {
         List<SqlUtils.SqlStatementInfo> sqlStatements = SqlUtils.splitSqlStatements(sql);
 
         try (Connection connection = flinkDataSource.getConnection();
-             Statement statement = connection.createStatement()) {
+            Statement statement = connection.createStatement()) {
             for (SqlUtils.SqlStatementInfo sqlInfo : sqlStatements) {
                 String sqli = sqlInfo.getStatement();
                 boolean hasResultSet = statement.execute(sqli);

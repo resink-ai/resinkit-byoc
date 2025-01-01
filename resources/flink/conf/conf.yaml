@@ -1,9 +1,9 @@
 taskmanager:
   memory:
     process:
-      size: 1728m
+      size: 4096m
   bind-host: 0.0.0.0
-  numberOfTaskSlots: 4
+  numberOfTaskSlots: 8
 jobmanager:
   execution:
     failover-strategy: region

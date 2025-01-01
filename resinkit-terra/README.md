@@ -51,5 +51,37 @@ make resinkit-terra-test
 
 1. Repeat the step 1 & 2 from above.
 2. Run the tests: `resinkit-terra-test-mysql2kafka`
+3. Manual query Kafka: `kcat -C -b localhost:9092 -t mydatabase.User`
+4. 
 
+
+### Paimon Test cases
+
+```sql
+CREATE CATALOG my_catalog WITH (
+    'type'='paimon',
+    'warehouse'='file:/tmp/paimon'
+);
+
+USE CATALOG my_catalog;
+
+CREATE TABLE MyTable (
+  user_id BIGINT,
+  item_id BIGINT,
+  behavior STRING,
+  dt STRING,
+  PRIMARY KEY (dt, user_id) NOT ENFORCED
+) PARTITIONED BY (dt) WITH (
+  'bucket' = '4'
+);
+
+SET 'execution.runtime-mode' = 'batch';
+SELECT * FROM orders WHERE catalog_id=1025;
+
+SET 'execution.runtime-mode' = 'streaming';
+SELECT * FROM MyTable /*+ OPTIONS ('log.scan'='latest') */;
+
+ALTER TABLE my_table SET ('bucket' = '4');
+INSERT OVERWRITE my_table PARTITION (dt = '2022-01-01');
+```
 
