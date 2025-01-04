@@ -1,8 +1,7 @@
-FROM flink:1.19.1-scala_2.12-java17
+# Use a multi-stage build to support multiple architectures
+FROM --platform=linux/amd64 flink:1.19.1-scala_2.12-java17 AS builder-amd64
 
-## This is a single Docker with Flink 1.19, Flink CDC 3.2.1, Kafka and resinkit application
-
-###################### Kafka ######################
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     vim \
     wget \
@@ -24,10 +23,71 @@ RUN wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tm
 
 # Setup environment variables for Kafka
 COPY resources/kafka/server.properties /opt/kafka/config/server.properties
-ENV KAFKA_HOME /opt/kafka
-ENV PATH $PATH:$KAFKA_HOME/bin
 
-###################### Resinkit ######################
+
+# Download and install Flink CDC connectors
+RUN wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz \
+    && tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ \
+    && rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+
+# Download additional JAR packages for Flink CDC connectors
+COPY resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
+COPY resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
+COPY resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
+COPY resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
+
+
+# Build for arm64v8
+FROM --platform=linux/arm64/v8 flink:1.19.1-scala_2.12-java17 AS builder-arm64v8
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    vim \
+    wget \
+    gnupg \
+    nginx \
+    python3-pip \
+    python3-dev \
+    libpcre3-dev \
+    iputils-ping \
+    mysql-client \
+    telnet \
+    && apt-get clean
+
+# Install Kafka
+RUN wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz \
+    && tar -xzf /tmp/kafka.tgz -C /opt \
+    && mv /opt/kafka_2.12-3.4.0 /opt/kafka \
+    && rm /tmp/kafka.tgz
+
+# Setup environment variables for Kafka
+COPY resources/kafka/server.properties /opt/kafka/config/server.properties
+
+# Download and install Flink CDC connectors
+RUN wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz \
+    && tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ \
+    && rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+
+# Download additional JAR packages for Flink CDC connectors
+COPY resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+COPY resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
+COPY resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
+COPY resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
+COPY resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
+
+
+# Create the final image for both architectures
+FROM scratch AS final
+COPY --from=builder-amd64 / /
+COPY --from=builder-arm64v8 / /
+
+# Rest of your Dockerfile ...
+
 ARG RESINKIT_JAR=engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar
 COPY ${RESINKIT_JAR} /root/app/resinkit.jar
 ENV RESINKIT_JAR_PATH /root/app/resinkit.jar
@@ -45,22 +105,10 @@ ENV CHECKPOINTS_PATH=/tmp/flink/checkpoints
 ENV SAVEPOINTS_PATH=/tmp/flink/savepoints
 RUN mkdir -p $CATALOG_STORE_PATH $CATALOG_PATH $DEFAULT_DB_PATH $CHECKPOINTS_PATH $SAVEPOINTS_PATH
 
-# Download and install Flink CDC connectors
-RUN wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz \
-    && tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ \
-    && rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+ENV KAFKA_HOME /opt/kafka
+ENV PATH $PATH:$KAFKA_HOME/bin
 
-## Download additional JAR packages for Flink CDC connectors
-# ADD resources/flink/lib/*.jar /opt/flink/lib/
-COPY resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-COPY resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-COPY resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-COPY resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
-COPY resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
-COPY resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
-COPY resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
-
-###################### NGNIX ######################
+# Nginx config (optional)
 # RUN rm /etc/nginx/sites-enabled/default
 # COPY resources/nginx/resinkit_nginx.conf /etc/nginx/conf.d/default.conf
 
@@ -77,8 +125,9 @@ EXPOSE 6123
 # Expose TaskManagers' data port
 EXPOSE 6121-6130
 
+ENV JAVA_HOME=/opt/java/openjdk
 ENV FLINK_HOME /opt/flink
-ENV PATH $PATH:$FLINK_HOME/bin
+ENV PATH $PATH:$FLINK_HOME/bin:$JAVA_HOME/bin
 
 # Copy entrypoint script
 COPY resources/entrypoint.sh /opt/entrypoint.sh
@@ -88,8 +137,8 @@ ENTRYPOINT ["/opt/entrypoint.sh"]
 
 # docker stop resinkit 
 # docker rm resinkit
-# docker build -t ai.resink.kit -f Dockerfile .
-## docker build -t ai.resink.kit -f Dockerfile --build-arg RESINKIT_JAR=app/target/resinkit-0.0.1-SNAPSHOT.jar .
+# docker buildx build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile .
+## docker build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile --build-arg RESINKIT_JAR=app/target/resinkit-0.0.1-SNAPSHOT.jar .
 # docker run -d --name resinkit -p 8000:8000 -p 9092:9092 -p 8083:8083 -p 8081:8081 ai.resink.kit
 
 # curl -H 'x-resinkit-token: demo' localhost:8000/hello

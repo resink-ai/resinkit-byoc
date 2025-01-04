@@ -13,3 +13,4 @@ $FLINK_HOME/bin/sql-gateway.sh start -Dsql-gateway.endpoint.rest.address=localho
 
 echo "starting resinkit at: $RESINKIT_JAR_PATH"
 java -jar $RESINKIT_JAR_PATH
+# tail -f /dev/null

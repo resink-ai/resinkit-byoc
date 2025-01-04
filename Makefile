@@ -4,7 +4,7 @@ SHELL = /bin/bash -x
 	resinkit-terra resinkit-terra-test resinkit-terra-build-mysql2doris \
 	test-mysql2doris test-mysql2kafka build-mysql2kafka
 
-all: jar resinkit-terra resinkit-terra-test
+all: jar download resinkit-terra
 
 download:
 	cd resources/flink/lib && bash download.sh
@@ -13,7 +13,7 @@ jar:
 resinkit-terra:
 	-docker stop resinkit.terra
 	-docker rm resinkit.terra
-	docker build -t ai.resink.it.terra -f resinkit-terra/Dockerfile .
+	docker buildx build --platform linux/amd64,linux/arm64/v8 -t ai.resink.it.terra -f resinkit-terra/Dockerfile .
 	docker run -d --name resinkit.terra -p 8000:8000 -p 9092:9092 -p 8083:8083 -p 8081:8081 ai.resink.it.terra
 
 resinkit-terra-test:
