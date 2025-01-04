@@ -97,13 +97,13 @@ COPY resources/flink/conf/conf.yaml /opt/flink/conf/config.yaml
 COPY resources/flink/conf/log4j.properties /opt/flink/conf/log4j.properties
 COPY resources/flink/cdc/ /opt/flink/cdc/
 
-# see https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/materialized-table/quickstart/
-ENV CATALOG_STORE_PATH=/tmp/flink/catalog-store
-ENV CATALOG_PATH=/tmp/flink/catalog
-ENV DEFAULT_DB_PATH=/tmp/flink/mydb
-ENV CHECKPOINTS_PATH=/tmp/flink/checkpoints
-ENV SAVEPOINTS_PATH=/tmp/flink/savepoints
-RUN mkdir -p $CATALOG_STORE_PATH $CATALOG_PATH $DEFAULT_DB_PATH $CHECKPOINTS_PATH $SAVEPOINTS_PATH
+# # see https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/materialized-table/quickstart/
+# ENV CATALOG_STORE_PATH=/tmp/flink/catalog-store
+# ENV CATALOG_PATH=/tmp/flink/catalog
+# ENV DEFAULT_DB_PATH=/tmp/flink/mydb
+# ENV CHECKPOINTS_PATH=/tmp/flink/checkpoints
+# ENV SAVEPOINTS_PATH=/tmp/flink/savepoints
+# RUN mkdir -p $CATALOG_STORE_PATH $CATALOG_PATH $DEFAULT_DB_PATH $CHECKPOINTS_PATH $SAVEPOINTS_PATH
 
 ENV KAFKA_HOME /opt/kafka
 ENV PATH $PATH:$KAFKA_HOME/bin
