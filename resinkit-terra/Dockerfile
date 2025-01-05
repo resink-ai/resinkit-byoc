@@ -133,7 +133,7 @@ ENV PATH $PATH:$FLINK_HOME/bin:$JAVA_HOME/bin
 
 # Copy entrypoint script
 COPY resources/entrypoint.sh /opt/entrypoint.sh
-# ENTRYPOINT ["/bin/sh", "/opt/entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/opt/entrypoint.sh"]
 
 # docker stop resinkit 
 # docker rm resinkit
