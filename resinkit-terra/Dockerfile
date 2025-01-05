@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     mysql-client \
     telnet \
+    bash \
     && apt-get clean
 
 # Install Kafka
@@ -55,6 +56,7 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     mysql-client \
     telnet \
+    bash \
     && apt-get clean
 
 # Install Kafka
