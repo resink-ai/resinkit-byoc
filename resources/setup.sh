@@ -4,10 +4,20 @@ set -eox pipefail
 
 pre_setup() {
     apt-get update
-    apt-get install -y --no-install-recommends git ca-certificates
+    apt-get install -y --no-install-recommends git ca-certificates make
     cd $HOME
     git clone https://github.com/resink-ai/resinkit-byoc.git
     cd resinkit-byoc
+}
+
+post_setup() {
+    # make sure FLINK_HOME is set
+    if [ -z "$FLINK_HOME" ]; then
+        echo "Error: FLINK_HOME is not set"
+        exit 1
+    fi
+    # start session cluster
+    $HOME/resinkit-byoc/resources/flink_entrypoint.sh cluster
 }
 
 # verify_gpg_signature <file> <signature_file> <gpg_key> [retries]
@@ -110,12 +120,15 @@ function debian_install_common_packages() {
         apt-get clean
 }
 
-function debian_set_etc_environment() {
+function debian_install_envs() {
     if grep -q "FLINK_HOME=/opt/flink" /etc/environment; then
         return
     fi
-    echo "FLINK_HOME=/opt/flink" >>/etc/environment
-    echo "PATH=$FLINK_HOME/bin:$PATH" >>/etc/environment
+    {
+        echo "FLINK_HOME=/opt/flink"
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
+        echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$PATH"
+    } >>/etc/environment
 }
 
 function debian_install_java() {
@@ -124,6 +137,8 @@ function debian_install_java() {
     update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java"
     update-alternatives --set javac "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/javac"
     export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}
+    apt-get install -y --no-install-recommends maven
+    mvn --version
 }
 
 # see https://github.com/apache/flink-docker/blob/f77b347d0a534da0482e692d80f559f47041829e/1.19/scala_2.12-java17-ubuntu/Dockerfile
@@ -240,11 +255,15 @@ case $cmd in
 "debian_install_gosu")
     debian_install_gosu
     ;;
+"debian_install_envs")
+    debian_install_envs
+    ;;
 "debian_all")
     debian_install_common_packages
     debian_install_java
     debian_install_flink
     debian_install_gosu
+    debian_install_envs
     ;;
 "help" | "-h" | "--help")
     show_usage
