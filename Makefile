@@ -10,6 +10,8 @@ download:
 	cd resources/flink/lib && bash download.sh
 jar:
 	mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
+
+
 resinkit-terra:
 	-docker stop resinkit.terra
 	-docker rm resinkit.terra
