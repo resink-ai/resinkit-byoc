@@ -1,5 +1,9 @@
 #!/bin/sh
 
+if [ -z "$KAFKA_HOME" ] || [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ]; then
+    . /etc/environment
+fi
+
 # Start Kafka
 $KAFKA_HOME/bin/zookeeper-server-start.sh $KAFKA_HOME/config/zookeeper.properties &
 $KAFKA_HOME/bin/kafka-server-start.sh $KAFKA_HOME/config/server.properties &

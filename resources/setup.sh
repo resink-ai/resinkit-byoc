@@ -250,6 +250,9 @@ function debian_install_kafka() {
 
     cp -v $ROOT_DIR/resources/kafka/server.properties /opt/kafka/config/server.properties
 
+    mkdir -p /opt/kafka/logs
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE /opt/kafka
+    chmod -R 755 /opt/kafka/logs
 }
 
 function debian_install_flink_jars() {
