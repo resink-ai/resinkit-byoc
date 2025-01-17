@@ -24,7 +24,7 @@ pre_setup() {
     apt-get update
     apt-get install -y --no-install-recommends git ca-certificates make
     git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
-    cd $HOME/resinkit-byoc
+    cd $HOME/resinkit-byoc && ./resources/setup.sh debian_all
 }
 
 post_setup() {
