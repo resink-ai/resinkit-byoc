@@ -3,8 +3,9 @@
 set -eox pipefail
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
-RESINKIT_ROLE='flink'
-RESINKIT_JAR_PATH='/root/app/resinkit.jar'
+RESINKIT_ROLE='resinkit'
+RESINKIT_JAR_PATH='/opt/resinkit/resinkit.jar'
+RESINKIT_ENTRYPOINT_SH='/opt/resinkit/entrypoint.sh'
 
 drop_privs_cmd() {
     if [ "$(id -u)" != 0 ]; then
@@ -28,14 +29,14 @@ pre_setup() {
 
 post_setup() {
     # make sure FLINK_HOME is set
-    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ]; then
-        echo "Error: FLINK_HOME or RESINKIT_JAR_PATH is not set"
+    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+        echo "Error: FLINK_HOME or RESINKIT_JAR_PATH or RESINKIT_ENTRYPOINT_SH is not set"
         exit 1
     fi
 
-    cp -v $ROOT_DIR/resources/entrypoint.sh /opt/entrypoint.sh
+    cp -v $ROOT_DIR/resources/entrypoint.sh $RESINKIT_ENTRYPOINT_SH
 
-    exec $(drop_privs_cmd) "/opt/entrypoint.sh"
+    exec $(drop_privs_cmd) $RESINKIT_ENTRYPOINT_SH
 }
 
 # verify_gpg_signature <file> <signature_file> <gpg_key> [retries]
@@ -272,8 +273,7 @@ function debian_install_flink_jars() {
 
     cp -v $ROOT_DIR/resources/flink/conf/conf.yaml /opt/flink/conf/config.yaml
     cp -v $ROOT_DIR/resources/flink/conf/log4j.properties /opt/flink/conf/log4j.properties
-    cp -v $ROOT_DIR/resources/flink/cdc/ /opt/flink/cdc/
-
+    cp -rv $ROOT_DIR/resources/flink/cdc/ /opt/flink/cdc/
 }
 
 function debian_install_resinkit() {
@@ -281,7 +281,9 @@ function debian_install_resinkit() {
         cd $ROOT_DIR
         mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
     )
-    cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
+
+    mkdir -p "$(dirname $RESINKIT_JAR_PATH)" &&
+        cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
 }
 
 ################################################################################
