@@ -31,7 +31,7 @@ post_setup() {
     # make sure FLINK_HOME is set
     if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
         echo "Error: FLINK_HOME or RESINKIT_JAR_PATH or RESINKIT_ENTRYPOINT_SH is not set"
-        exit 1
+        return 1
     fi
 
     cp -v $ROOT_DIR/resources/entrypoint.sh $RESINKIT_ENTRYPOINT_SH
@@ -349,6 +349,7 @@ case $cmd in
     debian_install_kafka
     debian_install_flink_jars
     debian_install_resinkit
+    post_setup
     ;;
 "help" | "-h" | "--help")
     show_usage
