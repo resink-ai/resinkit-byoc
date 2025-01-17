@@ -2,22 +2,40 @@
 
 set -eox pipefail
 
+ROOT_DIR=$(git rev-parse --show-toplevel)
+RESINKIT_ROLE='flink'
+RESINKIT_JAR_PATH='/root/app/resinkit.jar'
+
+drop_privs_cmd() {
+    if [ "$(id -u)" != 0 ]; then
+        # Don't need to drop privs if EUID != 0
+        return
+    elif [ -x /sbin/su-exec ]; then
+        # Alpine
+        echo su-exec $RESINKIT_ROLE
+    else
+        # Others
+        echo gosu $RESINKIT_ROLE
+    fi
+}
+
 pre_setup() {
     apt-get update
     apt-get install -y --no-install-recommends git ca-certificates make
-    cd $HOME
-    git clone https://github.com/resink-ai/resinkit-byoc.git
-    cd resinkit-byoc
+    git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
+    cd $HOME/resinkit-byoc
 }
 
 post_setup() {
     # make sure FLINK_HOME is set
-    if [ -z "$FLINK_HOME" ]; then
-        echo "Error: FLINK_HOME is not set"
+    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ]; then
+        echo "Error: FLINK_HOME or RESINKIT_JAR_PATH is not set"
         exit 1
     fi
-    # start session cluster
-    $HOME/resinkit-byoc/resources/flink_entrypoint.sh cluster
+
+    cp -v $ROOT_DIR/resources/entrypoint.sh /opt/entrypoint.sh
+
+    exec $(drop_privs_cmd) "/opt/entrypoint.sh"
 }
 
 # verify_gpg_signature <file> <signature_file> <gpg_key> [retries]
@@ -127,8 +145,12 @@ function debian_install_envs() {
     {
         echo "FLINK_HOME=/opt/flink"
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
-        echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$PATH"
+        echo "KAFKA_HOME=/opt/kafka"
+        echo "RESINKIT_JAR_PATH=$RESINKIT_JAR_PATH"
+        echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
     } >>/etc/environment
+
+    source /etc/environment
 }
 
 function debian_install_java() {
@@ -154,12 +176,12 @@ function debian_install_flink() {
     export PATH=$FLINK_HOME/bin:$PATH
     mkdir -p $FLINK_HOME
 
-    if ! getent group flink >/dev/null; then
-        groupadd --system --gid=9999 flink
+    if ! getent group $RESINKIT_ROLE >/dev/null; then
+        groupadd --system --gid=9999 $RESINKIT_ROLE
     fi
 
-    if ! getent passwd flink >/dev/null; then
-        useradd --system --home-dir $FLINK_HOME --uid=9999 --gid=flink flink
+    if ! getent passwd $RESINKIT_ROLE >/dev/null; then
+        useradd --system --home-dir $FLINK_HOME --uid=9999 --gid=$RESINKIT_ROLE $RESINKIT_ROLE
     fi
     cd $FLINK_HOME
 
@@ -173,7 +195,7 @@ function debian_install_flink() {
     tar -xf flink.tgz --strip-components=1
     rm flink.tgz
 
-    chown -R flink:flink .
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE .
 
     # Replace default REST/RPC endpoint bind address to use the container's network interface
     CONF_FILE="$FLINK_HOME/conf/flink-conf.yaml"
@@ -219,16 +241,65 @@ function debian_install_gosu() {
     gosu nobody true
 }
 
+function debian_install_kafka() {
+    wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz &&
+        tar -xzf /tmp/kafka.tgz -C /opt &&
+        mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
+        rm /tmp/kafka.tgz
+
+    cp -v $ROOT_DIR/resources/kafka/server.properties /opt/kafka/config/server.properties
+
+}
+
+function debian_install_flink_jars() {
+    wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz &&
+        tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ &&
+        rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+
+    (
+        cd $ROOT_DIR/resources/flink/lib
+        bash download.sh
+    )
+
+    # Copy all required JAR files for Flink CDC connectors
+    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
+    cp -v $ROOT_DIR/resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
+
+    cp -v $ROOT_DIR/resources/flink/conf/conf.yaml /opt/flink/conf/config.yaml
+    cp -v $ROOT_DIR/resources/flink/conf/log4j.properties /opt/flink/conf/log4j.properties
+    cp -v $ROOT_DIR/resources/flink/cdc/ /opt/flink/cdc/
+
+}
+
+function debian_install_resinkit() {
+    (
+        cd $ROOT_DIR
+        mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
+    )
+    cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
+}
+
 ################################################################################
 # Function to show usage
 function show_usage() {
     set +x
     echo "Usage: $0 <command> [arguments]"
     echo "Available commands:"
-    echo "  debian_install_common_packages    - Install common packages"
-    echo "  debian_install_java    - Install Java"
-    echo "  debian_install_flink    - Install Flink"
-    echo "  debian_install_gosu    - Install Flink entrypoint"
+    echo "  debian_install_common_packages   - Install common packages"
+    echo "  debian_install_java              - Install Java"
+    echo "  debian_install_flink             - Install Flink"
+    echo "  debian_install_kafka             - Install Kafka"
+    echo "  debian_install_flink_jars        - Install Flink jars"
+    echo "  debian_install_resinkit          - Install resinkit"
+    echo "  debian_install_gosu              - Install gosu"
+    echo "  debian_install_envs              - Install environment variables"
+    echo "  debian_all                       - Install all"
+    echo "  help                             - Show usage"
 }
 
 # Main argument parsing
@@ -258,12 +329,24 @@ case $cmd in
 "debian_install_envs")
     debian_install_envs
     ;;
+"debian_install_kafka")
+    debian_install_kafka
+    ;;
+"debian_install_flink_jars")
+    debian_install_flink_jars
+    ;;
+"debian_install_resinkit")
+    debian_install_resinkit
+    ;;
 "debian_all")
     debian_install_common_packages
     debian_install_java
     debian_install_flink
     debian_install_gosu
     debian_install_envs
+    debian_install_kafka
+    debian_install_flink_jars
+    debian_install_resinkit
     ;;
 "help" | "-h" | "--help")
     show_usage

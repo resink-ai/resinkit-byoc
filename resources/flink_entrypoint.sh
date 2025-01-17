@@ -154,13 +154,16 @@ prepare_configuration
 
 args=("$@")
 if [ "$1" = "help" ]; then
-    printf "Usage: $(basename "$0") (cluster|jobmanager|${COMMAND_STANDALONE}|taskmanager|${COMMAND_HISTORY_SERVER})\n"
+    printf "Usage: $(basename "$0") (cluster|sqlgateway|jobmanager|${COMMAND_STANDALONE}|taskmanager|${COMMAND_HISTORY_SERVER})\n"
     printf "    Or $(basename "$0") help\n\n"
     printf "By default, Flink image adopts jemalloc as default memory allocator. This behavior can be disabled by setting the 'DISABLE_JEMALLOC' environment variable to 'true'.\n"
     exit 0
 elif [ "$1" = "cluster" ]; then
     echo "Calling $FLINK_HOME/bin/start-cluster.sh"
     exec $(drop_privs_cmd) "$FLINK_HOME/bin/start-cluster.sh"
+elif [ "$1" = "sqlgateway" ]; then
+    echo "Calling $FLINK_HOME/bin/sql-gateway.sh start"
+    exec $(drop_privs_cmd) "$FLINK_HOME/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
 elif [ "$1" = "jobmanager" ]; then
     args=("${args[@]:1}")
 
