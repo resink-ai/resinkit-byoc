@@ -25,7 +25,7 @@ services:
       context: ..
       dockerfile: resinkit-terra/Dockerfile
       args:
-        RESINKIT_JAR: engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar
+        RESINKIT_JAR: 'N/A'
     ports:
       - "8000:8000"
       - "9092:9092"

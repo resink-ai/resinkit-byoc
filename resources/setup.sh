@@ -29,14 +29,14 @@ pre_setup() {
 
     # Check if the directory already exists
     if [ ! -d "$HOME/resinkit-byoc" ]; then
-        git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
+        git clone https://github.com/resink-ai/resinkit-byoc.git "$HOME/resinkit-byoc"
     else
-        cd $HOME/resinkit-byoc && git pull
+        cd "$HOME/resinkit-byoc" && git pull
         echo "[RESINKIT] Directory $HOME/resinkit-byoc already exists, skipping git clone"
     fi
 
     # Only run setup if it hasn't been run before
-    cd $HOME/resinkit-byoc
+    cd "$HOME/resinkit-byoc"
     if [ ! -f "$HOME/resinkit-byoc/.setup_completed" ]; then
         ./resources/setup.sh debian_all
         touch "$HOME/resinkit-byoc/.setup_completed"
@@ -54,7 +54,7 @@ post_setup() {
 
     # Check if entrypoint.sh already exists
     if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
-        cp -v $ROOT_DIR/resources/entrypoint.sh $RESINKIT_ENTRYPOINT_SH
+        cp -v "$ROOT_DIR/resources/entrypoint.sh" $RESINKIT_ENTRYPOINT_SH
     else
         echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
     fi
@@ -98,8 +98,7 @@ verify_gpg_signature() {
     fi
 
     # Create temporary GPG home directory
-    local GNUPGHOME="$(mktemp -d)"
-    export GNUPGHOME
+    GNUPGHOME="$(mktemp -d)"
 
     # Define reliable keyservers
     local key_servers=(
@@ -195,6 +194,7 @@ function debian_install_envs() {
         echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
     } >>/etc/environment
 
+    # shellcheck disable=SC1091
     source /etc/environment
 }
 
@@ -303,7 +303,7 @@ function debian_install_gosu() {
     verify_gpg_signature /usr/local/bin/gosu /usr/local/bin/gosu.asc $GOSU_GPG_KEY
     # clean up fetch dependencies
     apt-mark auto '.*' >/dev/null
-    [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark
+    [ -z "$savedAptMark" ] || apt-mark manual "$savedAptMark"
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
     chmod +x /usr/local/bin/gosu
     # verify that the binary works
@@ -327,7 +327,7 @@ function debian_install_kafka() {
         mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
         rm /tmp/kafka.tgz
 
-    cp -v $ROOT_DIR/resources/kafka/server.properties /opt/kafka/config/server.properties
+    cp -v "$ROOT_DIR/resources/kafka/server.properties" /opt/kafka/config/server.properties
 
     mkdir -p /opt/kafka/logs
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE /opt/kafka
@@ -356,25 +356,25 @@ function debian_install_flink_jars() {
 
     # Download required JAR files if needed
     (
-        cd $ROOT_DIR/resources/flink/lib
+        cd "$ROOT_DIR/resources/flink/lib"
         bash download.sh
     )
 
     # Copy all required JAR files for Flink CDC connectors
     mkdir -p /opt/flink-cdc-3.2.1/lib/ /opt/flink/lib/ /opt/flink/cdc/
-    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/mysql-connector-java-8.0.27.jar /opt/flink/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/paimon-flink-1.19-0.9.0.jar /opt/flink/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
-    cp -v $ROOT_DIR/resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/mysql-connector-java-8.0.27.jar" /opt/flink/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-1.19-0.9.0.jar" /opt/flink/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar" /opt/flink/lib/
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar" /opt/flink/lib/
 
     # Copy configuration files
     mkdir -p /opt/flink/conf/ /opt/flink/cdc/
-    cp -v $ROOT_DIR/resources/flink/conf/conf.yaml /opt/flink/conf/config.yaml
-    cp -v $ROOT_DIR/resources/flink/conf/log4j.properties /opt/flink/conf/log4j.properties
-    cp -rv $ROOT_DIR/resources/flink/cdc/ /opt/flink/cdc/
+    cp -v "$ROOT_DIR/resources/flink/conf/conf.yaml" /opt/flink/conf/config.yaml
+    cp -v "$ROOT_DIR/resources/flink/conf/log4j.properties" /opt/flink/conf/log4j.properties
+    cp -rv "$ROOT_DIR/resources/flink/cdc/" /opt/flink/cdc/
 
     # Create marker file
     mkdir -p /opt/resinkit
@@ -382,40 +382,22 @@ function debian_install_flink_jars() {
 }
 
 function debian_install_resinkit() {
-    # Check if ResinKit is already installed
-    if [ -f "$RESINKIT_JAR_PATH" ] && [ -f "/opt/resinkit/.resinkit_installed" ]; then
-        echo "[RESINKIT] ResinKit already installed, skipping"
-        return 0
-    fi
-
-    # Build ResinKit if needed
-    (
-        cd $ROOT_DIR
-        mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
-    )
-
-    # Create directory and copy JAR file
-    mkdir -p "$(dirname $RESINKIT_JAR_PATH)"
-    cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
-
-    # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.resinkit_installed
+    # TODO
+    echo "[RESINKIT] Installing resinkit..."
 }
 
 function debian_setup_nginx() {
 
     if [[ ! -f "/etc/nginx/sites-available/resinkit_nginx.conf" ]]; then
         # Copy the Nginx configuration file
-        cp -v $ROOT_DIR/resources/nginx/resinkit_nginx.conf /etc/nginx/sites-available/resinkit_nginx.conf
+        cp -v "$ROOT_DIR/resources/nginx/resinkit_nginx.conf" /etc/nginx/sites-available/resinkit_nginx.conf
 
         # Create a symbolic link to enable the configuration
         ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
+
+        # Test the Nginx configuration
+        nginx -t
     fi
-
-    # Test the Nginx configuration
-    nginx -t
-
     # Restart the Nginx service
     systemctl restart nginx
 }
@@ -483,6 +465,7 @@ case $cmd in
     debian_install_kafka
     debian_install_flink_jars
     debian_install_resinkit
+    debian_setup_nginx
     post_setup
     ;;
 "help" | "-h" | "--help")

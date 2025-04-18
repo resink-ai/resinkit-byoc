@@ -1,6 +1,6 @@
 SHELL = /bin/bash -x
 
-.PHONY: all jar \
+.PHONY: all \
 	resinkit-terra resinkit-terra-test resinkit-terra-build-mysql2doris \
 	test-mysql2doris test-mysql2kafka build-mysql2kafka
 
@@ -8,9 +8,6 @@ all: jar download resinkit-terra
 
 download:
 	cd resources/flink/lib && bash download.sh
-jar:
-	mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
-
 
 resinkit-terra:
 	-docker stop resinkit.terra
