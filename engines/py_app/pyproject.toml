@@ -3,12 +3,12 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "resinkit"
+name = "resinkit_api"
 version = "0.1.0"
 description = "ResinKit service for managing Flink operations"
 authors = ["Shijing Lu <shijing@resink.ai>"]
 readme = "README.md"
-packages = [{ include = "resinkit" }]
+packages = [{ include = "resinkit_api" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"

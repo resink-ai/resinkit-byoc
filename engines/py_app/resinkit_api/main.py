@@ -1,15 +1,15 @@
 from typing_extensions import Annotated
 from fastapi import FastAPI, Depends, HTTPException, Header
-from resinkit.api_flink import router as flink_router
-from resinkit.api_common import router as common_router  # Add this import
+from resinkit_api.api_flink import router as flink_router
+from resinkit_api.api_common import router as common_router  # Add this import
 
 app = FastAPI()
 
 
-async def verify_token(x_resinkit_token: Annotated[str, Header()]):
-    if not x_resinkit_token:
+async def verify_token(x_resinkit_api_token: Annotated[str, Header()]):
+    if not x_resinkit_api_token:
         raise HTTPException(
-            status_code=401, detail="X-Resinkit-Token header invalid")
+            status_code=401, detail="X-ResinKit-Api-Token header invalid")
 
 
 # Include the Flink router with the prefix and dependencies

@@ -3,8 +3,8 @@ from typing import Optional
 import httpx
 import os
 import shutil
-from resinkit.config import settings
-from resinkit.models_flink import SQLQuery
+from resinkit_api.config import settings
+from resinkit_api.models_flink import SQLQuery
 
 router = APIRouter()
 
