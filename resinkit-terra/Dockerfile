@@ -27,10 +27,6 @@ EXPOSE 9092
 EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
-# JobManager RPC
-EXPOSE 6123
-# TaskManagers data ports
-EXPOSE 6121-6130
 
 # Set entrypoint script
 ENTRYPOINT ["/opt/entrypoint.sh"]

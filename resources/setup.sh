@@ -256,7 +256,7 @@ function debian_install_flink() {
     tar -xf flink.tgz --strip-components=1
     rm flink.tgz
 
-    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE .
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE $FLINK_HOME
 
     # Replace default REST/RPC endpoint bind address to use the container's network interface
     CONF_FILE="$FLINK_HOME/conf/flink-conf.yaml"
@@ -401,6 +401,23 @@ function debian_install_resinkit() {
     # Create marker file
     mkdir -p /opt/resinkit
     touch /opt/resinkit/.resinkit_installed
+}
+
+function debian_setup_nginx() {
+
+    if [[ ! -f "/etc/nginx/sites-available/resinkit_nginx.conf" ]]; then
+        # Copy the Nginx configuration file
+        cp -v $ROOT_DIR/resources/nginx/resinkit_nginx.conf /etc/nginx/sites-available/resinkit_nginx.conf
+
+        # Create a symbolic link to enable the configuration
+        ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
+    fi
+
+    # Test the Nginx configuration
+    nginx -t
+
+    # Restart the Nginx service
+    systemctl restart nginx
 }
 
 ################################################################################
