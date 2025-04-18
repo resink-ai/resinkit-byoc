@@ -21,20 +21,53 @@ drop_privs_cmd() {
 }
 
 pre_setup() {
-    apt-get update
-    apt-get install -y --no-install-recommends git ca-certificates make
-    git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
-    cd $HOME/resinkit-byoc && ./resources/setup.sh debian_all
+    # Check if git is installed
+    if ! command -v git &>/dev/null; then
+        apt-get update
+        apt-get install -y --no-install-recommends git ca-certificates make
+    fi
+
+    # Check if the directory already exists
+    if [ ! -d "$HOME/resinkit-byoc" ]; then
+        git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
+    else
+        cd $HOME/resinkit-byoc && git pull
+        echo "[RESINKIT] Directory $HOME/resinkit-byoc already exists, skipping git clone"
+    fi
+
+    # Only run setup if it hasn't been run before
+    cd $HOME/resinkit-byoc
+    if [ ! -f "$HOME/resinkit-byoc/.setup_completed" ]; then
+        ./resources/setup.sh debian_all
+        touch "$HOME/resinkit-byoc/.setup_completed"
+    else
+        echo "[RESINKIT] Setup already completed, skipping"
+    fi
 }
 
 post_setup() {
     # make sure FLINK_HOME is set
     if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
-        echo "Error: FLINK_HOME or RESINKIT_JAR_PATH or RESINKIT_ENTRYPOINT_SH is not set"
+        echo "[RESINKIT] Error: FLINK_HOME or RESINKIT_JAR_PATH or RESINKIT_ENTRYPOINT_SH is not set"
         return 1
     fi
 
-    cp -v $ROOT_DIR/resources/entrypoint.sh $RESINKIT_ENTRYPOINT_SH
+    # Check if entrypoint.sh already exists
+    if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
+        cp -v $ROOT_DIR/resources/entrypoint.sh $RESINKIT_ENTRYPOINT_SH
+    else
+        echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
+    fi
+
+    # Check if already executed
+    if [ -f "/opt/resinkit/.post_setup_completed" ]; then
+        echo "[RESINKIT] Post-setup already completed, skipping"
+        return 0
+    fi
+
+    # Create marker file
+    mkdir -p "$(dirname $RESINKIT_ENTRYPOINT_SH)"
+    touch "/opt/resinkit/.post_setup_completed"
 
     exec $(drop_privs_cmd) $RESINKIT_ENTRYPOINT_SH
 }
@@ -48,19 +81,19 @@ verify_gpg_signature() {
 
     # Validate required parameters
     if [[ -z "$file" || -z "$sig_file" || -z "$gpg_key" ]]; then
-        echo "Usage: verify_gpg_signature <file> <signature_file> <gpg_key> [retries]"
+        echo "[RESINKIT] Usage: verify_gpg_signature <file> <signature_file> <gpg_key> [retries]"
         return 1
     fi
 
     # Check if original file exists
     if [[ ! -f "$file" ]]; then
-        echo "Error: File '$file' not found"
+        echo "[RESINKIT] Error: File '$file' not found"
         return 1
     fi
 
     # Check if signature file exists
     if [[ ! -f "$sig_file" ]]; then
-        echo "Error: Signature file '$sig_file' not found"
+        echo "[RESINKIT] Error: Signature file '$sig_file' not found"
         return 1
     fi
 
@@ -84,9 +117,9 @@ verify_gpg_signature() {
     local key_imported=0
     local attempt=1
     while [[ $attempt -le $retries && $key_imported -eq 0 ]]; do
-        echo "Attempt $attempt of $retries to import GPG key..."
+        echo "[RESINKIT] Attempt $attempt of $retries to import GPG key..."
         for server in "${key_servers[@]}"; do
-            echo "Trying keyserver: $server"
+            echo "[RESINKIT] Trying keyserver: $server"
             if gpg --batch --keyserver "$server" --recv-keys "$gpg_key" 2>/dev/null; then
                 key_imported=1
                 break
@@ -99,7 +132,7 @@ verify_gpg_signature() {
 
     # Check if key import was successful
     if [[ $key_imported -eq 0 ]]; then
-        echo "Error: Failed to import GPG key after $retries attempts"
+        echo "[RESINKIT] Error: Failed to import GPG key after $retries attempts"
         rm -rf "$GNUPGHOME"
         return 1
     fi
@@ -107,10 +140,10 @@ verify_gpg_signature() {
     # Verify the signature
     local verify_result=0
     if ! gpg --batch --verify "$sig_file" "$file" 2>/dev/null; then
-        echo "Error: GPG verification failed for $file"
+        echo "[RESINKIT] Error: GPG verification failed for $file"
         verify_result=1
     else
-        echo "GPG verification successful for $file"
+        echo "[RESINKIT] GPG verification successful for $file"
     fi
 
     # Cleanup
@@ -121,6 +154,12 @@ verify_gpg_signature() {
 }
 
 function debian_install_common_packages() {
+    # Check if packages are already installed
+    if [ -f "/opt/resinkit/.common_packages_installed" ]; then
+        echo "[RESINKIT] Common packages already installed, skipping"
+        return 0
+    fi
+
     export TZ=UTC
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
@@ -137,11 +176,16 @@ function debian_install_common_packages() {
         telnet \
         bash &&
         apt-get clean
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.common_packages_installed
 }
 
 function debian_install_envs() {
     if grep -q "FLINK_HOME=/opt/flink" /etc/environment; then
-        return
+        echo "[RESINKIT] Environment variables already set, skipping"
+        return 0
     fi
     {
         echo "FLINK_HOME=/opt/flink"
@@ -155,6 +199,12 @@ function debian_install_envs() {
 }
 
 function debian_install_java() {
+    # Check if Java is already installed
+    if [ -f "/opt/resinkit/.java_installed" ]; then
+        echo "[RESINKIT] Java already installed, skipping"
+        return 0
+    fi
+
     ARCH=$(dpkg --print-architecture)
     apt-get install -y openjdk-17-jdk openjdk-17-jre
     update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java"
@@ -162,10 +212,20 @@ function debian_install_java() {
     export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}
     apt-get install -y --no-install-recommends maven
     mvn --version
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.java_installed
 }
 
 # see https://github.com/apache/flink-docker/blob/f77b347d0a534da0482e692d80f559f47041829e/1.19/scala_2.12-java17-ubuntu/Dockerfile
 function debian_install_flink() {
+    # Check if Flink is already installed
+    if [ -d "/opt/flink" ] && [ -f "/opt/resinkit/.flink_installed" ]; then
+        echo "[RESINKIT] Flink already installed, skipping"
+        return 0
+    fi
+
     apt-get -y install gpg libsnappy1v5 gettext-base libjemalloc-dev
     rm -rf /var/lib/apt/lists/*
     # skip install gosu
@@ -216,9 +276,18 @@ function debian_install_flink() {
         sed -i '/taskmanager.host: localhost/d' "$CONF_FILE"
     fi
 
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.flink_installed
 }
 
 function debian_install_gosu() {
+    # Check if gosu is already installed
+    if [ -f "/usr/local/bin/gosu" ] && [ -f "/opt/resinkit/.gosu_installed" ]; then
+        echo "[RESINKIT] gosu already installed, skipping"
+        return 0
+    fi
+
     # Grab gosu for easy step-down from root
     export GOSU_VERSION=1.17
     # save list of currently installed packages for later so we can clean up
@@ -240,9 +309,19 @@ function debian_install_gosu() {
     # verify that the binary works
     gosu --version
     gosu nobody true
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.gosu_installed
 }
 
 function debian_install_kafka() {
+    # Check if Kafka is already installed
+    if [ -d "/opt/kafka" ] && [ -f "/opt/resinkit/.kafka_installed" ]; then
+        echo "[RESINKIT] Kafka already installed, skipping"
+        return 0
+    fi
+
     wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz &&
         tar -xzf /tmp/kafka.tgz -C /opt &&
         mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
@@ -253,19 +332,36 @@ function debian_install_kafka() {
     mkdir -p /opt/kafka/logs
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE /opt/kafka
     chmod -R 755 /opt/kafka/logs
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.kafka_installed
 }
 
 function debian_install_flink_jars() {
-    wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz &&
-        tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ &&
-        rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+    # Check if Flink jars are already installed
+    if [ -d "/opt/flink-cdc-3.2.1" ] && [ -f "/opt/resinkit/.flink_jars_installed" ]; then
+        echo "[RESINKIT] Flink jars already installed, skipping"
+        return 0
+    fi
 
+    # Download and extract Flink CDC if not already done
+    if [ ! -d "/opt/flink-cdc-3.2.1" ]; then
+        wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz &&
+            tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ &&
+            rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+    else
+        echo "[RESINKIT] Flink CDC directory already exists, skipping extraction"
+    fi
+
+    # Download required JAR files if needed
     (
         cd $ROOT_DIR/resources/flink/lib
         bash download.sh
     )
 
     # Copy all required JAR files for Flink CDC connectors
+    mkdir -p /opt/flink-cdc-3.2.1/lib/ /opt/flink/lib/ /opt/flink/cdc/
     cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
     cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
     cp -v $ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar /opt/flink-cdc-3.2.1/lib/
@@ -274,37 +370,55 @@ function debian_install_flink_jars() {
     cp -v $ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar /opt/flink/lib/
     cp -v $ROOT_DIR/resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar /opt/flink/lib/
 
+    # Copy configuration files
+    mkdir -p /opt/flink/conf/ /opt/flink/cdc/
     cp -v $ROOT_DIR/resources/flink/conf/conf.yaml /opt/flink/conf/config.yaml
     cp -v $ROOT_DIR/resources/flink/conf/log4j.properties /opt/flink/conf/log4j.properties
     cp -rv $ROOT_DIR/resources/flink/cdc/ /opt/flink/cdc/
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.flink_jars_installed
 }
 
 function debian_install_resinkit() {
+    # Check if ResinKit is already installed
+    if [ -f "$RESINKIT_JAR_PATH" ] && [ -f "/opt/resinkit/.resinkit_installed" ]; then
+        echo "[RESINKIT] ResinKit already installed, skipping"
+        return 0
+    fi
+
+    # Build ResinKit if needed
     (
         cd $ROOT_DIR
         mvn clean install -Dmaven.test.skip=true -Dspotless.apply.skip -U -f engines/java_app/pom.xml
     )
 
-    mkdir -p "$(dirname $RESINKIT_JAR_PATH)" &&
-        cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
+    # Create directory and copy JAR file
+    mkdir -p "$(dirname $RESINKIT_JAR_PATH)"
+    cp -v $ROOT_DIR/engines/java_app/target/resinkit-0.0.1-SNAPSHOT.jar $RESINKIT_JAR_PATH
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.resinkit_installed
 }
 
 ################################################################################
 # Function to show usage
 function show_usage() {
     set +x
-    echo "Usage: $0 <command> [arguments]"
-    echo "Available commands:"
-    echo "  debian_install_common_packages   - Install common packages"
-    echo "  debian_install_java              - Install Java"
-    echo "  debian_install_flink             - Install Flink"
-    echo "  debian_install_kafka             - Install Kafka"
-    echo "  debian_install_flink_jars        - Install Flink jars"
-    echo "  debian_install_resinkit          - Install resinkit"
-    echo "  debian_install_gosu              - Install gosu"
-    echo "  debian_install_envs              - Install environment variables"
-    echo "  debian_all                       - Install all"
-    echo "  help                             - Show usage"
+    echo "[RESINKIT] Usage: $0 <command> [arguments]"
+    echo "[RESINKIT] Available commands:"
+    echo "[RESINKIT]   debian_install_common_packages   - Install common packages"
+    echo "[RESINKIT]   debian_install_java              - Install Java"
+    echo "[RESINKIT]   debian_install_flink             - Install Flink"
+    echo "[RESINKIT]   debian_install_kafka             - Install Kafka"
+    echo "[RESINKIT]   debian_install_flink_jars        - Install Flink jars"
+    echo "[RESINKIT]   debian_install_resinkit          - Install resinkit"
+    echo "[RESINKIT]   debian_install_gosu              - Install gosu"
+    echo "[RESINKIT]   debian_install_envs              - Install environment variables"
+    echo "[RESINKIT]   debian_all                       - Install all"
+    echo "[RESINKIT]   help                             - Show usage"
 }
 
 # Main argument parsing
@@ -358,7 +472,7 @@ case $cmd in
     show_usage
     ;;
 *)
-    echo "Error: Unknown command '$cmd'"
+    echo "[RESINKIT] Error: Unknown command '$cmd'"
     show_usage
     exit 1
     ;;
