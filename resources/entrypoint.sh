@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # Ensure required environment variables are set
-if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_JAR_PATH}" ]; then
-    # shellcheck source=/etc/environment
+if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_API_PATH}" ]; then
+    # shellcheck disable=SC1091
     . /etc/environment
 fi
 
@@ -14,6 +14,6 @@ fi
 "${FLINK_HOME}/bin/start-cluster.sh"
 "${FLINK_HOME}/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
 
-# Start Resinkit API
-echo "starting resinkit at: ${RESINKIT_JAR_PATH}"
-exec java -jar "${RESINKIT_JAR_PATH}"
+# Start Resinkit API, using gunicorn
+echo "starting resinkit at: ${RESINKIT_API_PATH}"
+gunicorn -b 0.0.0.0:8602 -w 5 -t 100 "${RESINKIT_API_PATH}/resinkit_api:app"

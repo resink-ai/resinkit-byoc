@@ -1,23 +1,17 @@
 # Use Ubuntu as the base image
-FROM --platform=$TARGETPLATFORM ubuntu:latest
+FROM ubuntu:latest
 
-# Create setup script
-RUN mkdir -p /opt/setup
 
-COPY <<EOF /opt/entrypoint.sh
-#!/bin/bash
-set -x
-echo "Starting user data script execution..."
-apt-get update
-apt-get install -y --no-install-recommends git ca-certificates make
-echo "Cloning repository..."
-git clone https://github.com/resink-ai/resinkit-byoc.git $HOME/resinkit-byoc
-echo "Running setup script..."
-cd $HOME/resinkit-byoc && ./resources/setup.sh debian_all
-echo "User data script completed."
-EOF
+# Copy files to /root/resinkit-byoc
+RUN mkdir -p /root/resinkit-byoc
 
-RUN chmod +x /opt/entrypoint.sh
+# Copy api/ to /root/resinkit-byoc/api
+COPY api /root/resinkit-byoc/api
+COPY resources /root/resinkit-byoc/resources
+
+# For debugging purposes, run the setup script and ignore errors
+RUN /root/resinkit-byoc/resources/setup.sh debian_all || true
+
 # Expose necessary ports
 # ResinKit
 EXPOSE 8000
@@ -28,8 +22,8 @@ EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
 
-# Set entrypoint script
-ENTRYPOINT ["/opt/entrypoint.sh"]
+# Keep container running with tail -f
+CMD ["tail", "-f", "/dev/null"]
 
 # docker stop resinkit 
 # docker rm resinkit

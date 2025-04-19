@@ -2,9 +2,14 @@
 
 set -eox pipefail
 
-ROOT_DIR=$(git rev-parse --show-toplevel)
+# if git rev-parse --show-toplevel works and is not empty, use the root folder as the root directory
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    ROOT_DIR=$(git rev-parse --show-toplevel)
+else
+    ROOT_DIR="/root/resinkit-byoc"
+fi
+
 RESINKIT_ROLE='resinkit'
-RESINKIT_JAR_PATH='/opt/resinkit/resinkit.jar'
 RESINKIT_ENTRYPOINT_SH='/opt/resinkit/entrypoint.sh'
 
 drop_privs_cmd() {
@@ -47,8 +52,16 @@ pre_setup() {
 
 post_setup() {
     # make sure FLINK_HOME is set
-    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_JAR_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
-        echo "[RESINKIT] Error: FLINK_HOME or RESINKIT_JAR_PATH or RESINKIT_ENTRYPOINT_SH is not set"
+    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+        # shellcheck disable=SC1091
+        . /etc/environment
+    fi
+
+    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+        echo "[RESINKIT] Error: FLINK_HOME or RESINKIT_API_PATH or RESINKIT_ENTRYPOINT_SH is not set"
+        echo "[RESINKIT] FLINK_HOME: $FLINK_HOME"
+        echo "[RESINKIT] RESINKIT_API_PATH: $RESINKIT_API_PATH"
+        echo "[RESINKIT] RESINKIT_ENTRYPOINT_SH: $RESINKIT_ENTRYPOINT_SH"
         return 1
     fi
 
@@ -60,14 +73,15 @@ post_setup() {
     fi
 
     # Check if already executed
-    if [ -f "/opt/resinkit/.post_setup_completed" ]; then
+    if [ -f "/opt/setup/.post_setup_completed" ]; then
         echo "[RESINKIT] Post-setup already completed, skipping"
         return 0
     fi
 
     # Create marker file
-    mkdir -p "$(dirname $RESINKIT_ENTRYPOINT_SH)"
-    touch "/opt/resinkit/.post_setup_completed"
+    mkdir -p "$(dirname $RESINKIT_ENTRYPOINT_SH)" # Keep this for the entrypoint script itself
+    mkdir -p "/opt/setup"
+    touch "/opt/setup/.post_setup_completed"
 
     exec $(drop_privs_cmd) $RESINKIT_ENTRYPOINT_SH
 }
@@ -154,7 +168,7 @@ verify_gpg_signature() {
 
 function debian_install_common_packages() {
     # Check if packages are already installed
-    if [ -f "/opt/resinkit/.common_packages_installed" ]; then
+    if [ -f "/opt/setup/.common_packages_installed" ]; then
         echo "[RESINKIT] Common packages already installed, skipping"
         return 0
     fi
@@ -177,8 +191,8 @@ function debian_install_common_packages() {
         apt-get clean
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.common_packages_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.common_packages_installed
 }
 
 function debian_install_envs() {
@@ -190,7 +204,7 @@ function debian_install_envs() {
         echo "FLINK_HOME=/opt/flink"
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
         echo "KAFKA_HOME=/opt/kafka"
-        echo "RESINKIT_JAR_PATH=$RESINKIT_JAR_PATH"
+        echo "RESINKIT_API_PATH=/opt/resinkit/api"
         echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
     } >>/etc/environment
 
@@ -200,7 +214,7 @@ function debian_install_envs() {
 
 function debian_install_java() {
     # Check if Java is already installed
-    if [ -f "/opt/resinkit/.java_installed" ]; then
+    if [ -f "/opt/setup/.java_installed" ]; then
         echo "[RESINKIT] Java already installed, skipping"
         return 0
     fi
@@ -214,14 +228,14 @@ function debian_install_java() {
     mvn --version
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.java_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.java_installed
 }
 
 # see https://github.com/apache/flink-docker/blob/f77b347d0a534da0482e692d80f559f47041829e/1.19/scala_2.12-java17-ubuntu/Dockerfile
 function debian_install_flink() {
     # Check if Flink is already installed
-    if [ -d "/opt/flink" ] && [ -f "/opt/resinkit/.flink_installed" ]; then
+    if [ -d "/opt/flink" ] && [ -f "/opt/setup/.flink_installed" ]; then
         echo "[RESINKIT] Flink already installed, skipping"
         return 0
     fi
@@ -277,13 +291,13 @@ function debian_install_flink() {
     fi
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.flink_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.flink_installed
 }
 
 function debian_install_gosu() {
     # Check if gosu is already installed
-    if [ -f "/usr/local/bin/gosu" ] && [ -f "/opt/resinkit/.gosu_installed" ]; then
+    if [ -f "/usr/local/bin/gosu" ] && [ -f "/opt/setup/.gosu_installed" ]; then
         echo "[RESINKIT] gosu already installed, skipping"
         return 0
     fi
@@ -311,13 +325,13 @@ function debian_install_gosu() {
     gosu nobody true
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.gosu_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.gosu_installed
 }
 
 function debian_install_kafka() {
     # Check if Kafka is already installed
-    if [ -d "/opt/kafka" ] && [ -f "/opt/resinkit/.kafka_installed" ]; then
+    if [ -d "/opt/kafka" ] && [ -f "/opt/setup/.kafka_installed" ]; then
         echo "[RESINKIT] Kafka already installed, skipping"
         return 0
     fi
@@ -334,13 +348,13 @@ function debian_install_kafka() {
     chmod -R 755 /opt/kafka/logs
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.kafka_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.kafka_installed
 }
 
 function debian_install_flink_jars() {
     # Check if Flink jars are already installed
-    if [ -d "/opt/flink-cdc-3.2.1" ] && [ -f "/opt/resinkit/.flink_jars_installed" ]; then
+    if [ -d "/opt/flink-cdc-3.2.1" ] && [ -f "/opt/setup/.flink_jars_installed" ]; then
         echo "[RESINKIT] Flink jars already installed, skipping"
         return 0
     fi
@@ -377,52 +391,57 @@ function debian_install_flink_jars() {
     cp -rv "$ROOT_DIR/resources/flink/cdc/" /opt/flink/cdc/
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.flink_jars_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.flink_jars_installed
 }
 
 function debian_install_resinkit() {
     # Check if resinkit is already installed
-    if [ -d "/opt/resinkit/resinkit-api/" ] && [ -f "/opt/resinkit/.resinkit_installed" ]; then
+    if [ -d "$ROOT_DIR/api/resinkit_api/" ] && [ -f "/opt/setup/.resinkit_installed" ]; then
         echo "[RESINKIT] Resinkit already installed, skipping"
         return 0
     fi
 
     echo "[RESINKIT] Installing resinkit..."
-    if [[ -d "$ROOT_DIR/api/resinkit-api" ]]; then
+    if [[ -d "$ROOT_DIR/api/resinkit_api" ]]; then
         echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
-    elif [ -z "$RESINKIT_GITHUB_TOKEN" ]; then
-        echo "[RESINKIT] Error: RESINKIT_GITHUB_TOKEN is not set"
+    elif [ -z "$TF_VAR_RESINKIT_GITHUB_TOKEN" ]; then
+        echo "[RESINKIT] Error: TF_VAR_RESINKIT_GITHUB_TOKEN is not set"
         return 1
     else
         # git clone with github token
-        git clone "https://${RESINKIT_GITHUB_TOKEN}@github.com/resink-ai/resinkit-api.git" "$ROOT_DIR/api"
+        git clone "https://${TF_VAR_RESINKIT_GITHUB_TOKEN}@github.com/resink-ai/resinkit-api.git" "$ROOT_DIR/api"
         echo "[RESINKIT] Resinkit API cloned"
     fi
 
-    # Copy api/ to /opt/resinkit/resinkit-api
-    cp -rv "$ROOT_DIR/api" /opt/resinkit/resinkit-api
+    # Copy api/ to /opt/resinkit/resinkit_api
+    cp -rv "$ROOT_DIR/api" "$RESINKIT_API_PATH"
     echo "[RESINKIT] Resinkit API copied"
 
     # Create marker file
-    mkdir -p /opt/resinkit
-    touch /opt/resinkit/.resinkit_installed
+    mkdir -p /opt/setup
+    touch /opt/setup/.resinkit_installed
 }
 
 function debian_setup_nginx() {
-
-    if [[ ! -f "/etc/nginx/sites-available/resinkit_nginx.conf" ]]; then
-        # Copy the Nginx configuration file
-        cp -v "$ROOT_DIR/resources/nginx/resinkit_nginx.conf" /etc/nginx/sites-available/resinkit_nginx.conf
-
-        # Create a symbolic link to enable the configuration
-        ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
-
-        # Test the Nginx configuration
-        nginx -t
+    # Check if nginx is already setup
+    if [ -f "/opt/setup/.nginx_setup_completed" ]; then
+        echo "[RESINKIT] Nginx already setup, skipping"
+        return 0
     fi
-    # Restart the Nginx service
-    systemctl restart nginx
+
+    # Copy the Nginx configuration file
+    rm /etc/nginx/sites-available/resinkit_nginx.conf
+    rm /etc/nginx/sites-enabled/resinkit_nginx.conf
+    cp -v "$ROOT_DIR/resources/nginx/resinkit_nginx.conf" /etc/nginx/sites-available/resinkit_nginx.conf
+    ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
+
+    # Test the Nginx configuration
+    nginx -t
+
+    # Create marker file
+    mkdir -p /opt/setup
+    touch /opt/setup/.nginx_setup_completed
 }
 
 ################################################################################
