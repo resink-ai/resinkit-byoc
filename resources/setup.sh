@@ -382,8 +382,31 @@ function debian_install_flink_jars() {
 }
 
 function debian_install_resinkit() {
-    # TODO
+    # Check if resinkit is already installed
+    if [ -d "/opt/resinkit/resinkit-api/" ] && [ -f "/opt/resinkit/.resinkit_installed" ]; then
+        echo "[RESINKIT] Resinkit already installed, skipping"
+        return 0
+    fi
+
     echo "[RESINKIT] Installing resinkit..."
+    if [[ -d "$ROOT_DIR/api/resinkit-api" ]]; then
+        echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
+    elif [ -z "$RESINKIT_GITHUB_TOKEN" ]; then
+        echo "[RESINKIT] Error: RESINKIT_GITHUB_TOKEN is not set"
+        return 1
+    else
+        # git clone with github token
+        git clone "https://${RESINKIT_GITHUB_TOKEN}@github.com/resink-ai/resinkit-api.git" "$ROOT_DIR/api"
+        echo "[RESINKIT] Resinkit API cloned"
+    fi
+
+    # Copy api/ to /opt/resinkit/resinkit-api
+    cp -rv "$ROOT_DIR/api" /opt/resinkit/resinkit-api
+    echo "[RESINKIT] Resinkit API copied"
+
+    # Create marker file
+    mkdir -p /opt/resinkit
+    touch /opt/resinkit/.resinkit_installed
 }
 
 function debian_setup_nginx() {
@@ -455,6 +478,9 @@ case $cmd in
     ;;
 "debian_install_resinkit")
     debian_install_resinkit
+    ;;
+"debian_setup_nginx")
+    debian_setup_nginx
     ;;
 "debian_all")
     debian_install_common_packages
