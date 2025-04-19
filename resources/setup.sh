@@ -10,7 +10,6 @@ else
 fi
 
 RESINKIT_ROLE='resinkit'
-RESINKIT_ENTRYPOINT_SH='/opt/resinkit/entrypoint.sh'
 
 drop_privs_cmd() {
     if [ "$(id -u)" != 0 ]; then
@@ -67,7 +66,8 @@ post_setup() {
 
     # Check if entrypoint.sh already exists
     if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
-        cp -v "$ROOT_DIR/resources/entrypoint.sh" $RESINKIT_ENTRYPOINT_SH
+        mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
+        cp -v "$ROOT_DIR/resources/entrypoint.sh" "$RESINKIT_ENTRYPOINT_SH"
     else
         echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
     fi
@@ -79,11 +79,11 @@ post_setup() {
     fi
 
     # Create marker file
-    mkdir -p "$(dirname $RESINKIT_ENTRYPOINT_SH)" # Keep this for the entrypoint script itself
+    mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")" # Keep this for the entrypoint script itself
     mkdir -p "/opt/setup"
     touch "/opt/setup/.post_setup_completed"
 
-    exec $(drop_privs_cmd) $RESINKIT_ENTRYPOINT_SH
+    exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
 
 # verify_gpg_signature <file> <signature_file> <gpg_key> [retries]
@@ -187,26 +187,27 @@ function debian_install_common_packages() {
         iputils-ping \
         mysql-client \
         telnet \
-        bash &&
+        ca-certificates \
+        gnupg \
+        wget &&
         apt-get clean
-
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.common_packages_installed
 }
 
 function debian_install_envs() {
-    if grep -q "FLINK_HOME=/opt/flink" /etc/environment; then
-        echo "[RESINKIT] Environment variables already set, skipping"
-        return 0
+    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+        {
+            echo "FLINK_HOME=/opt/flink"
+            echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
+            echo "KAFKA_HOME=/opt/kafka"
+            echo "RESINKIT_API_PATH=/opt/resinkit/api"
+            echo "RESINKIT_ENTRYPOINT_SH=/opt/resinkit/entrypoint.sh"
+            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
+        } >>/etc/environment
+        echo "[RESINKIT] Environment variables set"
     fi
-    {
-        echo "FLINK_HOME=/opt/flink"
-        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
-        echo "KAFKA_HOME=/opt/kafka"
-        echo "RESINKIT_API_PATH=/opt/resinkit/api"
-        echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
-    } >>/etc/environment
 
     # shellcheck disable=SC1091
     source /etc/environment
@@ -304,10 +305,6 @@ function debian_install_gosu() {
 
     # Grab gosu for easy step-down from root
     export GOSU_VERSION=1.17
-    # save list of currently installed packages for later so we can clean up
-    savedAptMark="$(apt-mark showmanual)"
-    # apt-get update
-    apt-get install -y --no-install-recommends ca-certificates gnupg wget
     rm -rf /var/lib/apt/lists/*
     dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"
     wget --retry-connrefused --waitretry=1 --tries=3 -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"
@@ -315,10 +312,6 @@ function debian_install_gosu() {
     # verify the signature
     local GOSU_GPG_KEY=B42F6819007F00F88E364FD4036A9C25BF357DD4
     verify_gpg_signature /usr/local/bin/gosu /usr/local/bin/gosu.asc $GOSU_GPG_KEY
-    # clean up fetch dependencies
-    apt-mark auto '.*' >/dev/null
-    [ -z "$savedAptMark" ] || apt-mark manual "$savedAptMark"
-    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
     chmod +x /usr/local/bin/gosu
     # verify that the binary works
     gosu --version
@@ -402,6 +395,12 @@ function debian_install_resinkit() {
         return 0
     fi
 
+    apt install -y software-properties-common
+    add-apt-repository -y ppa:deadsnakes/ppa
+    apt update
+    apt install -y python3.11 python3.11-venv python3.11-distutils
+
+
     echo "[RESINKIT] Installing resinkit..."
     if [[ -d "$ROOT_DIR/api/resinkit_api" ]]; then
         echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
@@ -414,7 +413,8 @@ function debian_install_resinkit() {
         echo "[RESINKIT] Resinkit API cloned"
     fi
 
-    # Copy api/ to /opt/resinkit/resinkit_api
+    # Copy api/ to resinkit api path
+    mkdir -p "$(dirname "$RESINKIT_API_PATH")"
     cp -rv "$ROOT_DIR/api" "$RESINKIT_API_PATH"
     echo "[RESINKIT] Resinkit API copied"
 
@@ -431,8 +431,8 @@ function debian_setup_nginx() {
     fi
 
     # Copy the Nginx configuration file
-    rm /etc/nginx/sites-available/resinkit_nginx.conf
-    rm /etc/nginx/sites-enabled/resinkit_nginx.conf
+    rm -f /etc/nginx/sites-available/resinkit_nginx.conf
+    rm -f /etc/nginx/sites-enabled/resinkit_nginx.conf
     cp -v "$ROOT_DIR/resources/nginx/resinkit_nginx.conf" /etc/nginx/sites-available/resinkit_nginx.conf
     ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
 
@@ -456,6 +456,7 @@ function show_usage() {
     echo "[RESINKIT]   debian_install_kafka             - Install Kafka"
     echo "[RESINKIT]   debian_install_flink_jars        - Install Flink jars"
     echo "[RESINKIT]   debian_install_resinkit          - Install resinkit"
+    echo "[RESINKIT]   debian_setup_nginx               - Setup nginx"
     echo "[RESINKIT]   debian_install_gosu              - Install gosu"
     echo "[RESINKIT]   debian_install_envs              - Install environment variables"
     echo "[RESINKIT]   debian_all                       - Install all"
