@@ -34,7 +34,7 @@ show_usage() {
     echo "[RESINKIT]   debian_install_kafka             - Install Kafka"
     echo "[RESINKIT]   debian_install_flink_jars        - Install Flink jars"
     echo "[RESINKIT]   debian_install_resinkit          - Install resinkit"
-    echo "[RESINKIT]   debian_setup_nginx               - Setup nginx"
+    echo "[RESINKIT]   debian_install_nginx             - Install nginx"
     echo "[RESINKIT]   debian_install_gosu              - Install gosu"
     echo "[RESINKIT]   debian_install_all               - Install all"
     echo "[RESINKIT]   debian_install_admin_tools       - Install admin tools"
@@ -74,8 +74,8 @@ case $cmd in
 "debian_install_resinkit")
     debian_install_resinkit
     ;;
-"debian_setup_nginx")
-    debian_setup_nginx
+"debian_install_nginx")
+    debian_install_nginx
     ;;
 "debian_install_admin_tools")
     debian_install_admin_tools
@@ -85,6 +85,9 @@ case $cmd in
     ;;
 "run_entrypoint")
     run_entrypoint "$@"
+    ;;
+"run_tail_f")
+    tail -f /dev/null
     ;;
 "help" | "-h" | "--help")
     show_usage

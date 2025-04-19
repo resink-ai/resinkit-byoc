@@ -24,14 +24,19 @@ function debian_install_common_packages() {
         wget \
         gnupg \
         nginx \
+        python3 \
         python3-pip \
         python3-dev \
+        python3-venv \
         libpcre3-dev \
         iputils-ping \
         mysql-client \
         telnet \
         ca-certificates \
         gnupg \
+        git \
+        ca-certificates \
+        make \
         curl \
         wget &&
         apt-get clean
@@ -217,16 +222,15 @@ function debian_install_flink_jars() {
 
 function debian_install_resinkit() {
     # Check if resinkit is already installed
-    if [ -d "$ROOT_DIR/api/resinkit_api/" ] && [ -f "/opt/setup/.resinkit_installed" ]; then
+    if [ -f "/opt/setup/.resinkit_installed" ]; then
         echo "[RESINKIT] Resinkit already installed, skipping"
         return 0
     fi
 
-    apt update
-    apt install -y software-properties-common
-    add-apt-repository -y ppa:deadsnakes/ppa
-    apt update
-    apt install -y python3.11 python3.11-venv python3.11-distutils
+    if [ -d "$RESINKIT_API_PATH" ]; then
+        echo "[RESINKIT] Resinkit API directory ($RESINKIT_API_PATH) already exists, skipping"
+        return 0
+    fi
 
     echo "[RESINKIT] Installing resinkit..."
     if [[ -d "$ROOT_DIR/api/resinkit_api" ]]; then

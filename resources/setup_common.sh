@@ -103,41 +103,7 @@ verify_gpg_signature() {
     return $verify_result
 }
 
-# Function for pre-setup tasks
-pre_setup() {
-    # Check if git is installed
-    if ! command -v git &>/dev/null; then
-        apt-get update
-        apt-get install -y --no-install-recommends git ca-certificates make curl
-    fi
-
-    # Check if the directory already exists
-    if [ ! -d "$HOME/resinkit-byoc" ]; then
-        git clone https://github.com/resink-ai/resinkit-byoc.git "$HOME/resinkit-byoc"
-    else
-        cd "$HOME/resinkit-byoc" && git pull
-        echo "[RESINKIT] Directory $HOME/resinkit-byoc already exists, skipping git clone"
-    fi
-
-    # Only run setup if it hasn't been run before
-    cd "$HOME/resinkit-byoc" || exit 1
-    if [ ! -f "$HOME/resinkit-byoc/.setup_completed" ]; then
-        ./resources/setup.sh debian_all
-        touch "$HOME/resinkit-byoc/.setup_completed"
-    else
-        echo "[RESINKIT] Setup already completed, skipping"
-    fi
-}
-
-# Function for post-setup tasks (assume variables are set)
-post_setup() {
-    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
-        echo "[RESINKIT] Error: Critical environment variables are not set"
-        echo "[RESINKIT] FLINK_HOME: $FLINK_HOME"
-        echo "[RESINKIT] RESINKIT_API_PATH: $RESINKIT_API_PATH"
-        echo "[RESINKIT] RESINKIT_ENTRYPOINT_SH: $RESINKIT_ENTRYPOINT_SH"
-        return 1
-    fi
+run_entrypoint() {
 
     # Check if entrypoint.sh already exists
     if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
@@ -147,19 +113,6 @@ post_setup() {
         echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
     fi
 
-    # Check if already executed
-    if [ -f "/opt/setup/.post_setup_completed" ]; then
-        echo "[RESINKIT] Post-setup already completed, skipping"
-        return 0
-    fi
-
-    # Create marker file
-    mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")" # Keep this for the entrypoint script itself
-    mkdir -p "/opt/setup"
-    touch "/opt/setup/.post_setup_completed"
-}
-
-run_entrypoint() {
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
     exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
