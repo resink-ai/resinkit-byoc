@@ -24,6 +24,15 @@ curl -s http://localhost:8081/config
 echo "starting resinkit at: ${RESINKIT_API_PATH}"
 cd "$RESINKIT_API_PATH" && ./scripts/install.sh
 
+if [ -f /.dockerenv ]; then
+    echo "[RESINKIT] Running inside Docker"
+    nginx || nginx -s reload
+else
+    echo "[RESINKIT] Not running inside Docker"
+    systemctl enable nginx
+    systemctl start nginx
+fi
+
 if [ "$1" = "-f" ] || [ "$1" = "--foreground" ]; then
     tail -f /dev/null
 fi

@@ -451,14 +451,6 @@ function debian_setup_nginx() {
 
     # Test the Nginx configuration
     nginx -t
-    if [ -f /.dockerenv ]; then
-        echo "[RESINKIT] Running inside Docker"
-        nginx || nginx -s reload
-    else
-        echo "[RESINKIT] Not running inside Docker"
-        systemctl enable nginx
-        systemctl start nginx
-    fi
 
     # Create marker file
     mkdir -p /opt/setup
