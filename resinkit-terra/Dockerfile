@@ -4,8 +4,6 @@ FROM ubuntu:latest
 
 # Copy files to /root/resinkit-byoc
 RUN mkdir -p /root/resinkit-byoc
-
-# Copy api/ to /root/resinkit-byoc/api
 COPY api /root/resinkit-byoc/api
 COPY resources /root/resinkit-byoc/resources
 
@@ -25,8 +23,8 @@ RUN /root/resinkit-byoc/resources/setup.sh debian_all
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
-ENTRYPOINT [ "/opt/resinkit/entrypoint.sh" ]
-CMD [ "-f" ]
+ENTRYPOINT [ "/root/resinkit-byoc/resources/setup.sh" ]
+CMD [ "run_entrypoint", "-f" ]
 
 # docker stop resinkit 
 # docker rm resinkit
