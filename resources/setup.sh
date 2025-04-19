@@ -198,13 +198,18 @@ function debian_install_common_packages() {
 
 function debian_install_envs() {
     if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+        ARCH=$(dpkg --print-architecture)
         {
+            echo "ARCH=$ARCH"
             echo "FLINK_HOME=/opt/flink"
-            echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}"
+            echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$ARCH"
             echo "KAFKA_HOME=/opt/kafka"
             echo "RESINKIT_API_PATH=/opt/resinkit/api"
             echo "RESINKIT_ENTRYPOINT_SH=/opt/resinkit/entrypoint.sh"
             echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$PATH"
+            echo "RESINKIT_API_VENV_DIR=/opt/resinkit/api/.venv"
+            echo "RESINKIT_API_LOG_FILE=/opt/resinkit/logs/resinkit_api.log"
+            echo "RESINKIT_API_SERVICE_PORT=8602"
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"
     fi
@@ -221,6 +226,7 @@ function debian_install_java() {
     fi
 
     ARCH=$(dpkg --print-architecture)
+    export ARCH
     apt-get install -y openjdk-17-jdk openjdk-17-jre
     update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java"
     update-alternatives --set javac "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/javac"
@@ -400,7 +406,6 @@ function debian_install_resinkit() {
     apt update
     apt install -y python3.11 python3.11-venv python3.11-distutils
 
-
     echo "[RESINKIT] Installing resinkit..."
     if [[ -d "$ROOT_DIR/api/resinkit_api" ]]; then
         echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
@@ -415,6 +420,7 @@ function debian_install_resinkit() {
 
     # Copy api/ to resinkit api path
     mkdir -p "$(dirname "$RESINKIT_API_PATH")"
+    rm -rf "$RESINKIT_API_PATH"
     cp -rv "$ROOT_DIR/api" "$RESINKIT_API_PATH"
     echo "[RESINKIT] Resinkit API copied"
 
