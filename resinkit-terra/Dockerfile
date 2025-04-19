@@ -21,7 +21,7 @@ EXPOSE 8081
 EXPOSE 8083
 
 # For debugging purposes, run the setup script and ignore errors
-RUN /root/resinkit-byoc/resources/setup.sh debian_all || true
+RUN /root/resinkit-byoc/resources/setup.sh debian_all
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
