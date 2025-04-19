@@ -104,6 +104,16 @@ verify_gpg_signature() {
 }
 
 run_entrypoint() {
+    # start or reload nginx with root
+
+    if [ -f /.dockerenv ]; then
+        echo "[RESINKIT] Running inside Docker"
+        nginx || nginx -s reload
+    else
+        echo "[RESINKIT] Not running inside Docker"
+        systemctl enable nginx
+        systemctl start nginx
+    fi
 
     # Check if entrypoint.sh already exists
     if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
