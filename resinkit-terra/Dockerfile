@@ -9,12 +9,10 @@ RUN mkdir -p /root/resinkit-byoc
 COPY api /root/resinkit-byoc/api
 COPY resources /root/resinkit-byoc/resources
 
-# For debugging purposes, run the setup script and ignore errors
-RUN /root/resinkit-byoc/resources/setup.sh debian_all || true
 
 # Expose necessary ports
 # ResinKit
-EXPOSE 8000
+EXPOSE 8080
 # Kafka
 EXPOSE 9092
 # Flink web UI
@@ -22,8 +20,13 @@ EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
 
+# For debugging purposes, run the setup script and ignore errors
+RUN /root/resinkit-byoc/resources/setup.sh debian_all || true
+
 # Keep container running with tail -f
-CMD ["tail", "-f", "/dev/null"]
+# CMD ["tail", "-f", "/dev/null"]
+ENTRYPOINT [ "/opt/resinkit/entrypoint.sh" ]
+CMD [ "-f" ]
 
 # docker stop resinkit 
 # docker rm resinkit

@@ -14,6 +14,18 @@ fi
 "${FLINK_HOME}/bin/start-cluster.sh"
 "${FLINK_HOME}/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
 
+# test flink & flink sql gateway
+curl -s http://localhost:8083/info
+# from outside the container
+curl -s http://localhost:8080/flink_sql_gateway/info
+curl -s http://localhost:8081/config
+
 # Start Resinkit API, using gunicorn
 echo "starting resinkit at: ${RESINKIT_API_PATH}"
-gunicorn -b 0.0.0.0:8602 -w 5 -t 100 "${RESINKIT_API_PATH}/resinkit_api:app"
+cd "$RESINKIT_API_PATH" && ./scripts/install.sh
+
+if [ "$1" = "-f" ] || [ "$1" = "--foreground" ]; then
+    tail -f /dev/null
+fi
+
+echo "done"

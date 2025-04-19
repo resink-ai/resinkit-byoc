@@ -28,7 +28,7 @@ pre_setup() {
     # Check if git is installed
     if ! command -v git &>/dev/null; then
         apt-get update
-        apt-get install -y --no-install-recommends git ca-certificates make
+        apt-get install -y --no-install-recommends git ca-certificates make curl
     fi
 
     # Check if the directory already exists
@@ -82,6 +82,8 @@ post_setup() {
     mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")" # Keep this for the entrypoint script itself
     mkdir -p "/opt/setup"
     touch "/opt/setup/.post_setup_completed"
+
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
 
     exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
@@ -189,6 +191,7 @@ function debian_install_common_packages() {
         telnet \
         ca-certificates \
         gnupg \
+        curl \
         wget &&
         apt-get clean
     # Create marker file
@@ -197,9 +200,12 @@ function debian_install_common_packages() {
 }
 
 function debian_install_envs() {
-    if [ -z "$FLINK_HOME" ] || [ -z "$RESINKIT_API_PATH" ] || [ -z "$RESINKIT_ENTRYPOINT_SH" ]; then
+    if [[ -f /etc/environment ]] && grep -q "RESINKIT_API_PATH=/opt/resinkit/api" /etc/environment; then
+        echo "[RESINKIT] Environment variables already set, skipping"
+    else
         ARCH=$(dpkg --print-architecture)
         {
+            echo ""
             echo "ARCH=$ARCH"
             echo "FLINK_HOME=/opt/flink"
             echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$ARCH"
@@ -401,6 +407,7 @@ function debian_install_resinkit() {
         return 0
     fi
 
+    apt update
     apt install -y software-properties-common
     add-apt-repository -y ppa:deadsnakes/ppa
     apt update
@@ -444,10 +451,23 @@ function debian_setup_nginx() {
 
     # Test the Nginx configuration
     nginx -t
+    if [ -f /.dockerenv ]; then
+        echo "[RESINKIT] Running inside Docker"
+        nginx || nginx -s reload
+    else
+        echo "[RESINKIT] Not running inside Docker"
+        systemctl enable nginx
+        systemctl start nginx
+    fi
 
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.nginx_setup_completed
+}
+
+function debian_install_admin_tools() {
+    apt update
+    apt install -y curl jq lsof net-tools
 }
 
 ################################################################################
@@ -466,6 +486,7 @@ function show_usage() {
     echo "[RESINKIT]   debian_install_gosu              - Install gosu"
     echo "[RESINKIT]   debian_install_envs              - Install environment variables"
     echo "[RESINKIT]   debian_all                       - Install all"
+    echo "[RESINKIT]   debian_install_admin_tools       - Install admin tools"
     echo "[RESINKIT]   help                             - Show usage"
 }
 
@@ -507,6 +528,9 @@ case $cmd in
     ;;
 "debian_setup_nginx")
     debian_setup_nginx
+    ;;
+"debian_install_admin_tools")
+    debian_install_admin_tools
     ;;
 "debian_all")
     debian_install_common_packages
