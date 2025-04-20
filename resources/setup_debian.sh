@@ -233,15 +233,17 @@ function debian_install_resinkit() {
     fi
 
     echo "[RESINKIT] Installing resinkit..."
-    if [[ -d "$ROOT_DIR/api/resinkit_api" ]]; then
-        echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
-    elif [ -z "$TF_VAR_RESINKIT_GITHUB_TOKEN" ]; then
-        echo "[RESINKIT] Error: TF_VAR_RESINKIT_GITHUB_TOKEN is not set"
-        return 1
-    else
-        # git clone with github token
-        git clone "https://${TF_VAR_RESINKIT_GITHUB_TOKEN}@github.com/resink-ai/resinkit-api.git" "$ROOT_DIR/api"
+
+    # If github token is set, delete $ROOT_DIR/api and make a new clone
+    if [ -n "$RESINKIT_GITHUB_TOKEN" ]; then
+        rm -rf "$ROOT_DIR/api"
+        git clone "https://${RESINKIT_GITHUB_TOKEN}@github.com/resink-ai/resinkit-api-python.git" "$ROOT_DIR/api"
         echo "[RESINKIT] Resinkit API cloned"
+    elif [ -d "$ROOT_DIR/api" ]; then
+        echo "[RESINKIT] Resinkit API directory already exists, skipping clone"
+    else
+        echo "[RESINKIT] Error: RESINKIT_GITHUB_TOKEN is not set"
+        return 1
     fi
 
     # Copy api/ to resinkit api path

@@ -62,7 +62,7 @@ setup_vars() {
     fi
 
     # Check for GitHub token if needed for private repositories
-    if [ -z "$TF_VAR_RESINKIT_GITHUB_TOKEN" ]; then
-        echo "[RESINKIT] Note: TF_VAR_RESINKIT_GITHUB_TOKEN is not set - may be required for some operations"
+    if [ -z "$RESINKIT_GITHUB_TOKEN" ]; then
+        echo "[RESINKIT] Note: RESINKIT_GITHUB_TOKEN is not set - may be required for some operations"
     fi
 }
