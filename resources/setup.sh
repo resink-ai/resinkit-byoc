@@ -85,9 +85,6 @@ case $cmd in
     ;;
 "run_entrypoint")
     run_entrypoint
-    if [ "$1" = "-f" ] || [ "$1" = "--foreground" ]; then
-        tail -f /dev/null
-    fi
     ;;
 "run_tail_f")
     tail -f /dev/null
