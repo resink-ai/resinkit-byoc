@@ -273,6 +273,9 @@ function debian_install_nginx() {
     # Test the Nginx configuration
     nginx -t
 
+    systemctl enable nginx
+    systemctl restart nginx
+
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.nginx_setup_completed

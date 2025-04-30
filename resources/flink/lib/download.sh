@@ -52,6 +52,9 @@ download_and_extract() {
 }
 
 # See: https://flink.apache.org/downloads/
+# Regular Connector JARs (flink-connector-*):
+# - Primarily used as dependencies in Flink applications
+# - For standalone applications, include them in your application's JAR dependencies
 FLINK_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-aws-kinesis-firehose/5.0.0-1.19/flink-connector-aws-kinesis-firehose-5.0.0-1.19.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-aws-kinesis-streams/5.0.0-1.19/flink-connector-aws-kinesis-streams-5.0.0-1.19.jar
@@ -71,6 +74,10 @@ FLINK_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-datagen/1.19.1/flink-connector-datagen-1.19.1.jar
 )
 
+# SQL Connector JARs (flink-sql-connector-*):
+# - Should be placed in /opt/flink/lib directory
+# - Enable SQL statements to interact with external systems
+# - Needed for Flink SQL Client, SQL Gateway, and SQL API usage
 FLINK_SQL_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-dynamodb/5.0.0-1.19/flink-sql-connector-dynamodb-5.0.0-1.19.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-aws-kinesis-firehose/5.0.0-1.19/flink-sql-connector-aws-kinesis-firehose-5.0.0-1.19.jar
@@ -93,6 +100,7 @@ FLINK_CDC_PIPELINE_CONNECTOR_3_2_1=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-paimon/3.2.1/flink-cdc-pipeline-connector-paimon-3.2.1.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-elasticsearch/3.2.1/flink-cdc-pipeline-connector-elasticsearch-3.2.1.jar
 )
+
 
 FLINK_CONNECTOR_CDC_3_2_1=(
     # https://repo1.maven.org/maven2/org/apache/flink/flink-connector-debezium/3.2.1/flink-connector-debezium-3.2.1.jar
@@ -123,10 +131,13 @@ PAIMON_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/0.9.0/paimon-flink-action-0.9.0.jar
 )
 
-MISC_DRIVERS=(
+# https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/connectors/table/jdbc/#dependencies
+FLINK_JDBC_SQL_CONNECTORS=(
+    https://jdbc.postgresql.org/download/postgresql-42.7.5.jar    
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-jdbc/3.2.0-1.19/flink-connector-jdbc-3.2.0-1.19.jar
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
     https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
     https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.4.1/kafka-clients-3.4.1.jar
-    https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
 )
 
 function download_all {
@@ -146,7 +157,7 @@ function download_all {
     done
 
     echo "Downloading misc drivers"
-    for url in "${MISC_DRIVERS[@]}"; do
+    for url in "${FLINK_JDBC_SQL_CONNECTORS[@]}"; do
         download_and_extract "$url"
     done
 
