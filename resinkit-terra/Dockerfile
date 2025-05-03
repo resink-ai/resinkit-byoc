@@ -1,10 +1,6 @@
 # Use Ubuntu as the base image
 FROM ubuntu:latest
 
-# Accept github token as an argument and set it as an environment variable for the setup script
-ARG RESINKIT_GITHUB_TOKEN
-ENV RESINKIT_GITHUB_TOKEN=${RESINKIT_GITHUB_TOKEN}
-
 # Copy files to /root/resinkit-byoc
 RUN mkdir -p /root/resinkit-byoc
 COPY api /root/resinkit-byoc/api

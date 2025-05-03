@@ -60,9 +60,4 @@ setup_vars() {
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"
     fi
-
-    # Check for GitHub token if needed for private repositories
-    if [ -z "$RESINKIT_GITHUB_TOKEN" ]; then
-        echo "[RESINKIT] Note: RESINKIT_GITHUB_TOKEN is not set - may be required for some operations"
-    fi
 }
