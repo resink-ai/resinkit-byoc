@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "resinkit_api"
+version = "0.1.0"
+description = "Service for interacting with Resinkit"
+authors = [{ name = "resink.ai", email = "support@resink.ai" }]
+requires-python = "~=3.10"
+readme = "README.md"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "fastapi[standard]",
+    "uvicorn>=0.34,<0.35",
+    "pydantic~=2.11",
+    "pydantic-settings~=2.9",
+    "python-dotenv~=1.1",
+    "httpx>=0.28,<0.29",
+    "python-multipart>=0,<1",
+    "structlog>=25,<26",
+    "flink-sql-gateway-api==1.19.0",
+    "flink-job-manager-api>=1.0.2,<2",
+    "pandas>=2.1.0,<3",
+    "requests>=2.31.0,<3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+    "black>=24,<25",
+    "isort>=5,<6",
+    "flake8>=3,<4",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["resinkit_api"]
+
+[tool.hatch.build.targets.wheel]
+include = ["resinkit_api"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 120
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
