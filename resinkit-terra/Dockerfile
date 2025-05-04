@@ -1,11 +1,16 @@
 # Use Ubuntu as the base image
 FROM ubuntu:latest
 
-# Copy files to /root/resinkit-byoc
-RUN mkdir -p /root/resinkit-byoc
-COPY api /root/resinkit-byoc/api
-COPY resources /root/resinkit-byoc/resources
+# Install dependencies (assuming this part is okay)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget && \
+    rm -rf /var/lib/apt/lists/*
 
+RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
+
+# Change working directory
+WORKDIR /root/resinkit-byoc
+RUN make install
 
 # Expose necessary ports
 # ResinKit
@@ -17,8 +22,6 @@ EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
 
-# For debugging purposes, run the setup script and ignore errors
-RUN /root/resinkit-byoc/resources/setup.sh debian_install_all
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
