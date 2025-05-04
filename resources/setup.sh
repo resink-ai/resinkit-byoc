@@ -89,6 +89,9 @@ case $cmd in
         exec "$RESINKIT_ENTRYPOINT_SH"
     fi
     ;;
+"run_curl_test")
+    run_curl_test
+    ;;
 "run_tail_f")
     tail -f /dev/null
     ;;

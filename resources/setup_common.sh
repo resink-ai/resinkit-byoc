@@ -126,3 +126,14 @@ run_entrypoint() {
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
     exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
+
+run_curl_test() {
+    echo "[RESINKIT] Testing flink & flink sql gateway"
+    curl -s http://localhost:8083/info | jq .
+    curl -s http://localhost:8081/config | jq .
+    curl -s -H "Authorization: pat_cnk8_" http://127.0.0.1:8602/api/v1/pat/validate | jq .
+
+    echo "[RESINKIT] Testing nginx reverse proxy"
+    curl -s -H "Authorization: pat_cnk8_" http://localhost:8080/flink_sql_gateway/info | jq .
+    curl -s -H "Authorization: pat_cnk8_" http://localhost:8080/flink_ui/config | jq .
+}
