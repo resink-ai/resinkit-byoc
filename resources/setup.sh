@@ -51,6 +51,14 @@ fi
 cmd=$1
 shift # Remove the first argument, leaving any remaining args
 
+if [ "$1" = "-f" ]; then
+    echo "[RESINKIT] Running tail -f, foreground mode"
+    export RUNNING_TAIL_F=true
+else
+    echo "[RESINKIT] Not running tail -f, background mode"
+    export RUNNING_TAIL_F=false
+fi
+
 # Parse command and execute corresponding function
 case $cmd in
 "debian_install_common_packages")
@@ -85,9 +93,6 @@ case $cmd in
     ;;
 "run_entrypoint")
     run_entrypoint
-    if [ "$1" = "-f" ]; then
-        exec "$RESINKIT_ENTRYPOINT_SH"
-    fi
     ;;
 "run_curl_test")
     run_curl_test

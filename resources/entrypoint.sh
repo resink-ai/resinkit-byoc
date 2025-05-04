@@ -21,3 +21,8 @@ cd "$RESINKIT_API_PATH" && ./scripts/install.sh
 echo "----------------------------------------"
 echo "Resinkit API started"
 echo "----------------------------------------"
+
+if [ "$RUNNING_TAIL_F" = true ]; then
+    echo "[RESINKIT] Running foreground"
+    tail -f /dev/null
+fi

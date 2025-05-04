@@ -69,7 +69,7 @@ fi
 echo "[QQQ] Starting resinkit_api service..."
 nohup "$RESINKIT_API_VENV_DIR/bin/uvicorn" resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 
-# Wait a moment and check if the service started successfully
+echo "[QQQ] Wait a moment and check if the service started successfully"
 sleep 3
 if pgrep -f "uvicorn resinkit_api.main:app" >/dev/null; then
     echo "[QQQ] Resinkit_api service started successfully"
