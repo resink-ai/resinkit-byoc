@@ -25,7 +25,7 @@ function debian_install_common_packages() {
         gnupg \
         nginx \
         iputils-ping \
-        mysql-client \
+        mariadb-client \
         telnet \
         ca-certificates \
         gnupg \
@@ -308,4 +308,8 @@ function debian_install_all() {
     debian_install_resinkit
     debian_install_nginx
     debian_install_admin_tools
+
+    echo "----------------------------------------"
+    echo "[RESINKIT] ✅ Installation completed"
+    echo "----------------------------------------"
 }

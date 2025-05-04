@@ -29,7 +29,6 @@ test_flink() {
 echo "starting resinkit at: ${RESINKIT_API_PATH}"
 cd "$RESINKIT_API_PATH" && ./scripts/install.sh
 
-echo "done"
-
-# Keep container running with tail -f
-tail -f /dev/null
+echo "----------------------------------------"
+echo "Resinkit API started"
+echo "----------------------------------------"

@@ -85,6 +85,9 @@ case $cmd in
     ;;
 "run_entrypoint")
     run_entrypoint
+    if [ "$1" = "-f" ]; then
+        exec "$RESINKIT_ENTRYPOINT_SH"
+    fi
     ;;
 "run_tail_f")
     tail -f /dev/null

@@ -17,5 +17,9 @@ resinkit-terra:
 install:
 	bash resources/setup.sh debian_install_all
 
-run:
-	bash resources/setup.sh run_entrypoint
+run_byoc:
+	ENV=byoc bash resources/setup.sh run_entrypoint
+
+run_production:
+	ENV=production bash resources/setup.sh run_entrypoint
+

@@ -36,6 +36,10 @@ download_and_extract() {
     *.zip)
         unzip -q "$filename"
         ;;
+    *.jar)
+        echo "File $filename is a jar file, skipping extraction"
+        return 0
+        ;;
     *)
         echo "File $filename is not an archive or has unsupported format"
         return 0
