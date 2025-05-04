@@ -24,11 +24,6 @@ function debian_install_common_packages() {
         wget \
         gnupg \
         nginx \
-        python3 \
-        python3-pip \
-        python3-dev \
-        python3-venv \
-        libpcre3-dev \
         iputils-ping \
         mysql-client \
         telnet \
@@ -53,6 +48,8 @@ function debian_install_common_packages() {
         libbz2-dev \
         pkg-config \
         liblzma-dev
+
+    apt-get install -y python3 python3-pip python3-dev python3-venv libpcre3-dev
 
     # Create marker file
     mkdir -p /opt/setup
