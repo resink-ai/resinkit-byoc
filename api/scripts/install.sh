@@ -26,7 +26,6 @@ source "$RESINKIT_API_VENV_DIR/bin/activate"
 
 # Upgrade pip in the virtual environment
 echo "[QQQ] Upgrading pip..."
-tail -f /dev/null
 pip install --upgrade pip
 
 # Install Poetry and uvicorn if not already installed

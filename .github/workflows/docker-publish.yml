@@ -33,15 +33,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up JDK 17 and Maven 3.8.6
-      - name: Set up JDK 17 and Maven
-        uses: actions/setup-java@v3
-        with:
-          java-version: "17"
-          distribution: "temurin" # Eclipse Temurin distribution
-          maven-version: "3.8.6"
-          cache: "maven" # Caches Maven dependencies
-
         # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
@@ -76,10 +67,6 @@ jobs:
           tags: |
             type=raw,value=ai.resink.it.terra
 
-      # Add make install build step
-      - name: Validate installation
-        run: make install
-
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
@@ -88,7 +75,7 @@ jobs:
         with:
           context: .
           file: resinkit-terra/Dockerfile # Updated path
-          push: ${{ github.event_name != 'pull_request' }}  # Don't push on PRs
+          push: ${{ github.event_name != 'pull_request' }} # Don't push on PRs
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64/v8
