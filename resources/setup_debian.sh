@@ -308,7 +308,7 @@ function debian_install_all() {
     debian_install_resinkit
     debian_install_nginx
     debian_install_admin_tools
-
+    set +x
     echo "----------------------------------------"
     echo "[RESINKIT] ✅ Installation completed"
     echo "----------------------------------------"

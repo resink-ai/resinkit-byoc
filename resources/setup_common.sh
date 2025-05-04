@@ -134,6 +134,7 @@ run_curl_test() {
     curl -s -H "Authorization: pat_cnk8_" http://127.0.0.1:8602/api/v1/pat/validate | jq .
 
     echo "[RESINKIT] Testing nginx reverse proxy"
-    curl -s -H "Authorization: pat_cnk8_" http://localhost:8080/flink_sql_gateway/info | jq .
-    curl -s -H "Authorization: pat_cnk8_" http://localhost:8080/flink_ui/config | jq .
+    BASE_URL="http://localhost:8080"
+    curl -s -H "Authorization: pat_cnk8_" "$BASE_URL/flink_sql_gateway/info" | jq .
+    curl -s -H "Authorization: pat_cnk8_" "$BASE_URL/flink_ui/config" | jq .
 }
