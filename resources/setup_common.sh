@@ -108,11 +108,11 @@ run_entrypoint() {
 
     if [ -f /.dockerenv ]; then
         echo "[RESINKIT] Running inside Docker"
-        nginx || nginx -s reload
+        nginx || nginx -s reload || true
     else
         echo "[RESINKIT] Not running inside Docker"
-        systemctl enable nginx
-        systemctl start nginx
+        systemctl enable nginx || true
+        systemctl start nginx || true
     fi
 
     # Check if entrypoint.sh already exists

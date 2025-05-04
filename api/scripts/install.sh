@@ -14,6 +14,28 @@ if [[ ! -d "$RESINKIT_API_PATH" ]]; then
     exit 1
 fi
 
+install_python_uv() {
+    # Step 0: skip if python3.12 and uv are already installed
+    if command -v python3.12 &>/dev/null && command -v uv &>/dev/null; then
+        echo "[QQQ] Python 3.12 and uv already installed"
+        return 0
+    fi
+
+    # Step 1: install pyenv
+    curl https://pyenv.run | bash
+    export PATH="$HOME/.pyenv/bin:$PATH"
+    eval "$(pyenv init --path)"
+    eval "$(pyenv virtualenv-init -)"
+
+    # Step 2: install python 3.12
+    pyenv install 3.12
+
+    # Step 3: install uv
+    uv venv --python 3.12 "$RESINKIT_API_VENV_DIR"
+
+    # Step 4: create virtual environment at $RESINKIT_API_VENV_DIR
+}
+
 # Create a Python 3.11 virtual environment if it doesn't exist
 if [[ ! -f "$RESINKIT_API_VENV_DIR/bin/activate" ]]; then
     echo "[QQQ] Creating Python virtual environment..."

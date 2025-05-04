@@ -15,7 +15,7 @@ resinkit-terra:
 	docker run -d --name resinkit.terra -p 8080:8080 -p 9092:9092 -p 8083:8083 -p 8081:8081 ai.resink.it.terra
 
 install:
-	bash resources/setup_debian.sh
+	bash resources/setup.sh debian_install_all
 
 run:
 	bash resources/setup.sh run_entrypoint

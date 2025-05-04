@@ -5,10 +5,11 @@ set -eo pipefail
 download_and_extract() {
     url="$1"
     filename="$(basename "$url")"
-    
+
     # Check if file already exists
     if [ -f "$filename" ]; then
         echo "File $filename already exists, skipping download"
+        return 0
     else
         echo "Downloading from URL: $url"
         # Download the file
@@ -17,30 +18,30 @@ download_and_extract() {
             return 1
         fi
     fi
-    
+
     # Extract based on file extension
     case "$filename" in
-        *.tar.gz|*.tgz)
-            tar -xzf "$filename"
-            ;;
-        *.tar.bz2|*.tbz2)
-            tar -xjf "$filename"
-            ;;
-        *.tar.xz)
-            tar -xJf "$filename"
-            ;;
-        *.tar)
-            tar -xf "$filename"
-            ;;
-        *.zip)
-            unzip -q "$filename"
-            ;;
-        *)
-            echo "File $filename is not an archive or has unsupported format"
-            return 0
-            ;;
+    *.tar.gz | *.tgz)
+        tar -xzf "$filename"
+        ;;
+    *.tar.bz2 | *.tbz2)
+        tar -xjf "$filename"
+        ;;
+    *.tar.xz)
+        tar -xJf "$filename"
+        ;;
+    *.tar)
+        tar -xf "$filename"
+        ;;
+    *.zip)
+        unzip -q "$filename"
+        ;;
+    *)
+        echo "File $filename is not an archive or has unsupported format"
+        return 0
+        ;;
     esac
-    
+
     # Check if extraction was successful
     if [ $? -eq 0 ]; then
         echo "Successfully extracted $filename"
@@ -101,7 +102,6 @@ FLINK_CDC_PIPELINE_CONNECTOR_3_2_1=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-elasticsearch/3.2.1/flink-cdc-pipeline-connector-elasticsearch-3.2.1.jar
 )
 
-
 FLINK_CONNECTOR_CDC_3_2_1=(
     # https://repo1.maven.org/maven2/org/apache/flink/flink-connector-debezium/3.2.1/flink-connector-debezium-3.2.1.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-db2-cdc/3.2.1/flink-connector-db2-cdc-3.2.1.jar
@@ -133,7 +133,7 @@ PAIMON_JARS=(
 
 # https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/connectors/table/jdbc/#dependencies
 FLINK_JDBC_SQL_CONNECTORS=(
-    https://jdbc.postgresql.org/download/postgresql-42.7.5.jar    
+    https://jdbc.postgresql.org/download/postgresql-42.7.5.jar
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-jdbc/3.2.0-1.19/flink-connector-jdbc-3.2.0-1.19.jar
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
     https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
@@ -170,7 +170,7 @@ function download_all {
 }
 
 function show_help {
-    cat << EOF
+    cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Downloads and extracts Flink connectors and related dependencies.
@@ -184,17 +184,17 @@ EOF
 
 # Parse command line arguments
 case "$1" in
-    -h|--help)
-        show_help
-        exit 0
-        ;;
-    "")
-        # No arguments provided, run download_all
-        download_all
-        ;;
-    *)
-        echo "Error: Unknown option: $1"
-        show_help
-        exit 1
-        ;;
+-h | --help)
+    show_help
+    exit 0
+    ;;
+"")
+    # No arguments provided, run download_all
+    download_all
+    ;;
+*)
+    echo "Error: Unknown option: $1"
+    show_help
+    exit 1
+    ;;
 esac

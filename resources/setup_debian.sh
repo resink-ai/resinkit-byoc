@@ -19,7 +19,7 @@ function debian_install_common_packages() {
     export TZ=UTC
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         vim \
         wget \
         gnupg \
@@ -38,8 +38,22 @@ function debian_install_common_packages() {
         ca-certificates \
         make \
         curl \
-        wget &&
-        apt-get clean
+        zsh \
+        wget
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libssl-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev \
+        libbz2-dev \
+        pkg-config \
+        liblzma-dev
+
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.common_packages_installed
@@ -258,6 +272,8 @@ function debian_install_nginx() {
         return 0
     fi
 
+    apt-get update && apt-get install --no-install-recommends -y nginx
+
     # Copy the Nginx configuration file
     rm -f /etc/nginx/sites-available/resinkit_nginx.conf
     rm -f /etc/nginx/sites-enabled/resinkit_nginx.conf
@@ -267,8 +283,13 @@ function debian_install_nginx() {
     # Test the Nginx configuration
     nginx -t
 
-    systemctl enable nginx
-    systemctl restart nginx
+    echo "[RESINKIT] Enabling and restarting nginx"
+    systemctl enable nginx || true
+    systemctl restart nginx || true
+    systemctl status nginx || true
+
+    service nginx reload || true
+    service nginx status || true
 
     # Create marker file
     mkdir -p /opt/setup
