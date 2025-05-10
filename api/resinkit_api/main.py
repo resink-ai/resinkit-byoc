@@ -8,6 +8,7 @@ from resinkit_api.api.catalogstore import router as catalogstore_router
 from resinkit_api.api.catalog import router as catalog_router
 from resinkit_api.api.common import router as common_router
 from resinkit_api.api.flink import router as flink_router
+from resinkit_api.api.agent import router as agent_router
 from resinkit_api.api.pat import router as authorization_router
 from resinkit_api.core.logging import get_logger
 
@@ -54,7 +55,6 @@ async def verify_token(x_resinkit_api_token: Annotated[str, Header()]):
 app.include_router(
     flink_router,
     prefix="/api/v1/flink",
-    dependencies=[Depends(verify_token)],
     tags=["flink"],
 )
 
@@ -62,7 +62,7 @@ app.include_router(
 app.include_router(
     catalogstore_router,
     prefix="/api/v1",
-    tags=["catalogstore"],
+    tags=["catalog"],
 )
 
 # Include the catalog router
@@ -77,6 +77,14 @@ app.include_router(common_router, tags=["common"])
 
 # Include the authorization router
 app.include_router(authorization_router, prefix="/api/v1/pat", tags=["common"])
+
+# Include the agent router
+app.include_router(
+    agent_router,
+    prefix="/api/v1/agent",
+    tags=["agent"],
+)
+
 
 if __name__ == "__main__":
     import uvicorn
