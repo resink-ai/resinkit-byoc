@@ -1,23 +1,31 @@
-from typing import Optional
+from typing import Any, Optional
 from shortuuid import ShortUUID
-from sqlalchemy.orm import Session
 from datetime import datetime
+import asyncio
 
 from resinkit_api.db import tasks_crud
 from resinkit_api.db.database import get_db
 from resinkit_api.db.models import TaskStatus
+from resinkit_api.core.logging import get_logger
+from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
+
+logger = get_logger(__name__)
 
 
 # Custom exceptions for API error handling
-class InvalidTaskError(Exception):
+class TaskError(Exception):
     pass
 
 
-class UnprocessableTaskError(Exception):
+class InvalidTaskError(TaskError):
     pass
 
 
-class TaskNotFoundError(Exception):
+class TaskNotFoundError(TaskError):
+    pass
+
+
+class UnprocessableTaskError(TaskError):
     pass
 
 
@@ -68,6 +76,9 @@ async def submit_task(payload: dict) -> dict:
             tags=tags
         )
 
+        # Attempt to start executing the task asynchronously
+        asyncio.create_task(execute_task(task_id))
+
         # Return the task information
         return {
             "task_id": db_task.task_id,
@@ -81,6 +92,7 @@ async def submit_task(payload: dict) -> dict:
         }
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to create task: {str(e)}")
         raise UnprocessableTaskError(f"Failed to create task: {str(e)}")
 
 
@@ -180,8 +192,21 @@ async def list_tasks(
 
 
 # 4. Cancel a Task
-async def cancel_task(task_id: str, payload: Optional[dict]) -> dict:
-    # Get database session
+async def cancel_task(task_id: str, force: bool = False) -> dict:
+    """
+    Cancel a running task.
+    
+    Args:
+        task_id: ID of the task to cancel
+        force: Whether to force cancel the task
+        
+    Returns:
+        A dict with cancellation result
+        
+    Raises:
+        TaskNotFoundError: If the task is not found
+        UnprocessableTaskError: If the task cannot be cancelled
+    """
     db = next(get_db())
     
     # Find the task in the database
@@ -189,78 +214,132 @@ async def cancel_task(task_id: str, payload: Optional[dict]) -> dict:
     
     if not db_task:
         raise TaskNotFoundError(f"Task with ID {task_id} not found")
+    
+    # Can only cancel tasks that are in an active state
+    if db_task.status not in [TaskStatus.PENDING, TaskStatus.SUBMITTED, TaskStatus.VALIDATING, 
+                             TaskStatus.PREPARING, TaskStatus.BUILDING, TaskStatus.RUNNING]:
+        return {
+            "task_id": task_id,
+            "success": False,
+            "message": f"Task already in terminal state: {db_task.status.value}"
+        }
+    
+    try:
+        # Update status to CANCELLING
+        tasks_crud.update_task_status(
+            db=db,
+            task_id=task_id,
+            new_status=TaskStatus.CANCELLING,
+            actor="user"
+        )
         
-    # Can only cancel tasks that are in certain states
-    cancellable_states = [
-        TaskStatus.PENDING,
-        TaskStatus.SUBMITTED, 
-        TaskStatus.VALIDATING,
-        TaskStatus.PREPARING,
-        TaskStatus.BUILDING,
-        TaskStatus.RUNNING
-    ]
+        # Get the job ID from execution details
+        job_id = None
+        execution_details = db_task.get_execution_details()
+        if execution_details and "job_id" in execution_details:
+            job_id = execution_details["job_id"]
+        
+        if job_id:
+            # Get the appropriate runner for this task type
+            runner = get_runner_for_task_type(db_task.task_type)
+            
+            # Cancel the job in the runner
+            await runner.cancel(job_id, force=force)
+            
+            # Update task status to CANCELLED
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.CANCELLED,
+                actor="user"
+            )
+            
+            return {
+                "task_id": task_id,
+                "success": True,
+                "message": "Task cancelled successfully"
+            }
+        else:
+            # If no job ID, just mark as cancelled
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.CANCELLED,
+                actor="user"
+            )
+            
+            return {
+                "task_id": task_id,
+                "success": True,
+                "message": "Task marked as cancelled"
+            }
     
-    if db_task.status not in cancellable_states:
-        raise TaskConflictError(f"Cannot cancel task in {db_task.status.value} state")
-    
-    # Update task status to CANCELLING
-    actor = payload.get("actor", "system") if payload else "system"
-    
-    db_task = tasks_crud.update_task_status(
-        db=db,
-        task_id=task_id,
-        new_status=TaskStatus.CANCELLING,
-        actor=actor,
-    )
-    
-    return {
-        "task_id": db_task.task_id,
-        "status": db_task.status.value,
-        "message": "Task cancellation initiated.",
-        "_links": {"task_status": {"href": f"/api/v1/agent/tasks/{task_id}"}},
-    }
+    except Exception as e:
+        logger.error(f"Failed to cancel task {task_id}: {str(e)}")
+        
+        # Update with error info
+        error_info = {
+            "error": f"Failed to cancel: {str(e)}",
+            "error_type": e.__class__.__name__,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        try:
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.FAILED,
+                actor="system",
+                error_info=error_info
+            )
+        except:
+            pass
+            
+        raise UnprocessableTaskError(f"Failed to cancel task: {str(e)}")
 
 
 # 5. Get Task Logs
-async def get_task_logs(
-    task_id: str,
-    log_type: Optional[str],
-    since_timestamp: Optional[str],
-    since_token: Optional[str],
-    limit_lines: Optional[int],
-    log_level_filter: Optional[str],
-) -> dict:
-    # Get database session
+async def get_task_logs(task_id: str, level: str = "INFO") -> str:
+    """
+    Get logs for a task.
+    
+    Args:
+        task_id: ID of the task
+        level: Log level to filter by
+        
+    Returns:
+        A string containing the logs
+        
+    Raises:
+        TaskNotFoundError: If the task is not found
+    """
     db = next(get_db())
     
-    # Verify task exists
+    # Find the task in the database
     db_task = tasks_crud.get_task(db=db, task_id=task_id)
     
     if not db_task:
         raise TaskNotFoundError(f"Task with ID {task_id} not found")
     
-    # TODO: Implement actual log retrieval logic
-    limit = limit_lines or 100
+    try:
+        # Get the job ID from execution details
+        job_id = None
+        execution_details = db_task.get_execution_details()
+        if execution_details and "job_id" in execution_details:
+            job_id = execution_details["job_id"]
+        
+        if job_id:
+            # Get the appropriate runner for this task type
+            runner = get_runner_for_task_type(db_task.task_type)
+            
+            # Get logs from the runner
+            return runner.get_log_summary(job_id, level=level)
+        else:
+            return "No logs available - task hasn't been submitted to a runner yet"
     
-    # Get task events that could serve as logs
-    events = tasks_crud.get_task_events(db=db, task_id=task_id, limit=limit)
-    
-    log_entries = []
-    for event in events:
-        log_entries.append({
-            "timestamp": event.timestamp.isoformat(),
-            "log_type": "EVENT",
-            "log_level": "INFO",
-            "message": f"Event: {event.event_type}",
-            "details": event.get_event_data(),
-        })
-    
-    return {
-        "task_id": task_id,
-        "log_entries": log_entries,
-        "next_log_token": None,
-        "previous_log_token": None,
-    }
+    except Exception as e:
+        logger.error(f"Failed to get logs for task {task_id}: {str(e)}")
+        return f"Error retrieving logs: {str(e)}"
 
 
 async def stream_task_logs(
@@ -298,3 +377,204 @@ async def get_task_results(task_id: str) -> dict:
         "data": db_task.result_summary or {},
         "summary": "Task result data",
     }
+
+
+# 7. Execute a task
+async def execute_task(task_id: str) -> None:
+    """
+    Execute a task using the appropriate runner.
+    This function should be called asynchronously.
+    
+    Args:
+        task_id: ID of the task to execute
+    """
+    db = next(get_db())
+    
+    try:
+        # Get the task from the database
+        db_task = tasks_crud.get_task(db=db, task_id=task_id)
+        if not db_task:
+            logger.error(f"Task not found: {task_id}")
+            return
+        
+        # Update task status to VALIDATING
+        db_task = tasks_crud.update_task_status(
+            db=db,
+            task_id=task_id,
+            new_status=TaskStatus.VALIDATING,
+            actor="system"
+        )
+        
+        # Get the appropriate runner for this task type
+        try:
+            runner = get_runner_for_task_type(db_task.task_type)
+        except ValueError as e:
+            # If no runner is registered for this task type, mark the task as failed
+            error_info = {
+                "error": str(e),
+                "error_type": "ValueError",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.FAILED,
+                actor="system",
+                error_info=error_info
+            )
+            logger.error(f"Failed to execute task {task_id}: {str(e)}")
+            return
+        
+        try:
+            # Validate the task configuration
+            runner.validate_config(db_task.submitted_configs)
+            
+            # Update task status to PREPARING
+            db_task = tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.PREPARING,
+                actor="system"
+            )
+            
+            # Submit the job to the runner
+            task_base = await runner.submit_job(db_task.submitted_configs)
+            
+            # Update task status to RUNNING and include execution details
+            execution_details = {
+                "job_id": task_base.job_id,
+                "log_file": task_base.log_file
+            }
+            
+            if hasattr(task_base, "execution_details"):
+                execution_details.update(task_base.execution_details)
+                
+            db_task = tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.RUNNING,
+                actor="system",
+                execution_details=execution_details
+            )
+            
+            # Start background monitoring of the task
+            asyncio.create_task(monitor_task(task_id, runner, task_base.job_id))
+            
+        except Exception as e:
+            # If validation or execution fails, mark the task as failed
+            error_info = {
+                "error": str(e),
+                "error_type": e.__class__.__name__,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.FAILED,
+                actor="system",
+                error_info=error_info
+            )
+            logger.error(f"Failed to execute task {task_id}: {str(e)}")
+    
+    except Exception as e:
+        logger.error(f"Error executing task {task_id}: {str(e)}")
+
+
+# 8. Monitor a running task
+async def monitor_task(task_id: str, runner: Any, job_id: str) -> None:
+    """
+    Monitor a running task and update its status in the database.
+    
+    Args:
+        task_id: ID of the task being monitored
+        runner: The task runner instance
+        job_id: ID of the job within the runner
+    """
+    db = next(get_db())
+    
+    try:
+        # Poll for status periodically
+        while True:
+            # Get the current status from the runner
+            status = runner.get_status(job_id)
+            
+            # Map status from runner to TaskStatus
+            # This mapping might need adjustment depending on the runner implementation
+            db_status = None
+            if status == "RUNNING":
+                db_status = TaskStatus.RUNNING
+            elif status == "COMPLETED":
+                db_status = TaskStatus.COMPLETED
+            elif status == "FAILED":
+                db_status = TaskStatus.FAILED
+            elif status == "CANCELLED":
+                db_status = TaskStatus.CANCELLED
+            elif status == "CANCELLING":
+                db_status = TaskStatus.CANCELLING
+            
+            # If we have a status to update, do it
+            if db_status:
+                # Get the result if the task has completed
+                result_summary = None
+                error_info = None
+                
+                if db_status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+                    result_data = runner.get_result(job_id)
+                    if result_data:
+                        if db_status == TaskStatus.COMPLETED:
+                            result_summary = {
+                                "success": True,
+                                "result": result_data
+                            }
+                        else:
+                            error_info = {
+                                "error": str(result_data),
+                                "timestamp": datetime.utcnow().isoformat()
+                            }
+                
+                # Get logs for the task
+                try:
+                    log_summary = runner.get_log_summary(job_id)
+                    execution_details = {
+                        "log_summary": log_summary
+                    }
+                except:
+                    execution_details = {}
+                
+                # Update task status in the database
+                tasks_crud.update_task_status(
+                    db=db,
+                    task_id=task_id,
+                    new_status=db_status,
+                    actor="system",
+                    result_summary=result_summary,
+                    error_info=error_info,
+                    execution_details=execution_details
+                )
+                
+                # If the task has reached a terminal state, stop monitoring
+                if db_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+                    break
+            
+            # Sleep before polling again
+            await asyncio.sleep(5)
+    
+    except Exception as e:
+        logger.error(f"Error monitoring task {task_id}: {str(e)}")
+        # Make sure the task is marked as failed
+        try:
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.FAILED,
+                actor="system",
+                error_info={
+                    "error": f"Monitoring error: {str(e)}",
+                    "error_type": e.__class__.__name__,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+        except Exception as inner_e:
+            logger.error(f"Failed to update task status: {str(inner_e)}")

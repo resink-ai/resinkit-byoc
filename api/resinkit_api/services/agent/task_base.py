@@ -21,7 +21,3 @@ class TaskBase:
         self.log_file: Optional[str] = None
         self.status: str = "PENDING"
         self.result: Optional[Any] = None
-
-    def validate(self) -> None:
-        raise NotImplementedError
-

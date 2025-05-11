@@ -17,7 +17,7 @@ async def submit_task(payload: dict = Body(...)):
     except agent_tasks_service.UnprocessableTaskError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # New endpoint for YAML task submission
 @router.post("/tasks/yaml", status_code=status.HTTP_202_ACCEPTED)
@@ -47,8 +47,8 @@ async def get_task_details(task_id: str = Path(...)):
         return await agent_tasks_service.get_task_details(task_id)
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # 3. List Tasks
 @router.get("/tasks")
@@ -69,45 +69,41 @@ async def list_tasks(
             task_type, status_, task_name_contains, tags_include_any,
             created_after, created_before, limit, page_token, sort_by, sort_order
         )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # 4. Cancel a Task
 @router.post("/tasks/{task_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
-async def cancel_task(task_id: str = Path(...), payload: dict = Body(None)):
+async def cancel_task(
+    task_id: str = Path(...),
+    force: bool = Query(False, description="Whether to forcefully cancel the task")
+):
     try:
-        return await agent_tasks_service.cancel_task(task_id, payload)
+        result = await agent_tasks_service.cancel_task(task_id, force=force)
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=result)
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
-    except agent_tasks_service.TaskConflictError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    except agent_tasks_service.UnprocessableTaskError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # 5. Get Task Logs
 @router.get("/tasks/{task_id}/logs")
 async def get_task_logs(
     task_id: str = Path(...),
-    log_type: Optional[str] = Query(None),
-    since_timestamp: Optional[str] = Query(None),
-    since_token: Optional[str] = Query(None),
-    limit_lines: Optional[int] = Query(1000, ge=1, le=10000),
-    stream: Optional[bool] = Query(False),
-    log_level_filter: Optional[str] = Query(None),
+    level: str = Query("INFO", description="Log level filter (INFO, WARN, ERROR, DEBUG)")
 ):
     try:
-        if stream:
-            return await agent_tasks_service.stream_task_logs(
-                task_id, log_type, since_timestamp, since_token, limit_lines, log_level_filter
-            )
-        else:
-            return await agent_tasks_service.get_task_logs(
-                task_id, log_type, since_timestamp, since_token, limit_lines, log_level_filter
-            )
+        logs = await agent_tasks_service.get_task_logs(task_id, level=level)
+        return StreamingResponse(
+            content=iter([logs.encode()]), 
+            media_type="text/plain"
+        )
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # 6. Get Task Results
 @router.get("/tasks/{task_id}/results")
@@ -116,7 +112,5 @@ async def get_task_results(task_id: str = Path(...)):
         return await agent_tasks_service.get_task_results(task_id)
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
-    except agent_tasks_service.TaskConflictError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal Server Error") 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}") 

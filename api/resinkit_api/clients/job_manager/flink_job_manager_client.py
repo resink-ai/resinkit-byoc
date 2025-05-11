@@ -5,7 +5,7 @@ class FlinkJobManager:
     def __init__(self, host: str = "127.0.0.1", port: int = 8081):
         self.host = host
         self.port = port
-        self.client = Client(host=host, port=port)
+        self.client = Client(base_url=f"http://{host}:{port}")
 
     
     def _get_dashboard_configuration(self) -> 'DashboardConfiguration':
