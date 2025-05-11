@@ -10,7 +10,10 @@ from resinkit_api.api.common import router as common_router
 from resinkit_api.api.flink import router as flink_router
 from resinkit_api.api.agent import router as agent_router
 from resinkit_api.api.pat import router as authorization_router
+from resinkit_api.api.endpoints.tasks import router as tasks_router
 from resinkit_api.core.logging import get_logger
+from resinkit_api.db.models import Base
+from resinkit_api.db.database import engine
 
 logger = get_logger(__name__)
 
@@ -18,6 +21,8 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting lifespan")
+    # Create database tables (if not using Alembic migrations for development)
+    # Base.metadata.create_all(bind=engine)
     yield
     logger.info("Ending lifespan")
 
@@ -83,6 +88,13 @@ app.include_router(
     agent_router,
     prefix="/api/v1/agent",
     tags=["agent"],
+)
+
+# Include the tasks router
+app.include_router(
+    tasks_router,
+    prefix="/api/v1",
+    tags=["tasks"],
 )
 
 

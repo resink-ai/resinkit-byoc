@@ -10,28 +10,25 @@ authors = [{ name = "resink.ai", email = "support@resink.ai" }]
 requires-python = "~=3.10"
 readme = "README.md"
 dependencies = [
-    "fastapi>=0.115,<0.116",
-    "fastapi[standard]",
-    "uvicorn>=0.34,<0.35",
-    "pydantic~=2.11",
-    "pydantic-settings~=2.9",
-    "python-dotenv~=1.1",
-    "httpx>=0.28,<0.29",
-    "python-multipart>=0,<1",
-    "structlog>=25,<26",
-    "flink-sql-gateway-api==1.19.0",
-    "flink-job-manager-api>=1.0.2,<2",
-    "pandas>=2.1.0,<3",
-    "requests>=2.31.0,<3",
+  "fastapi>=0.115,<0.116",
+  "fastapi[standard]",
+  "uvicorn>=0.34,<0.35",
+  "pydantic~=2.11",
+  "pydantic-settings~=2.9",
+  "python-dotenv~=1.1",
+  "httpx>=0.28,<0.29",
+  "python-multipart>=0,<1",
+  "structlog>=25,<26",
+  "flink-sql-gateway-api==1.19.0",
+  "flink-job-manager-api>=1.0.2,<2",
+  "pandas>=2.1.0,<3",
+  "requests>=2.31.0,<3",
+  "sqlalchemy>=2.0.4,<3",
+  "alembic>=1.15.2,<2",
 ]
 
 [dependency-groups]
-dev = [
-    "pytest>=8,<9",
-    "black>=24,<25",
-    "isort>=5,<6",
-    "flake8>=3,<4",
-]
+dev = ["pytest>=8,<9", "black>=24,<25", "isort>=5,<6", "flake8>=3,<4"]
 
 [tool.hatch.build.targets.sdist]
 include = ["resinkit_api"]
