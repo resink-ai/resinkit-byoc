@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from resinkit_api.db import crud
+from resinkit_api.db import tasks_crud
 from resinkit_api.db.database import get_db
 from resinkit_api.db.models import TaskStatus
 
@@ -92,7 +92,7 @@ def create_task(
     created_by: str = Query("system", description="User ID or system identifier that created the task")
 ):
     """Create a new task."""
-    return crud.create_task(
+    return tasks_crud.create_task(
         db=db,
         task_type=task.task_type,
         task_name=task.task_name,
@@ -119,7 +119,7 @@ def read_tasks(
     # Convert string enum to actual enum if provided
     task_status = TaskStatus[status.name] if status else None
     
-    tasks = crud.get_tasks(
+    tasks = tasks_crud.get_tasks(
         db=db,
         skip=skip,
         limit=limit,
@@ -137,7 +137,7 @@ def read_task(
     db: Session = Depends(get_db)
 ):
     """Get a specific task by ID."""
-    db_task = crud.get_task(db=db, task_id=task_id)
+    db_task = tasks_crud.get_task(db=db, task_id=task_id)
     if db_task is None:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     return db_task
@@ -154,7 +154,7 @@ def update_task_status(
     # Convert string enum to actual enum
     new_status = TaskStatus[update.status.name]
     
-    db_task = crud.update_task_status(
+    db_task = tasks_crud.update_task_status(
         db=db,
         task_id=task_id,
         new_status=new_status,
@@ -176,7 +176,7 @@ def delete_task(
     db: Session = Depends(get_db)
 ):
     """Soft delete a task by setting active=False."""
-    success = crud.delete_task(db=db, task_id=task_id)
+    success = tasks_crud.delete_task(db=db, task_id=task_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     return True
@@ -191,9 +191,9 @@ def read_task_events(
 ):
     """Get events for a specific task."""
     # First check if the task exists
-    db_task = crud.get_task(db=db, task_id=task_id)
+    db_task = tasks_crud.get_task(db=db, task_id=task_id)
     if db_task is None:
         raise HTTPException(status_code=404, detail=f"Task with ID {task_id} not found")
     
-    events = crud.get_task_events(db=db, task_id=task_id, skip=skip, limit=limit)
+    events = tasks_crud.get_task_events(db=db, task_id=task_id, skip=skip, limit=limit)
     return events 

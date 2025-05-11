@@ -20,13 +20,17 @@ def get_tasks(
     status: Optional[TaskStatus] = None,
     task_type: Optional[str] = None,
     created_by: Optional[str] = None,
-    active_only: bool = True
+    active_only: bool = True,
+    task_name_contains: Optional[str] = None,
+    tags_include_any: Optional[List[str]] = None,
+    created_after: Optional[datetime] = None,
+    created_before: Optional[datetime] = None
 ) -> List[Task]:
     """Get a list of tasks with optional filtering."""
     query = db.query(Task)
     
     if active_only:
-        query = query.filter(Task.active == True)
+        query = query.filter(Task.active is True)
     
     if status:
         query = query.filter(Task.status == status)
@@ -36,6 +40,22 @@ def get_tasks(
     
     if created_by:
         query = query.filter(Task.created_by == created_by)
+        
+    if task_name_contains:
+        query = query.filter(Task.task_name.ilike(f"%{task_name_contains}%"))
+    
+    if created_after:
+        query = query.filter(Task.created_at >= created_after)
+        
+    if created_before:
+        query = query.filter(Task.created_at <= created_before)
+        
+    if tags_include_any and len(tags_include_any) > 0:
+        # Note: This is a simplistic approach and may not work efficiently
+        # with JSON stored as string. In a production system, this should
+        # use proper JSON querying capabilities of the database.
+        for tag in tags_include_any:
+            query = query.filter(Task.tags.like(f"%{tag}%"))
     
     return query.order_by(Task.created_at.desc()).offset(skip).limit(limit).all()
 

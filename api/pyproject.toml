@@ -25,6 +25,7 @@ dependencies = [
   "requests>=2.31.0,<3",
   "sqlalchemy>=2.0.4,<3",
   "alembic>=1.15.2,<2",
+  "shortuuid>=1.0.13,<2",
 ]
 
 [dependency-groups]
@@ -67,3 +68,6 @@ line_length = 120
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 160
