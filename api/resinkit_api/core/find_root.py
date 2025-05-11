@@ -41,24 +41,27 @@ def find_project_root() -> Path:
     
     if _project_root_cache is not None:
         return _project_root_cache
-
+    
+    # 1. Use PROJECT_ROOT if set
     project_root = os.getenv("PROJECT_ROOT")
     if project_root:
         _project_root_cache = Path(project_root)
         return _project_root_cache
-    
-    # Otherwise, use git root
+
+    # 2. Use .env.common path
+    dotenv_path = find_dotenv_path()
+    if dotenv_path:
+        _project_root_cache = dotenv_path.parent
+        return _project_root_cache
+
+    # 3. Use git root
     git_root = find_git_root()
     if git_root:
         _project_root_cache = git_root
         return _project_root_cache
-    else:
-        dotenv_path = find_dotenv_path()
-        if not dotenv_path:
-            raise Exception("No .env.common file found")
-        # Missing implementation for dotenv path case
-        _project_root_cache = dotenv_path.parent.parent
-        return _project_root_cache
+
+
+    raise Exception("No .env.common file found")
 
 
 if __name__ == "__main__":

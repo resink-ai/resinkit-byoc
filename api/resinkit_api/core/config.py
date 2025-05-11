@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from pydantic import (
     BaseModel,
@@ -44,7 +43,7 @@ class Settings(BaseSettings):
 
     ##### Flink #####
     FLINK_HOME: str = "/usr/local/flink"
-    
+
     X_RESINKIT_PAT: str | None = None
 
     @computed_field
@@ -53,10 +52,10 @@ class Settings(BaseSettings):
         return f"{self.FLINK_HOME}/lib"
 
     FLINK_SQL_GATEWAY_URL: str = "http://localhost:8083"
-    
+
     ##### Database #####
     DB_PATH: str = "_data_/sqlite.db"
-    
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:

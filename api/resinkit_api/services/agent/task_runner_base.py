@@ -1,14 +1,10 @@
 import asyncio
 from typing import Any, Optional
 
-class PipelineTaskBase:
-    def __init__(self, task_config: dict):
-        self.task_config = task_config
-        self.job_id: Optional[str] = None
-        self.process: Optional[asyncio.subprocess.Process] = None
-        self.log_file: Optional[str] = None
-        self.status: str = "PENDING"
-        self.result: Optional[Any] = None
+
+class TaskRunnerBase:
+    def __init__(self, engine_config: dict | None = None):
+        self.engine_config = engine_config or {}
 
     @classmethod
     def validate_config(cls, task_config: dict) -> None:

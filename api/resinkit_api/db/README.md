@@ -55,34 +55,35 @@ To work with database migrations:
 
 1. **Initialize Alembic** (already done):
 
-   ```
-   cd resinkit_api/db
-   alembic init alembic
-   ```
+```shell
+cd resinkit_api/db
+alembic init alembic
+```
 
 2. **Generate a migration**:
 
-   ```
-   cd resinkit_api/db
-   alembic revision --autogenerate -m "create_initial_tables"
-   ```
+```shell
+cd resinkit_api/db
+alembic revision --autogenerate -m "create_initial_tables"
+```
 
-   This will create a new migration script in the `alembic/versions` directory.
+This will create a new migration script in the `alembic/versions` directory.
 
 3. **Apply migrations**:
 
-   ```
-   cd resinkit_api/db
-   alembic upgrade head
-   ```
+```shell
+cd resinkit_api/db
+alembic upgrade head
+```
 
-   This will apply all pending migrations to the database.
+This will apply all pending migrations to the database.
 
 4. **Rollback migrations** (if needed):
-   ```
-   cd resinkit_api/db
-   alembic downgrade -1  # Rollback one revision
-   ```
+
+```shell
+cd resinkit_api/db
+alembic downgrade -1  # Rollback one revision
+```
 
 ### Best Practices
 
