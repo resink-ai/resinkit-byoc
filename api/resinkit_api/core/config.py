@@ -7,6 +7,8 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from resinkit_api.core.find_root import find_project_root
+
 
 _CURRENT_ENV = os.getenv("ENV", "dev")
 
@@ -53,14 +55,14 @@ class Settings(BaseSettings):
     FLINK_SQL_GATEWAY_URL: str = "http://localhost:8083"
     
     ##### Database #####
-    DB_PATH: str = "sqlite.db"
+    DB_PATH: str = "_data_/sqlite.db"
     
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
         # Get the absolute path for the database
-        base_dir = Path(__file__).resolve().parent.parent.parent
-        db_path = base_dir / self.DB_PATH
+        project_root = find_project_root()
+        db_path = project_root / self.DB_PATH
         return f"sqlite:///{db_path}"
 
 
