@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    TypeDecorator,
     func,
     text,
 )
@@ -36,8 +37,10 @@ class TaskStatus(enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class JSONString(String):
+class JSONString(TypeDecorator):
     """Custom type for JSON stored as string in SQLite"""
+    impl = String
+    cache_ok = True
 
     def process_bind_param(self, value, dialect):
         if value is None:

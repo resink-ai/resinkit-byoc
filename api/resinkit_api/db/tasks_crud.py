@@ -30,7 +30,7 @@ def get_tasks(
     query = db.query(Task)
     
     if active_only:
-        query = query.filter(Task.active is True)
+        query = query.filter(Task.active == True)
     
     if status:
         query = query.filter(Task.status == status)

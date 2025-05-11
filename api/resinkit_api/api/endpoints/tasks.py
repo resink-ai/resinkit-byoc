@@ -47,8 +47,9 @@ class TaskEvent(BaseModel):
     actor: Optional[str] = None
     event_data: Optional[Dict[str, Any]] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class Task(BaseModel):
@@ -73,8 +74,9 @@ class Task(BaseModel):
     active: bool
     events: Optional[List[TaskEvent]] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class TaskStatusUpdate(BaseModel):
