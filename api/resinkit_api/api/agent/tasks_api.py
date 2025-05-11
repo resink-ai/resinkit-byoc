@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, status, Body, Query, Path, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Optional, List
+import yaml
 from resinkit_api.services.agent import tasks as agent_tasks_service
 
 router = APIRouter()
@@ -17,6 +18,27 @@ async def submit_task(payload: dict = Body(...)):
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# New endpoint for YAML task submission
+@router.post("/tasks/yaml", status_code=status.HTTP_202_ACCEPTED)
+async def submit_task_yaml(yaml_payload: str = Body(..., media_type="text/plain")):
+    try:
+        # Convert YAML to dictionary
+        payload = yaml.safe_load(yaml_payload)
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="Invalid YAML: must represent a dictionary")
+        
+        # Process the payload same as the regular submit_task endpoint
+        result = await agent_tasks_service.submit_task(payload)
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=result)
+    except yaml.YAMLError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML format: {str(e)}")
+    except agent_tasks_service.InvalidTaskError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except agent_tasks_service.UnprocessableTaskError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # 2. Get Task Details
 @router.get("/tasks/{task_id}")

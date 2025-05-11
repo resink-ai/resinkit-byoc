@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing_extensions import Annotated
 
@@ -10,10 +10,9 @@ from resinkit_api.api.common import router as common_router
 from resinkit_api.api.flink import router as flink_router
 from resinkit_api.api.agent import router as agent_router
 from resinkit_api.api.pat import router as authorization_router
-from resinkit_api.api.endpoints.tasks import router as tasks_router
+from resinkit_api.api.agent.tasks_api import router as tasks_router
+
 from resinkit_api.core.logging import get_logger
-from resinkit_api.db.models import Base
-from resinkit_api.db.database import engine
 
 logger = get_logger(__name__)
 
@@ -51,9 +50,7 @@ app.add_middleware(
 
 async def verify_token(x_resinkit_api_token: Annotated[str, Header()]):
     if not x_resinkit_api_token:
-        raise HTTPException(
-            status_code=401, detail="X-ResinKit-Api-Token header invalid"
-        )
+        raise HTTPException(status_code=401, detail="X-ResinKit-Api-Token header invalid")
 
 
 # Include the Flink router with the prefix and dependencies

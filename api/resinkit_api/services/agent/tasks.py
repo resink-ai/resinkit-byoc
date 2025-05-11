@@ -49,7 +49,7 @@ async def submit_task(payload: dict) -> dict:
     submitted_configs = {k: v for k, v in payload.items() if k not in known_fields}
 
     # Generate a unique task ID
-    task_id = f"{task_type}-{ShortUUID().random(length=9)}"
+    task_id = f"{task_type}_{ShortUUID().random(length=9)}"
 
     # Get database session
     db = next(get_db())
