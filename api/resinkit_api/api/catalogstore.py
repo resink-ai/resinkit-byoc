@@ -4,7 +4,7 @@ from resinkit_api.api.models.catalogstore import (
     CatalogStoreDefinition,
     CatalogStoresResponse,
 )
-from resinkit_api.services.svc_manager import service_manager
+from resinkit_api.services import get_service_manager
 from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +29,7 @@ async def list_catalog_stores():
     """
     logger.info("Retrieving all catalog stores")
     try:
-        catalog_stores = await service_manager.catalogstore.list()
+        catalog_stores = await get_service_manager().catalogstore.list()
         logger.debug(f"Found {len(catalog_stores)} catalog stores")
         return CatalogStoresResponse(catalogStores=catalog_stores)
     except Exception as e:
@@ -65,7 +65,7 @@ async def get_catalog_store(
     """
     logger.info(f"Retrieving catalog store: {catalogstore_name}")
     try:
-        store = await service_manager.catalogstore.get(catalogstore_name)
+        store = await get_service_manager().catalogstore.get(catalogstore_name)
         logger.debug(f"Successfully retrieved catalog store: {catalogstore_name}")
         return store
     except HTTPException as he:
@@ -103,7 +103,7 @@ async def create_catalog_store(
     """
     logger.info(f"Creating new catalog store: {catalog_store.name}")
     try:
-        created_store = await service_manager.catalogstore.create(catalog_store)
+        created_store = await get_service_manager().catalogstore.create(catalog_store)
         logger.info(f"Successfully created catalog store: {created_store.name}")
         logger.debug(f"Catalog store details: {created_store}")
 
@@ -148,7 +148,7 @@ async def delete_catalog_store(
     """
     logger.info(f"Deleting catalog store: {catalogstore_name}")
     try:
-        await service_manager.catalogstore.delete(catalogstore_name)
+        await get_service_manager().catalogstore.delete(catalogstore_name)
         logger.info(f"Successfully deleted catalog store: {catalogstore_name}")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except HTTPException as he:

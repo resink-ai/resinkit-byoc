@@ -6,7 +6,7 @@ from typing_extensions import Annotated
 
 from resinkit_api.api.catalogstore import router as catalogstore_router
 from resinkit_api.api.catalog import router as catalog_router
-from resinkit_api.api.common import router as common_router
+from resinkit_api.api.health import router as health_router
 from resinkit_api.api.flink import router as flink_router
 from resinkit_api.api.agent import router as agent_router
 from resinkit_api.api.pat import router as authorization_router
@@ -74,8 +74,8 @@ app.include_router(
     tags=["catalog"],
 )
 
-# Include the common router
-app.include_router(common_router, tags=["common"])
+# Include the health router
+app.include_router(health_router, tags=["health"])
 
 # Include the authorization router
 app.include_router(authorization_router, prefix="/api/v1/pat", tags=["common"])

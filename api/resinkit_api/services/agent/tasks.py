@@ -1,6 +1,6 @@
 from typing import Any, Optional
 from shortuuid import ShortUUID
-from datetime import datetime
+from datetime import datetime, UTC
 import asyncio
 
 from resinkit_api.db import tasks_crud
@@ -8,6 +8,7 @@ from resinkit_api.db.database import get_db
 from resinkit_api.db.models import TaskStatus
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
+from resinkit_api.services.agent import get_job_manager, get_sql_gateway
 
 logger = get_logger(__name__)
 
@@ -52,10 +53,6 @@ async def submit_task(payload: dict) -> dict:
     notification_config = payload.get("notification_config")
     tags = payload.get("tags")
 
-    # Remove known fields from payload to isolate the submitted_configs
-    known_fields = {"task_type", "name", "description", "priority", "created_by", "notification_config", "tags"}
-    submitted_configs = {k: v for k, v in payload.items() if k not in known_fields}
-
     # Generate a unique task ID
     task_id = f"{task_type}_{ShortUUID().random(length=9)}"
 
@@ -70,7 +67,7 @@ async def submit_task(payload: dict) -> dict:
             task_name=name,
             description=description,
             priority=priority,
-            submitted_configs=submitted_configs,
+            submitted_configs=payload,
             created_by=created_by,
             notification_config=notification_config,
             tags=tags
@@ -202,11 +199,8 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
         
     Returns:
         A dict with cancellation result
-        
-    Raises:
-        TaskNotFoundError: If the task is not found
-        UnprocessableTaskError: If the task cannot be cancelled
     """
+    # Get database session
     db = next(get_db())
     
     # Find the task in the database
@@ -215,14 +209,9 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
     if not db_task:
         raise TaskNotFoundError(f"Task with ID {task_id} not found")
     
-    # Can only cancel tasks that are in an active state
-    if db_task.status not in [TaskStatus.PENDING, TaskStatus.SUBMITTED, TaskStatus.VALIDATING, 
-                             TaskStatus.PREPARING, TaskStatus.BUILDING, TaskStatus.RUNNING]:
-        return {
-            "task_id": task_id,
-            "success": False,
-            "message": f"Task already in terminal state: {db_task.status.value}"
-        }
+    # Verify that the task is in a cancellable state
+    if db_task.status not in [TaskStatus.PENDING, TaskStatus.VALIDATING, TaskStatus.PREPARING, TaskStatus.RUNNING]:
+        raise TaskConflictError(f"Task is not in a cancellable state. Current status: {db_task.status.value}")
     
     try:
         # Update status to CANCELLING
@@ -240,8 +229,23 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
             job_id = execution_details["job_id"]
         
         if job_id:
+            # Use runtime environment with the singleton clients
+            runtime_env = {}
+            
+            # Only add clients for the task types that need them
+            if db_task.task_type == "flink_cdc_pipeline":
+                # Get singleton instances of clients from our module
+                job_manager_client = get_job_manager()
+                sql_gateway_client = get_sql_gateway()
+                
+                # Set up runtime environment with client connection details
+                runtime_env = {
+                    "job_manager": job_manager_client,
+                    "sql_gateway_client": sql_gateway_client
+                }
+            
             # Get the appropriate runner for this task type
-            runner = get_runner_for_task_type(db_task.task_type)
+            runner = get_runner_for_task_type(db_task.task_type, runtime_env)
             
             # Cancel the job in the runner
             await runner.cancel(job_id, force=force)
@@ -281,7 +285,7 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
         error_info = {
             "error": f"Failed to cancel: {str(e)}",
             "error_type": e.__class__.__name__,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
         
         try:
@@ -407,13 +411,28 @@ async def execute_task(task_id: str) -> None:
         
         # Get the appropriate runner for this task type
         try:
-            runner = get_runner_for_task_type(db_task.task_type)
+            # Use runtime environment with the singleton clients
+            runtime_env = {}
+            
+            # Only add clients for the task types that need them
+            if db_task.task_type == "flink_cdc_pipeline":
+                # Get singleton instances of clients from our module
+                job_manager_client = get_job_manager()
+                sql_gateway_client = get_sql_gateway()
+                
+                # Set up runtime environment with client connection details
+                runtime_env = {
+                    "job_manager": job_manager_client,
+                    "sql_gateway_client": sql_gateway_client
+                }
+            
+            runner = get_runner_for_task_type(db_task.task_type, runtime_env)
         except ValueError as e:
             # If no runner is registered for this task type, mark the task as failed
             error_info = {
                 "error": str(e),
                 "error_type": "ValueError",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
             
             tasks_crud.update_task_status(
@@ -466,7 +485,7 @@ async def execute_task(task_id: str) -> None:
             error_info = {
                 "error": str(e),
                 "error_type": e.__class__.__name__,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
             
             tasks_crud.update_task_status(
@@ -531,7 +550,7 @@ async def monitor_task(task_id: str, runner: Any, job_id: str) -> None:
                         else:
                             error_info = {
                                 "error": str(result_data),
-                                "timestamp": datetime.utcnow().isoformat()
+                                "timestamp": datetime.now(UTC).isoformat()
                             }
                 
                 # Get logs for the task
@@ -573,7 +592,7 @@ async def monitor_task(task_id: str, runner: Any, job_id: str) -> None:
                 error_info={
                     "error": f"Monitoring error: {str(e)}",
                     "error_type": e.__class__.__name__,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(UTC).isoformat()
                 }
             )
         except Exception as inner_e:

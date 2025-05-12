@@ -7,7 +7,7 @@ from resinkit_api.api.models.catalog import (
     CatalogRequest,
 )
 from resinkit_api.core.logging import get_logger
-from resinkit_api.services.svc_manager import service_manager
+from resinkit_api.services import get_service_manager
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -27,7 +27,7 @@ async def list_catalogs(
     Retrieves a list of all catalogs configured within the specified catalog store.
     """
     try:
-        return await service_manager.catalog.list(catalogstore_name)
+        return await get_service_manager().catalog.list(catalogstore_name)
     except HTTPException:
         raise
     except Exception as e:
@@ -57,7 +57,7 @@ async def get_catalog(
     Retrieves the configuration details of a specific catalog.
     """
     try:
-        return await service_manager.catalog.get(catalogstore_name, catalog_name)
+        return await get_service_manager().catalog.get(catalogstore_name, catalog_name)
     except HTTPException:
         raise
     except Exception as e:
@@ -92,7 +92,7 @@ async def create_catalog(
     Creates a new catalog (either JDBC or Hive) within the specified catalog store.
     """
     try:
-        return await service_manager.catalog.create(catalogstore_name, catalog)
+        return await get_service_manager().catalog.create(catalogstore_name, catalog)
     except HTTPException:
         raise
     except ValueError as ve:
@@ -139,7 +139,7 @@ async def update_catalog(
     of the configuration for the given catalog name. The type of the catalog cannot be changed via PUT.
     """
     try:
-        return await service_manager.catalog.update(
+        return await get_service_manager().catalog.update(
             catalogstore_name, catalog_name, catalog
         )
     except HTTPException:
@@ -174,7 +174,7 @@ async def delete_catalog(
     Deletes a specific catalog from the catalog store.
     """
     try:
-        await service_manager.catalog.delete(catalogstore_name, catalog_name)
+        await get_service_manager().catalog.delete(catalogstore_name, catalog_name)
         # No content is returned for successful deletion
         return None
     except HTTPException:

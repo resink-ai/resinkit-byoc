@@ -3,7 +3,8 @@ from resinkit_api.services.svc_catalogstores import CatalogStoreService
 from resinkit_api.core.logging import get_logger
 from resinkit_api.core.config import settings
 from flink_gateway_api import Client as FlinkGatewayClient
-
+from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
+from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 logger = get_logger(__name__)
 
 
@@ -35,6 +36,9 @@ class SvcManager:
             self._sql_gateway_client,
             self._svc_catalog_store
         )
+        
+        self._job_manager_client: "FlinkJobManager" = FlinkJobManager()
+        self._sql_gateway_client: "FlinkSqlGatewayClient" = FlinkSqlGatewayClient()
 
     @property
     def catalogstore(self) -> "CatalogStoreService":
@@ -44,4 +48,11 @@ class SvcManager:
     def catalog(self) -> "CatalogService":
         return self._svc_catalog
 
-service_manager = SvcManager()
+    @property
+    def job_manager(self) -> "FlinkJobManager":
+        return self._job_manager_client
+
+    @property
+    def sql_gateway(self) -> "FlinkSqlGatewayClient":
+        return self._sql_gateway_client
+

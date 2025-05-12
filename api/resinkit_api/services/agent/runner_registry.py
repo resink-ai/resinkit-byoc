@@ -5,27 +5,22 @@ This module provides a registry for mapping task types to their respective runne
 It allows the system to dynamically select the appropriate runner for a given task type.
 """
 
-from typing import Dict, Type
+from typing import Dict
 
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
-from resinkit_api.services.agent.flink.flink_cdc_pipeline_runner import FlinkCdcPipelineRunner
 
 logger = get_logger(__name__)
 
 # A registry mapping task types to their respective runner classes
-TASK_RUNNER_REGISTRY: Dict[str, Type[TaskRunnerBase]] = {
-    "flink_cdc_pipeline": FlinkCdcPipelineRunner,
-}
+TASK_RUNNER_REGISTRY: Dict[str, TaskRunnerBase] = {}
 
-def get_runner_for_task_type(task_type: str, runtime_env: dict = None) -> TaskRunnerBase:
+def get_runner_for_task_type(task_type: str) -> TaskRunnerBase:
     """
     Get an instance of the appropriate task runner for a given task type.
     
     Args:
         task_type: The type of task to get a runner for
-        runtime_env: Optional runtime environment configuration
-        
     Returns:
         An instance of a TaskRunnerBase subclass
         
@@ -36,24 +31,21 @@ def get_runner_for_task_type(task_type: str, runtime_env: dict = None) -> TaskRu
         logger.error(f"No runner registered for task type: {task_type}")
         raise ValueError(f"No runner registered for task type: {task_type}")
     
-    runner_class = TASK_RUNNER_REGISTRY[task_type]
-    logger.debug(f"Using {runner_class.__name__} for task type: {task_type}")
-    
-    return runner_class(runtime_env or {})
+    return TASK_RUNNER_REGISTRY[task_type]
 
-def register_runner(task_type: str, runner_class: Type[TaskRunnerBase]) -> None:
+def register_runner(task_type: str, runner: TaskRunnerBase) -> None:
     """
     Register a new task runner for a given task type.
     
     Args:
         task_type: The type of task this runner handles
-        runner_class: The class of the runner (must be a TaskRunnerBase subclass)
+        runner: The runner instance to register
         
     Raises:
         TypeError: If runner_class is not a subclass of TaskRunnerBase
     """
-    if not issubclass(runner_class, TaskRunnerBase):
-        raise TypeError(f"Runner class must be a subclass of TaskRunnerBase, got {runner_class}")
+    if not isinstance(runner, TaskRunnerBase):
+        raise TypeError(f"Runner must be a subclass of TaskRunnerBase, got {runner}")
     
-    TASK_RUNNER_REGISTRY[task_type] = runner_class
-    logger.info(f"Registered {runner_class.__name__} for task type: {task_type}") 
+    TASK_RUNNER_REGISTRY[task_type] = runner
+    logger.info(f"Registered {runner.__class__.__name__} for task type: {task_type}") 

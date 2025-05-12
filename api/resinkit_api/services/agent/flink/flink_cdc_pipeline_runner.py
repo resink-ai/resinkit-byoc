@@ -7,6 +7,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
+from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.common.flink_models import FlinkCdcConfig
@@ -18,19 +19,62 @@ logger = get_logger(__name__)
 
 
 class FlinkCdcPipelineRunner(TaskRunnerBase):
-    def __init__(self, runtime_env: dict):
-        super().__init__(runtime_env)
+    def __init__(self, 
+                 job_manager: Optional[FlinkJobManager] = None, 
+                 sql_gateway: Optional[FlinkSqlGatewayClient] = None, 
+                 runtime_env: dict = None):
+        """
+        Initialize the Flink CDC Pipeline Runner.
+        
+        Args:
+            job_manager: Optional FlinkJobManager instance
+            sql_gateway: Optional FlinkSqlGatewayClient instance
+            runtime_env: Optional runtime environment configuration
+        """
+        super().__init__(runtime_env or {})
         self.flink_home = settings.FLINK_HOME
         self.tasks: Dict[str, RunFlinkCdcPipelineTask] = {}
         self.job_id_to_task_id: Dict[str, str] = {}
-        try:
-            self.job_manager = FlinkJobManager(
-                host=self.runtime_env.get("flink_job_manager_host", "localhost"),
-                port=self.runtime_env.get("flink_job_manager_port", 8081)
-            )
-        except Exception as e:
-            logger.warning(f"Failed to initialize Flink Job Manager: {str(e)}")
-            self.job_manager = None
+        
+        # Initialize job_manager - priority:
+        # 1. Constructor parameter
+        # 2. From runtime_env as object
+        # 3. From agent module (if available)
+        # 4. Create new one (using settings or runtime_env)
+        if job_manager is not None:
+            self.job_manager = job_manager
+        elif runtime_env and "job_manager" in runtime_env:
+            self.job_manager = runtime_env["job_manager"]
+        else:
+            try:
+                # Try to import from agent module which should initialize singletons
+                from resinkit_api.services.agent import get_job_manager
+                self.job_manager = get_job_manager()
+            except (ImportError, AttributeError):
+                try:
+                    # Fallback to direct initialization with settings
+                    self.job_manager = FlinkJobManager()
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Flink Job Manager: {str(e)}")
+                    self.job_manager = None
+        
+        # Initialize sql_gateway - similar priority as job_manager
+        if sql_gateway is not None:
+            self.sql_gateway_client = sql_gateway
+        elif runtime_env and "sql_gateway_client" in runtime_env:
+            self.sql_gateway_client = runtime_env["sql_gateway_client"]
+        else:
+            try:
+                # Try to import from agent module
+                from resinkit_api.services.agent import get_sql_gateway
+                self.sql_gateway_client = get_sql_gateway()
+            except (ImportError, AttributeError):
+                try:
+                    # Fallback to direct initialization with settings
+                    self.sql_gateway_client = FlinkSqlGatewayClient()
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Flink SQL Gateway client: {str(e)}")
+                    self.sql_gateway_client = None
 
     @classmethod
     def validate_config(cls, task_config: dict) -> None:

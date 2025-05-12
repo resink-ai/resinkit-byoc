@@ -43,15 +43,17 @@ class Settings(BaseSettings):
 
     ##### Flink #####
     FLINK_HOME: str = "/usr/local/flink"
+    FLINK_CDC_HOME: str = "/usr/local/flink-cdc"
+    FLINK_JOB_MANAGER_URL: str = "http://localhost:8081"
+    FLINK_SQL_GATEWAY_URL: str = "http://localhost:8083"
 
+    ##### Resinkit #####
     X_RESINKIT_PAT: str | None = None
 
     @computed_field
     @property
     def FLINK_LIB_DIR(self) -> str:
         return f"{self.FLINK_HOME}/lib"
-
-    FLINK_SQL_GATEWAY_URL: str = "http://localhost:8083"
 
     ##### Database #####
     DB_PATH: str = "_data_/sqlite.db"

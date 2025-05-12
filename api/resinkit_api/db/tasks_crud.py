@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 from typing import Dict, List, Optional, Any
 
@@ -122,14 +122,14 @@ def update_task_status(
     
     previous_status = db_task.status
     db_task.status = new_status
-    db_task.updated_at = datetime.utcnow()
+    db_task.updated_at = datetime.now(UTC)
     
     # Set timestamps based on status
     if new_status == TaskStatus.RUNNING and not db_task.started_at:
-        db_task.started_at = datetime.utcnow()
+        db_task.started_at = datetime.now(UTC)
     
     if new_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
-        db_task.finished_at = datetime.utcnow()
+        db_task.finished_at = datetime.now(UTC)
     
     # Update task details if provided
     if error_info is not None:
@@ -174,7 +174,7 @@ def delete_task(db: Session, task_id: str) -> bool:
         return False
     
     db_task.active = False
-    db_task.updated_at = datetime.utcnow()
+    db_task.updated_at = datetime.now(UTC)
     db.commit()
     return True
 
