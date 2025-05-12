@@ -1,9 +1,7 @@
 # Flink CDC Pipeline Runner
 import asyncio
-import json
 import os
 import tempfile
-import uuid
 import yaml
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +9,7 @@ from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobMa
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
+from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
 from resinkit_api.services.agent.flink.run_flink_cdc_pipeline_task import RunFlinkCdcPipelineTask
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
@@ -37,6 +36,8 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         self.job_id_to_task_id: Dict[str, str] = {}
         self.job_manager = job_manager  
         self.sql_gateway_client = sql_gateway_client
+        self.resource_manager = FlinkResourceManager()
+        self._temp_dirs = []  # Track temporary directories for cleanup
         
 
     @classmethod
@@ -172,6 +173,43 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             task.result = {"error": f"Cancel failed: {str(e)}"}
             raise
 
+    async def shutdown(self):
+        """Shutdown the runner, cancel all tasks and clean up resources."""
+        logger.info("Shutting down Flink CDC Pipeline Runner")
+        
+        # Cancel all running tasks
+        running_tasks = [task_id for task_id, task in self.tasks.items() 
+                         if task.status in ["RUNNING", "PENDING"]]
+        
+        for task_id in running_tasks:
+            try:
+                logger.info(f"Cancelling task {task_id} during shutdown")
+                await self.cancel(task_id, force=True)
+            except Exception as e:
+                logger.error(f"Error cancelling task {task_id} during shutdown: {str(e)}")
+        
+        # Clean up resources
+        self._cleanup_resources()
+    
+    def _cleanup_resources(self):
+        """Clean up all temporary resources."""
+        # Clean up resource manager
+        try:
+            self.resource_manager.cleanup()
+            logger.info("Resource manager cleanup completed")
+        except Exception as e:
+            logger.error(f"Error cleaning up resource manager: {str(e)}")
+        
+        # Clean up temporary directories
+        for temp_dir in self._temp_dirs:
+            if os.path.exists(temp_dir):
+                try:
+                    import shutil
+                    shutil.rmtree(temp_dir)
+                    logger.info(f"Cleaned up temporary directory: {temp_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to clean up temporary directory {temp_dir}: {str(e)}")
+
     async def _prepare_environment(self, task_config: dict) -> Dict[str, str]:
         """Prepares the environment variables for running a Flink CDC pipeline."""
         env = os.environ.copy()
@@ -194,6 +232,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         
         # Create a temporary directory for configuration files
         temp_dir = tempfile.mkdtemp(prefix="flink_cdc_")
+        self._temp_dirs.append(temp_dir)  # Track for cleanup
         
         # Create pipeline configuration file
         if "pipeline" in task_config:
@@ -211,28 +250,27 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         # Add flink-home parameter
         cmd.extend(["--flink-home", self.flink_home])
         
-        # Collect all jar files
+        # Process resources using the resource manager
         jar_paths = []
+        classpath_jars = []
         
-        # Process resources
         if "resources" in task_config:
-            resources = task_config["resources"]
-            
-            # Process Flink CDC jars
-            if "flink_cdc_jars" in resources:
-                for jar in resources["flink_cdc_jars"]:
-                    if "location" in jar:
-                        jar_paths.append(jar["location"])
-            
-            # Process regular Flink jars
-            if "flink_jars" in resources:
-                for jar in resources["flink_jars"]:
-                    if "download_link" in jar:
-                        jar_paths.append(jar["download_link"])
+            resource_paths = await self.resource_manager.process_resources(task_config["resources"])
+            jar_paths = resource_paths["jar_paths"]
+            classpath_jars = resource_paths["classpath_jars"]
         
         # Add jars to command
         if jar_paths:
             cmd.extend(["--jar", ",".join(jar_paths)])
+            
+        # Add classpath jars if any
+        if classpath_jars:
+            classpath = ":".join(classpath_jars)
+            # Add to existing CLASSPATH if it exists
+            if "CLASSPATH" in os.environ:
+                classpath = f"{os.environ['CLASSPATH']}:{classpath}"
+            os.environ["CLASSPATH"] = classpath
+            logger.info(f"Added to CLASSPATH: {classpath}")
         
         # Add savepoint path if specified
         if "runtime" in task_config and "savepoint_path" in task_config["runtime"]:
