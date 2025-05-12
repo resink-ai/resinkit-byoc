@@ -4,13 +4,13 @@ import json
 import os
 import tempfile
 import uuid
+import yaml
 from typing import Any, Dict, List, Optional
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
-from resinkit_api.services.agent.common.flink_models import FlinkCdcConfig
 from resinkit_api.services.agent.flink.run_flink_cdc_pipeline_task import RunFlinkCdcPipelineTask
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
@@ -20,67 +20,30 @@ logger = get_logger(__name__)
 
 class FlinkCdcPipelineRunner(TaskRunnerBase):
     def __init__(self, 
-                 job_manager: Optional[FlinkJobManager] = None, 
-                 sql_gateway: Optional[FlinkSqlGatewayClient] = None, 
-                 runtime_env: dict = None):
+                 job_manager: FlinkJobManager, 
+                 sql_gateway_client: FlinkSqlGatewayClient, 
+                 runtime_env: dict | None = None):
         """
         Initialize the Flink CDC Pipeline Runner.
         
         Args:
             job_manager: Optional FlinkJobManager instance
-            sql_gateway: Optional FlinkSqlGatewayClient instance
+            sql_gateway_client: Optional FlinkSqlGatewayClient instance
             runtime_env: Optional runtime environment configuration
         """
         super().__init__(runtime_env or {})
         self.flink_home = settings.FLINK_HOME
         self.tasks: Dict[str, RunFlinkCdcPipelineTask] = {}
         self.job_id_to_task_id: Dict[str, str] = {}
+        self.job_manager = job_manager  
+        self.sql_gateway_client = sql_gateway_client
         
-        # Initialize job_manager - priority:
-        # 1. Constructor parameter
-        # 2. From runtime_env as object
-        # 3. From agent module (if available)
-        # 4. Create new one (using settings or runtime_env)
-        if job_manager is not None:
-            self.job_manager = job_manager
-        elif runtime_env and "job_manager" in runtime_env:
-            self.job_manager = runtime_env["job_manager"]
-        else:
-            try:
-                # Try to import from agent module which should initialize singletons
-                from resinkit_api.services.agent import get_job_manager
-                self.job_manager = get_job_manager()
-            except (ImportError, AttributeError):
-                try:
-                    # Fallback to direct initialization with settings
-                    self.job_manager = FlinkJobManager()
-                except Exception as e:
-                    logger.warning(f"Failed to initialize Flink Job Manager: {str(e)}")
-                    self.job_manager = None
-        
-        # Initialize sql_gateway - similar priority as job_manager
-        if sql_gateway is not None:
-            self.sql_gateway_client = sql_gateway
-        elif runtime_env and "sql_gateway_client" in runtime_env:
-            self.sql_gateway_client = runtime_env["sql_gateway_client"]
-        else:
-            try:
-                # Try to import from agent module
-                from resinkit_api.services.agent import get_sql_gateway
-                self.sql_gateway_client = get_sql_gateway()
-            except (ImportError, AttributeError):
-                try:
-                    # Fallback to direct initialization with settings
-                    self.sql_gateway_client = FlinkSqlGatewayClient()
-                except Exception as e:
-                    logger.warning(f"Failed to initialize Flink SQL Gateway client: {str(e)}")
-                    self.sql_gateway_client = None
 
     @classmethod
     def validate_config(cls, task_config: dict) -> None:
         """Validates the configuration for running a Flink CDC pipeline."""
         try:
-            FlinkCdcConfig(**task_config)
+            RunFlinkCdcPipelineTask(task_config).validate()
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
@@ -126,7 +89,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         except Exception as e:
             task.status = "FAILED"
             task.result = {"error": str(e)}
-            logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
+            logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
             raise
         finally:
             log_file.close()
@@ -236,52 +199,20 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         if "pipeline" in task_config:
             pipeline_config_path = os.path.join(temp_dir, "pipeline-config.yaml")
             with open(pipeline_config_path, "w") as f:
-                json.dump(task_config["pipeline"], f, indent=2)
-            config_files["pipeline_config"] = pipeline_config_path
-        
-        # Create resources configuration file if needed
-        if "resources" in task_config:
-            resources_config_path = os.path.join(temp_dir, "resources-config.yaml")
-            with open(resources_config_path, "w") as f:
-                json.dump(task_config["resources"], f, indent=2)
-            config_files["resources_config"] = resources_config_path
-        
+                yaml.dump(task_config["pipeline"], f, default_flow_style=False, sort_keys=False)
+            config_files["pipeline_config"] = pipeline_config_path        
         return config_files
 
     async def _build_flink_command(self, task_config: dict, config_files: Dict[str, str]) -> List[str]:
         """Builds the command to run the Flink CDC pipeline."""
-        # Base command
-        cmd = [f"{self.flink_home}/bin/flink", "run"]
+        # Base command using flink-cdc.sh
+        cmd = [f"{settings.FLINK_CDC_HOME}/bin/flink-cdc.sh"]
         
-        # Add parallelism if specified
-        if "environment" in task_config and "parallelism" in task_config["environment"]:
-            cmd.extend(["-p", str(task_config["environment"]["parallelism"])])
+        # Add flink-home parameter
+        cmd.extend(["--flink-home", self.flink_home])
         
-        # Add job name
-        job_name = task_config.get("name", f"flink-cdc-{uuid.uuid4()}")
-        cmd.extend(["-n", f"\"{job_name}\""])
-        
-        # Add checkpoint interval if specified
-        if "environment" in task_config and "checkpoint_interval" in task_config["environment"]:
-            checkpoint_interval = task_config["environment"]["checkpoint_interval"]
-            if isinstance(checkpoint_interval, str) and checkpoint_interval.endswith("s"):
-                # Convert from "60s" format to milliseconds
-                checkpoint_interval = int(checkpoint_interval[:-1]) * 1000
-            cmd.extend(["-c", f"execution.checkpointing.interval={checkpoint_interval}"])
-        
-        # Add savepoint path if specified
-        if "runtime" in task_config and "savepoint_path" in task_config["runtime"]:
-            savepoint_path = task_config["runtime"]["savepoint_path"]
-            if savepoint_path:
-                cmd.extend(["-s", savepoint_path])
-                
-                # Add allow-non-restored-state flag if specified
-                if task_config["runtime"].get("allow_non_restored_state", False):
-                    cmd.append("--allowNonRestoredState")
-        
-        # Add jar files
-        jars = []
-        classpath_entries = []
+        # Collect all jar files
+        jar_paths = []
         
         # Process resources
         if "resources" in task_config:
@@ -290,32 +221,53 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             # Process Flink CDC jars
             if "flink_cdc_jars" in resources:
                 for jar in resources["flink_cdc_jars"]:
-                    if jar.get("type") == "lib":
-                        jars.append(jar["location"])
-                    elif jar.get("type") == "classpath":
-                        classpath_entries.append(jar["location"])
+                    if "location" in jar:
+                        jar_paths.append(jar["location"])
             
             # Process regular Flink jars
             if "flink_jars" in resources:
                 for jar in resources["flink_jars"]:
                     if "download_link" in jar:
-                        jars.append(jar["download_link"])
+                        jar_paths.append(jar["download_link"])
         
         # Add jars to command
-        if jars:
-            cmd.extend(["-j", ",".join(jars)])
+        if jar_paths:
+            cmd.extend(["--jar", ",".join(jar_paths)])
         
-        # Add classpath entries
-        if classpath_entries:
-            cmd.extend(["-C", ",".join(classpath_entries)])
+        # Add savepoint path if specified
+        if "runtime" in task_config and "savepoint_path" in task_config["runtime"]:
+            savepoint_path = task_config["runtime"]["savepoint_path"]
+            if savepoint_path:
+                cmd.extend(["--from-savepoint", savepoint_path])
+                
+                # Add allow-non-restored-state flag if specified
+                if task_config["runtime"].get("allow_non_restored_state", False):
+                    cmd.append("--allow-nonRestored-state")
         
-        # Add the main CDC pipeline JAR (assuming it's available in the Flink lib directory)
-        cmd.append(f"{self.flink_home}/lib/flink-cdc-pipeline.jar")
-        
-        # Add the pipeline configuration file
+        # Add claim-mode if specified
+        if "runtime" in task_config and "claim_mode" in task_config["runtime"]:
+            claim_mode = task_config["runtime"]["claim_mode"]
+            cmd.extend(["--claim-mode", claim_mode])
+
+        # Add target if specified
+        if "runtime" in task_config and "target" in task_config["runtime"]:
+            target = task_config["runtime"]["target"]
+            cmd.extend(["--target", target])
+            
+        # Add use-mini-cluster flag if specified
+        if "runtime" in task_config and task_config["runtime"].get("use_mini_cluster", False):
+            cmd.append("--use-mini-cluster")
+            
+        # Add global config if specified
+        if "runtime" in task_config and "global_config" in task_config["runtime"]:
+            global_config = task_config["runtime"]["global_config"]
+            cmd.extend(["--global-config", global_config])
+            
+        # Finally, add the pipeline configuration file path
         if "pipeline_config" in config_files:
-            cmd.extend(["--pipeline", config_files["pipeline_config"]])
+            cmd.append(config_files["pipeline_config"])
         
+        logger.info(f"[IMPORTANT] Flink command: {cmd}")
         return cmd
 
     async def _monitor_job(self, task: RunFlinkCdcPipelineTask):
@@ -325,6 +277,49 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         """
         # Create a background task to monitor the job
         asyncio.create_task(self._job_monitor_task(task))
+        
+        # Create a timeout task if task_timeout_seconds is specified
+        if task.task_timeout_seconds > 0:
+            asyncio.create_task(self._task_timeout_monitor(task, task.task_timeout_seconds))
+
+    async def _task_timeout_monitor(self, task: RunFlinkCdcPipelineTask, timeout_seconds: int):
+        """
+        Monitor task execution time and force kill if it exceeds the timeout.
+        
+        Args:
+            task: The task to monitor
+            timeout_seconds: Maximum allowed execution time in seconds
+        """
+        try:
+            # Wait for the specified timeout period
+            await asyncio.sleep(timeout_seconds)
+            
+            # If the task is still running after the timeout, force kill it
+            if task.status in ["RUNNING", "PENDING"]:
+                logger.warning(f"Task {task.job_id} exceeded timeout of {timeout_seconds} seconds. Force killing...")
+                
+                if task.process:
+                    # First try graceful termination
+                    task.process.terminate()
+                    
+                    try:
+                        # Give it 10 seconds to terminate gracefully
+                        await asyncio.wait_for(task.process.wait(), timeout=10.0)
+                    except asyncio.TimeoutError:
+                        # If still running after 10 seconds, force kill
+                        logger.warning(f"Task {task.job_id} did not terminate gracefully, force killing")
+                        task.process.kill()
+                
+                # Update task status and result
+                task.status = "TIMEOUT"
+                task.result = {
+                    "success": False,
+                    "error": f"Task execution exceeded timeout of {timeout_seconds} seconds",
+                    "message": "Task was forcefully terminated due to timeout"
+                }
+                logger.error(f"Flink CDC pipeline {task.job_id} timed out after {timeout_seconds} seconds")
+        except Exception as e:
+            logger.error(f"Error in timeout monitor for task {task.job_id}: {str(e)}")
 
     async def _job_monitor_task(self, task: RunFlinkCdcPipelineTask):
         """Background task to monitor a running Flink job."""

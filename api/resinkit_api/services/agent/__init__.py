@@ -53,7 +53,7 @@ def initialize_agent_service() -> None:
         # Create a new runner with services from the service manager
         job_manager = get_job_manager()
         sql_gateway = get_sql_gateway()
-        runner = FlinkCdcPipelineRunner(job_manager, sql_gateway)
+        runner = FlinkCdcPipelineRunner(job_manager=job_manager, sql_gateway_client=sql_gateway)
         register_runner("flink_cdc_pipeline", runner)
         logger.info("Registered FlinkCdcPipelineRunner")
     

@@ -1,6 +1,5 @@
 import asyncio
 import uuid
-import os
 from typing import Optional, Dict, Any
 
 from resinkit_api.services.agent.task_base import TaskBase
@@ -17,33 +16,19 @@ class RunFlinkCdcPipelineTask(TaskBase):
         self.flink_job_id: Optional[str] = None
         self.execution_details: Dict[str, Any] = {}
 
-    def update_status(self, status: str, message: Optional[str] = None) -> None:
-        """Update the status of the task."""
-        self.status = status
-        if message and not self.result:
-            self.result = {}
-        if message and self.result:
-            self.result["message"] = message
+    def validate(self) -> None:
+        """Validate the task configuration."""
+        # Check for required fields
+        if not self.task_config.get("pipeline"):
+            raise ValueError("Missing required 'pipeline' configuration")
+        
+        # Validate runtime configuration if present
+        runtime = self.task_config.get("runtime", {})
+        if runtime and not isinstance(runtime, dict):
+            raise ValueError("Runtime configuration must be a dictionary")
+            
+        # Validate resources if present
+        resources = self.task_config.get("resources", {})
+        if resources and not isinstance(resources, dict):
+            raise ValueError("Resources configuration must be a dictionary")
 
-    def update_execution_details(self, details: Dict[str, Any]) -> None:
-        """Update execution details of the task."""
-        self.execution_details.update(details)
-
-    def get_task_summary(self) -> Dict[str, Any]:
-        """Get a summary of the task."""
-        return {
-            "job_id": self.job_id,
-            "task_type": self.task_type,
-            "name": self.name,
-            "description": self.description,
-            "status": self.status,
-            "flink_job_id": self.flink_job_id,
-            "log_file": self.log_file if os.path.exists(self.log_file) else None,
-            "result": self.result,
-        }
-
-    def get_command_summary(self) -> Optional[str]:
-        """Get the executed command summary."""
-        if "command" in self.execution_details:
-            return self.execution_details["command"]
-        return None

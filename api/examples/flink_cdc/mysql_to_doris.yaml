@@ -44,10 +44,12 @@ resources:
     - name: MySQL Connector Java
       type: classpath
       source: download
-      location: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
+      download_link: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
   flink_jars:
     - name: MySQL Connector Java
-      download_link: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
+      type: lib
+      source: download
+      location: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
 
 # Flink environment settings
 environment:

@@ -12,7 +12,7 @@ from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
 
 logger = get_logger(__name__)
 
-# A registry mapping task types to their respective runner classes
+# A registry mapping task types to their respective runner instances
 TASK_RUNNER_REGISTRY: Dict[str, TaskRunnerBase] = {}
 
 def get_runner_for_task_type(task_type: str) -> TaskRunnerBase:

@@ -8,6 +8,7 @@ class TaskBase:
         self.task_type = task_config.get("task_type")
         self.name = task_config.get("name")
         self.description = task_config.get("description")
+        self.task_timeout_seconds = task_config.get("task_timeout_seconds", 3600)
 
         # Validate required fields
         if not self.task_type:

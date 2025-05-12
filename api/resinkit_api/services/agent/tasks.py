@@ -229,23 +229,8 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
             job_id = execution_details["job_id"]
         
         if job_id:
-            # Use runtime environment with the singleton clients
-            runtime_env = {}
-            
-            # Only add clients for the task types that need them
-            if db_task.task_type == "flink_cdc_pipeline":
-                # Get singleton instances of clients from our module
-                job_manager_client = get_job_manager()
-                sql_gateway_client = get_sql_gateway()
-                
-                # Set up runtime environment with client connection details
-                runtime_env = {
-                    "job_manager": job_manager_client,
-                    "sql_gateway_client": sql_gateway_client
-                }
-            
             # Get the appropriate runner for this task type
-            runner = get_runner_for_task_type(db_task.task_type, runtime_env)
+            runner = get_runner_for_task_type(db_task.task_type)
             
             # Cancel the job in the runner
             await runner.cancel(job_id, force=force)
@@ -411,22 +396,7 @@ async def execute_task(task_id: str) -> None:
         
         # Get the appropriate runner for this task type
         try:
-            # Use runtime environment with the singleton clients
-            runtime_env = {}
-            
-            # Only add clients for the task types that need them
-            if db_task.task_type == "flink_cdc_pipeline":
-                # Get singleton instances of clients from our module
-                job_manager_client = get_job_manager()
-                sql_gateway_client = get_sql_gateway()
-                
-                # Set up runtime environment with client connection details
-                runtime_env = {
-                    "job_manager": job_manager_client,
-                    "sql_gateway_client": sql_gateway_client
-                }
-            
-            runner = get_runner_for_task_type(db_task.task_type, runtime_env)
+            runner = get_runner_for_task_type(db_task.task_type)
         except ValueError as e:
             # If no runner is registered for this task type, mark the task as failed
             error_info = {
