@@ -10,7 +10,6 @@ from resinkit_api.api.health import router as health_router
 from resinkit_api.api.flink import router as flink_router
 from resinkit_api.api.agent import router as agent_router
 from resinkit_api.api.pat import router as authorization_router
-from resinkit_api.api.agent.tasks_api import router as tasks_router
 
 from resinkit_api.core.logging import get_logger
 
@@ -85,13 +84,6 @@ app.include_router(
     agent_router,
     prefix="/api/v1/agent",
     tags=["agent"],
-)
-
-# Include the tasks router
-app.include_router(
-    tasks_router,
-    prefix="/api/v1",
-    tags=["tasks"],
 )
 
 

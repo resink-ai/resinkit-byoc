@@ -1,7 +1,7 @@
 import os
 import tempfile
 import asyncio
-import aiohttp
+import httpx
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from urllib.parse import urlparse
@@ -157,18 +157,14 @@ class FlinkResourceManager:
         Path(self.temp_dir).mkdir(parents=True, exist_ok=True)
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        logger.error(f"Failed to download JAR {url}: HTTP {response.status}")
-                        return None
-                    
-                    with open(target_path, 'wb') as f:
-                        while True:
-                            chunk = await response.content.read(8192)
-                            if not chunk:
-                                break
-                            f.write(chunk)
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url)
+                if response.status_code != 200:
+                    logger.error(f"Failed to download JAR {url}: HTTP {response.status_code}")
+                    return None
+                
+                with open(target_path, 'wb') as f:
+                    f.write(response.content)
             
             logger.info(f"Successfully downloaded {url} to {target_path}")
             return target_path

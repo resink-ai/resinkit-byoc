@@ -32,23 +32,23 @@ pipeline:
 resources:
   flink_cdc_jars:
     - name: MySQL Pipeline Connector 3.3.0
-      type: jar
+      type: lib
       source: download
       location: https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-mysql/3.3.0/flink-cdc-pipeline-connector-mysql-3.3.0.jar
 
     - name: Apache Doris Pipeline Connector 3.3.0
-      type: jar # classpath => path will be added CLASSPATH; else it will be added to --jar
+      type: lib
       source: download
       location: https://repo1.maven.org/maven2/org/apache/flink/flink-cdc-pipeline-connector-doris/3.3.0/flink-cdc-pipeline-connector-doris-3.3.0.jar
 
     - name: MySQL Connector Java
-      type: jar
+      type: lib
       source: download
       download_link: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
 
   flink_jars:
     - name: MySQL Connector Java
-      type: jar
+      type: lib
       source: download
       location: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
 

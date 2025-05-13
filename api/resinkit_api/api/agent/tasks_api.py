@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request, status, Body, Query, Path, Depends
+from fastapi import APIRouter, HTTPException, status, Body, Query, Path
 from fastapi.responses import JSONResponse, StreamingResponse
-from typing import Optional, List
+from typing import Optional
 import yaml
 from resinkit_api.services.agent import tasks as agent_tasks_service
 
@@ -113,4 +113,4 @@ async def get_task_results(task_id: str = Path(...)):
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
