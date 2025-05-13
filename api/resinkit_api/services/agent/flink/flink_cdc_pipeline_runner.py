@@ -44,7 +44,8 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
     def validate_config(cls, task_config: dict) -> None:
         """Validates the configuration for running a Flink CDC pipeline."""
         try:
-            RunFlinkCdcPipelineTask(task_config).validate()
+            task = RunFlinkCdcPipelineTask.from_config(task_config)
+            task.validate()
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
@@ -53,18 +54,18 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         # Validate configuration
         self.validate_config(task_config)
         
-        # Create task instance
-        task = RunFlinkCdcPipelineTask(task_config)
+        # Create task instance from config
+        task = RunFlinkCdcPipelineTask.from_config(task_config)
         self.tasks[task.job_id] = task
         
         # Prepare environment variables and artifacts
-        env_vars = await self._prepare_environment(task_config)
+        env_vars = await self._prepare_environment(task)
         
         # Create configuration files
-        config_files = await self._prepare_config_files(task_config)
+        config_files = await self._prepare_config_files(task)
         
         # Prepare the command to run
-        cmd = await self._build_flink_command(task_config, config_files)
+        cmd = await self._build_flink_command(task, config_files)
         
         # Open log file for the task
         log_file = open(task.log_file, "w")
@@ -210,7 +211,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                 except Exception as e:
                     logger.error(f"Failed to clean up temporary directory {temp_dir}: {str(e)}")
 
-    async def _prepare_environment(self, task_config: dict) -> Dict[str, str]:
+    async def _prepare_environment(self, task: RunFlinkCdcPipelineTask) -> Dict[str, str]:
         """Prepares the environment variables for running a Flink CDC pipeline."""
         env = os.environ.copy()
         
@@ -219,14 +220,14 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             env["FLINK_HOME"] = self.flink_home
         
         # Add any additional environment variables from the configuration
-        if "environment" in task_config:
-            for key, value in task_config["environment"].items():
+        if "environment" in task.task_config:
+            for key, value in task.task_config.get("environment", {}).items():
                 if isinstance(value, str):
                     env[key.upper()] = value
         
         return env
 
-    async def _prepare_config_files(self, task_config: dict) -> Dict[str, str]:
+    async def _prepare_config_files(self, task: RunFlinkCdcPipelineTask) -> Dict[str, str]:
         """Prepares configuration files needed for the Flink CDC pipeline."""
         config_files = {}
         
@@ -235,14 +236,14 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         self._temp_dirs.append(temp_dir)  # Track for cleanup
         
         # Create pipeline configuration file
-        if "pipeline" in task_config:
+        if task.pipeline:
             pipeline_config_path = os.path.join(temp_dir, "pipeline-config.yaml")
             with open(pipeline_config_path, "w") as f:
-                yaml.dump(task_config["pipeline"], f, default_flow_style=False, sort_keys=False)
+                yaml.dump(task.pipeline, f, default_flow_style=False, sort_keys=False)
             config_files["pipeline_config"] = pipeline_config_path        
         return config_files
 
-    async def _build_flink_command(self, task_config: dict, config_files: Dict[str, str]) -> List[str]:
+    async def _build_flink_command(self, task: RunFlinkCdcPipelineTask, config_files: Dict[str, str]) -> List[str]:
         """Builds the command to run the Flink CDC pipeline."""
         # Base command using flink-cdc.sh
         cmd = [f"{settings.FLINK_CDC_HOME}/bin/flink-cdc.sh"]
@@ -254,8 +255,8 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         jar_paths = []
         classpath_jars = []
         
-        if "resources" in task_config:
-            resource_paths = await self.resource_manager.process_resources(task_config["resources"])
+        if task.resources:
+            resource_paths = await self.resource_manager.process_resources(task.resources)
             jar_paths = resource_paths["jar_paths"]
             classpath_jars = resource_paths["classpath_jars"]
         
@@ -273,32 +274,32 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             logger.info(f"Added to CLASSPATH: {classpath}")
         
         # Add savepoint path if specified
-        if "runtime" in task_config and "savepoint_path" in task_config["runtime"]:
-            savepoint_path = task_config["runtime"]["savepoint_path"]
+        if task.runtime and "savepoint_path" in task.runtime:
+            savepoint_path = task.runtime["savepoint_path"]
             if savepoint_path:
                 cmd.extend(["--from-savepoint", savepoint_path])
                 
                 # Add allow-non-restored-state flag if specified
-                if task_config["runtime"].get("allow_non_restored_state", False):
+                if task.runtime.get("allow_non_restored_state", False):
                     cmd.append("--allow-nonRestored-state")
         
         # Add claim-mode if specified
-        if "runtime" in task_config and "claim_mode" in task_config["runtime"]:
-            claim_mode = task_config["runtime"]["claim_mode"]
+        if task.runtime and "claim_mode" in task.runtime:
+            claim_mode = task.runtime["claim_mode"]
             cmd.extend(["--claim-mode", claim_mode])
 
         # Add target if specified
-        if "runtime" in task_config and "target" in task_config["runtime"]:
-            target = task_config["runtime"]["target"]
+        if task.runtime and "target" in task.runtime:
+            target = task.runtime["target"]
             cmd.extend(["--target", target])
             
         # Add use-mini-cluster flag if specified
-        if "runtime" in task_config and task_config["runtime"].get("use_mini_cluster", False):
+        if task.runtime and task.runtime.get("use_mini_cluster", False):
             cmd.append("--use-mini-cluster")
             
         # Add global config if specified
-        if "runtime" in task_config and "global_config" in task_config["runtime"]:
-            global_config = task_config["runtime"]["global_config"]
+        if task.runtime and "global_config" in task.runtime:
+            global_config = task.runtime["global_config"]
             cmd.extend(["--global-config", global_config])
             
         # Finally, add the pipeline configuration file path

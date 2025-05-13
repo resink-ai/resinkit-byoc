@@ -7,7 +7,7 @@ All the flink related tasks have the following common base structure
 task_type: string                # Type identifier
 name: string                     # Human-readable task name
 description: string              # Optional description
-timeout_seconds: integer         # Task timeout
+task_timeout_seconds: integer    # Task timeout
 
 resources:                       # Standardized resources section, contains keyed objects
   flink_jars:                    # (Optional) All JAR dependencies in one place

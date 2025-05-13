@@ -1,4 +1,3 @@
-
 import uuid
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional
@@ -131,30 +130,48 @@ class ExecuteDispatch:
     @contextmanager
     def sync(self) -> Generator[FlinkOperation, None, None]:
         request_dict = get_execute_statement_request(self.sql, self.query_props, self.execute_timeout)
-        response = execute_statement.sync(
-            self.session.session_handle,
-            client=self.session.client,
-            body=ExecuteStatementRequestBody.from_dict(request_dict)
-        )
-        operation = FlinkOperation(self.session, response.operation_handle)
         try:
-            yield operation
-        finally:
-            operation.close().sync()
+            response = execute_statement.sync(
+                self.session.session_handle,
+                client=self.session.client,
+                body=ExecuteStatementRequestBody.from_dict(request_dict)
+            )
+            
+            if not response or not hasattr(response, 'operation_handle'):
+                logger.error(f"Failed to get operation handle for SQL: {self.sql[:100]}...")
+                raise ValueError("SQL Gateway returned invalid response without operation handle")
+                
+            operation = FlinkOperation(self.session, response.operation_handle)
+            try:
+                yield operation
+            finally:
+                operation.close().sync()
+        except Exception as e:
+            logger.error(f"Error executing SQL statement: {str(e)}")
+            raise
 
     @asynccontextmanager
     async def asyncio(self) -> AsyncGenerator[FlinkOperation, None]:
         request_dict = get_execute_statement_request(self.sql, self.query_props, self.execute_timeout)
-        response = await execute_statement.asyncio(
-            self.session.session_handle,
-            client=self.session.client,
-            body=ExecuteStatementRequestBody.from_dict(request_dict)
-        )
-        operation = FlinkOperation(self.session, response.operation_handle)
         try:
-            yield operation
-        finally:
-            await operation.close().asyncio()
+            response = await execute_statement.asyncio(
+                self.session.session_handle,
+                client=self.session.client,
+                body=ExecuteStatementRequestBody.from_dict(request_dict)
+            )
+            
+            if not response or not hasattr(response, 'operation_handle'):
+                logger.error(f"Failed to get operation handle for SQL: {self.sql[:100]}...")
+                raise ValueError("SQL Gateway returned invalid response without operation handle")
+                
+            operation = FlinkOperation(self.session, response.operation_handle)
+            try:
+                yield operation
+            finally:
+                await operation.close().asyncio()
+        except Exception as e:
+            logger.error(f"Error executing SQL statement: {str(e)}")
+            raise
 
 
 class ExecuteAllDispatch:
@@ -167,35 +184,79 @@ class ExecuteAllDispatch:
     @contextmanager
     def sync(self) -> Generator[FlinkCompositeOperation, None, None]:
         operations = []
-        for sql in self.sqls:
-            request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
-            response = execute_statement.sync(
-                self.session.session_handle,
-                client=self.session.client,
-                body=ExecuteStatementRequestBody.from_dict(request_dict)
-            )
-            operation = FlinkOperation(self.session, response.operation_handle)
-            operations.append(operation)
         try:
-            yield FlinkCompositeOperation(operations)
-        finally:
+            for i, sql in enumerate(self.sqls):
+                request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
+                try:
+                    response = execute_statement.sync(
+                        self.session.session_handle,
+                        client=self.session.client,
+                        body=ExecuteStatementRequestBody.from_dict(request_dict)
+                    )
+                    
+                    if not response or not hasattr(response, 'operation_handle'):
+                        logger.error(f"Failed to get operation handle for SQL #{i+1}: {sql[:100]}...")
+                        raise ValueError(f"SQL Gateway returned invalid response without operation handle for statement #{i+1}")
+                    
+                    operation = FlinkOperation(self.session, response.operation_handle)
+                    operations.append(operation)
+                except Exception as e:
+                    logger.error(f"Error executing SQL statement #{i+1}: {str(e)}", exc_info=True)
+                    raise ValueError(f"Failed to execute SQL statement #{i+1}: {str(e)}")
+            
+            try:
+                yield FlinkCompositeOperation(operations)
+            finally:
+                for op in reversed(operations):
+                    try:
+                        op.close().sync()
+                    except Exception as e:
+                        logger.error(f"Error closing operation: {str(e)}", exc_info=True)
+        except Exception:
+            # Close any operations that were created before the error
             for op in reversed(operations):
-                op.close().sync()
+                try:
+                    op.close().sync()
+                except Exception:
+                    pass
+            raise
 
     @asynccontextmanager
     async def asyncio(self) -> AsyncGenerator[FlinkCompositeOperation, None]:
         operations = []
-        for sql in self.sqls:
-            request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
-            response = await execute_statement.asyncio(
-                self.session.session_handle,
-                client=self.session.client,
-                body=ExecuteStatementRequestBody.from_dict(request_dict)
-            )
-            operation = FlinkOperation(self.session, response.operation_handle)
-            operations.append(operation)
         try:
-            yield FlinkCompositeOperation(operations)
-        finally:
+            for i, sql in enumerate(self.sqls):
+                request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
+                try:
+                    response = await execute_statement.asyncio(
+                        self.session.session_handle,
+                        client=self.session.client,
+                        body=ExecuteStatementRequestBody.from_dict(request_dict)
+                    )
+                    
+                    if not response or not hasattr(response, 'operation_handle'):
+                        logger.error(f"Failed to get operation handle for SQL #{i+1}: {sql[:100]}...")
+                        raise ValueError(f"SQL Gateway returned invalid response without operation handle for statement #{i+1}")
+                    
+                    operation = FlinkOperation(self.session, response.operation_handle)
+                    operations.append(operation)
+                except Exception as e:
+                    logger.error(f"Error executing SQL statement #{i+1}: {str(e)}", exc_info=True)
+                    raise ValueError(f"Failed to execute SQL statement #{i+1}: {str(e)}")
+            
+            try:
+                yield FlinkCompositeOperation(operations)
+            finally:
+                for op in reversed(operations):
+                    try:
+                        await op.close().asyncio()
+                    except Exception as e:
+                        logger.error(f"Error closing operation: {str(e)}", exc_info=True)
+        except Exception:
+            # Close any operations that were created before the error
             for op in reversed(operations):
-                await op.close().asyncio()
+                try:
+                    await op.close().asyncio()
+                except Exception:
+                    pass
+            raise

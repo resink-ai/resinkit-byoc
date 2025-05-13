@@ -1,0 +1,35 @@
+task_type: flink_sql
+name: connect_and_print
+description: Connect to Kafka and print the elements until expiry
+task_timeout_seconds: 3600
+
+job:
+  sql: >
+    CREATE TABLE KafkaTable (
+        `event_time` TIMESTAMP_LTZ(3) METADATA FROM 'value.source.timestamp' VIRTUAL,  -- from Debezium format
+        `origin_table` STRING METADATA FROM 'value.source.table' VIRTUAL, -- from Debezium format
+        `partition_id` BIGINT METADATA FROM 'partition' VIRTUAL,  -- from Kafka connector
+        `offset` BIGINT METADATA VIRTUAL,  -- from Kafka connector
+        `user_id` BIGINT,
+        `item_id` BIGINT,
+        `behavior` STRING
+        ) WITH (
+        'connector' = 'kafka',
+        'topic' = 'user_behavior',
+        'properties.bootstrap.servers' = 'localhost:9092',
+        'properties.group.id' = 'testGroup',
+        'scan.startup.mode' = 'earliest-offset',
+        'value.format' = 'debezium-json'
+    );
+
+    SELECT * FROM KafkaTable;
+  pipeline:
+    name: Sync MySQL Database to Doris
+    parallelism: 2
+
+resources:
+  flink_jars:
+    - name: Flink SQL Connector Kafka
+      type: lib
+      source: download
+      location: https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.19/flink-sql-connector-kafka-3.3.0-1.19.jar
