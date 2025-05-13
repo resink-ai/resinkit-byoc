@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 import uuid
 from typing import Dict, List, Optional, Any
 
@@ -76,6 +76,13 @@ def create_task(
     if not task_id:
         task_id = str(uuid.uuid4())
     
+    # Calculate task expiry time based on timeout
+    expires_at = None
+    task_timeout_seconds = submitted_configs.get("task_timeout_seconds")
+    if task_timeout_seconds:
+        created_at = datetime.now(UTC)
+        expires_at = created_at + timedelta(seconds=int(task_timeout_seconds))
+    
     db_task = Task(
         task_id=task_id,
         task_type=task_type,
@@ -86,7 +93,8 @@ def create_task(
         submitted_configs=submitted_configs,
         created_by=created_by,
         notification_config=notification_config,
-        tags=tags
+        tags=tags,
+        expires_at=expires_at
     )
     
     db.add(db_task)

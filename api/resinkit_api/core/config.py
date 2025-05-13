@@ -42,8 +42,8 @@ class Settings(BaseSettings):
     LOG_JSON_FORMAT: bool = False
 
     ##### Flink #####
-    FLINK_HOME: str
-    FLINK_CDC_HOME: str
+    FLINK_HOME: str = "/usr/local/flink"
+    FLINK_CDC_HOME: str = "/usr/local/flink-cdc"
     FLINK_JOB_MANAGER_URL: str = "http://localhost:8081"
     FLINK_SQL_GATEWAY_URL: str = "http://localhost:8083"
 

@@ -81,6 +81,7 @@ class Task(Base):
     )
     started_at = Column(DateTime)
     finished_at = Column(DateTime)
+    expires_at = Column(DateTime)
     submitted_configs = Column(JSONString, nullable=False)
     error_info = Column(JSONString)
     result_summary = Column(JSONString)
@@ -105,6 +106,7 @@ class Task(Base):
         Index("idx_tasks_task_type", "task_type", sqlite_where=text("active = 1")),
         Index("idx_tasks_created_at", "created_at"),
         Index("idx_tasks_created_by", "created_by"),
+        Index("idx_tasks_expires_at", "expires_at"),
     )
 
     # Helper methods for JSON fields

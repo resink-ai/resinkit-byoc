@@ -9,6 +9,7 @@ from resinkit_api.db.models import TaskStatus
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
 from resinkit_api.services.agent import get_job_manager, get_sql_gateway
+from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
 
 logger = get_logger(__name__)
 
@@ -116,6 +117,7 @@ async def get_task_details(task_id: str) -> dict:
         "updated_at": db_task.updated_at.isoformat(),
         "started_at": db_task.started_at.isoformat() if db_task.started_at else None,
         "finished_at": db_task.finished_at.isoformat() if db_task.finished_at else None,
+        "expires_at": db_task.expires_at.isoformat() if db_task.expires_at else None,
         "submitted_configs": db_task.submitted_configs,
         "error_info": db_task.error_info,
         "result_summary": db_task.result_summary,
@@ -177,6 +179,7 @@ async def list_tasks(
             "status": task.status.value,
             "created_at": task.created_at.isoformat(),
             "updated_at": task.updated_at.isoformat(),
+            "expires_at": task.expires_at.isoformat() if task.expires_at else None,
             "_links": {"self": {"href": f"/api/v1/agent/tasks/{task.task_id}"}},
         })
     
@@ -288,13 +291,24 @@ async def cancel_task(task_id: str, force: bool = False) -> dict:
 
 
 # 5. Get Task Logs
-async def get_task_logs(task_id: str, level: str = "INFO") -> str:
+async def get_task_logs(
+    task_id: str, 
+    log_type: Optional[str] = None,
+    since_timestamp: Optional[str] = None,
+    since_token: Optional[str] = None,
+    limit_lines: Optional[int] = None,
+    log_level_filter: Optional[str] = "INFO"
+) -> str:
     """
     Get logs for a task.
     
     Args:
         task_id: ID of the task
-        level: Log level to filter by
+        log_type: Type of logs to retrieve
+        since_timestamp: Only get logs after this timestamp
+        since_token: Continuation token for pagination
+        limit_lines: Maximum number of log lines to retrieve
+        log_level_filter: Log level to filter by
         
     Returns:
         A string containing the logs
@@ -322,7 +336,7 @@ async def get_task_logs(task_id: str, level: str = "INFO") -> str:
             runner = get_runner_for_task_type(db_task.task_type)
             
             # Get logs from the runner
-            return runner.get_log_summary(job_id, level=level)
+            return runner.get_log_summary(job_id, level=log_level_filter)
         else:
             return "No logs available - task hasn't been submitted to a runner yet"
     
@@ -472,7 +486,7 @@ async def execute_task(task_id: str) -> None:
 
 
 # 8. Monitor a running task
-async def monitor_task(task_id: str, runner: Any, job_id: str) -> None:
+async def monitor_task(task_id: str, runner: TaskRunnerBase, job_id: str) -> None:
     """
     Monitor a running task and update its status in the database.
     
@@ -488,6 +502,32 @@ async def monitor_task(task_id: str, runner: Any, job_id: str) -> None:
         while True:
             # Get the current status from the runner
             status = runner.get_status(job_id)
+            
+            # Check if the task has expired
+            db_task = tasks_crud.get_task(db=db, task_id=task_id)
+            if db_task.expires_at and datetime.now(UTC) > db_task.expires_at:
+                # Task has exceeded its timeout, mark as failed
+                error_info = {
+                    "error": "Task exceeded its timeout limit",
+                    "error_type": "TaskTimeoutError",
+                    "timestamp": datetime.now(UTC).isoformat()
+                }
+                
+                tasks_crud.update_task_status(
+                    db=db,
+                    task_id=task_id,
+                    new_status=TaskStatus.FAILED,
+                    actor="system",
+                    error_info=error_info
+                )
+                
+                # Attempt to cancel the job in the runner
+                try:
+                    await runner.cancel(job_id, force=True)
+                except Exception as e:
+                    logger.error(f"Failed to cancel expired task {task_id}: {str(e)}")
+                
+                break
             
             # Map status from runner to TaskStatus
             # This mapping might need adjustment depending on the runner implementation

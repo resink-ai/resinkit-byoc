@@ -59,7 +59,7 @@ def configure_logging():
     return structlog.get_logger()
 
 
-def get_logger(name=None, **context):
+def get_logger(name=None, **context) -> structlog.stdlib.BoundLogger:
     """
     Get a structured logger with optional context.
 
