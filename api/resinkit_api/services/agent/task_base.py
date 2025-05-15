@@ -1,10 +1,9 @@
-
-from datetime import datetime
+from datetime import datetime, UTC
 
 from resinkit_api.db.models import Task
 
 class TaskBase:
-    def __init__(self, task_type: str, name: str = '', description: str = '', task_timeout_seconds: int = 3600, created_at: datetime = datetime.now()):
+    def __init__(self, task_type: str, name: str = '', description: str = '', task_timeout_seconds: int = 3600, created_at: datetime = datetime.now(UTC)):
         # Extract common base fields
         self.task_type = task_type
         self.name = name
@@ -27,7 +26,7 @@ class TaskBase:
         return cls(task_dao.task_type, task_dao.name, task_dao.description, task_dao.task_timeout_seconds, task_dao.created_at)
 
     def expired(self) -> bool:
-        return (datetime.now() - self.created_at).total_seconds() > self.task_timeout_seconds
+        return (datetime.now(UTC) - self.created_at).total_seconds() > self.task_timeout_seconds
 
     def has_ended(self) -> bool:
         return self.status == "FAILED" or self.status == "COMPLETED" or self.expired()

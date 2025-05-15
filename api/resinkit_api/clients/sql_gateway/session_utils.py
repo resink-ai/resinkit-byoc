@@ -97,6 +97,7 @@ class FetchResultData:
     data: List[List[Any]]
     eos: bool
     next_url: str | None = None
+    job_id: str | None = None
 
     @staticmethod
     def result_ok():
@@ -108,7 +109,7 @@ class FetchResultData:
                 'length': 2147483647,
             },
             'comment': None,
-        }], data=[['OK']], eos=True, next_url=None)
+        }], data=[['OK']], eos=True, next_url=None, job_id=None)
 
 
 def get_fetch_result_data(response: FetchResultsResponseBody | None) -> FetchResultData:
@@ -122,18 +123,21 @@ def get_fetch_result_data(response: FetchResultsResponseBody | None) -> FetchRes
         return FetchResultData(columns=[], data=[], eos=True, next_url=None)
     eos = response.result_type == ResultType.EOS
     next_url = None
+    job_id = None
     if response.next_result_uri is not UNSET:
         next_url = response.next_result_uri
+    if response.job_id is not UNSET:
+        job_id = response.job_id
 
     if response.results is UNSET:
-        return FetchResultData(columns=[], data=[], eos=eos, next_url=next_url)
+        return FetchResultData(columns=[], data=[], eos=eos, next_url=next_url, job_id=job_id)
     res_results = response.results.to_dict()
     cols = res_results.get('columns') or res_results.get('columnInfos', [])
     data = []
     for row in res_results.get('data', []):
         if row['kind'] == RowKind.INSERT:
             data.append(row.get('fields', []))
-    return FetchResultData(columns=cols, data=data, eos=eos, next_url=next_url)
+    return FetchResultData(columns=cols, data=data, eos=eos, next_url=next_url, job_id=job_id)
 
 
 def get_execute_statement_request(

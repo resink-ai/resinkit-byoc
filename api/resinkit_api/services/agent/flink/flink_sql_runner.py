@@ -94,7 +94,8 @@ class FlinkSQLRunner(TaskRunnerBase):
             # Create and open a session
             session = self.sql_gateway_client.get_session(
                 properties=session_properties, 
-                session_name=session_name
+                session_name=session_name,
+                open_if_not_alive=True,
             )
             
             # Start the monitoring task
@@ -107,7 +108,8 @@ class FlinkSQLRunner(TaskRunnerBase):
             for i, sql in enumerate(task.sql_statements):
                 log_file.write(f"Executing SQL statement {i+1}/{len(task.sql_statements)}\n")
                 log_file.write(f"SQL: {sql}\n")
-                
+                flink_job_id = None
+
                 # Execute the statement
                 with session.execute(sql).sync() as operation:
                     # Store the operation handle for later status checks
@@ -123,8 +125,8 @@ class FlinkSQLRunner(TaskRunnerBase):
                     log_file.write(f"Operation status: {status.status}\n")
                     
                     # If this is a job submission, extract the job ID
-                    if "jobId" in status.info:
-                        flink_job_id = status.info["jobId"]
+                    if "jobId" in status.to_dict():
+                        flink_job_id = status.to_dict()["jobId"]
                         log_file.write(f"Flink job ID: {flink_job_id}\n")
                         task.result["flink_job_id"] = flink_job_id
                         self.job_id_to_task_id[flink_job_id] = task_id
@@ -235,7 +237,14 @@ class FlinkSQLRunner(TaskRunnerBase):
                 return
             
             # Get session
-            session = self.sql_gateway_client.get_session(session_name=session_name)
+            session = self.sql_gateway_client.get_session(
+                session_name=session_name,
+                open_if_not_alive=False,
+            )
+            
+            if not session.was_alive:
+                logger.warning(f"Session {session_name} was not alive when cancelling task {task_id}")
+                return
             
             # Cancel each operation
             for op_handle in task.operation_handles:
@@ -345,7 +354,13 @@ class FlinkSQLRunner(TaskRunnerBase):
         while task.status in ["RUNNING", "PENDING"]:
             try:
                 # Get session
-                session = self.sql_gateway_client.get_session(session_name=session_name)
+                session = self.sql_gateway_client.get_session(
+                    session_name=session_name,
+                    open_if_not_alive=False
+                )
+                if not session.was_alive:
+                    logger.info(f"Session {session_name} was not alive when monitoring task {task.job_id}")
+                    return
                 
                 # Check each operation
                 for op_handle in task.operation_handles:

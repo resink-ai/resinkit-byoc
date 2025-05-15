@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Any
 import os
 import uuid
 import tempfile
-from datetime import datetime
+from datetime import datetime, UTC
 
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.db.models import Task
@@ -18,7 +18,7 @@ class FlinkSQLTask(TaskBase):
                  name: str = '', 
                  description: str = '', 
                  task_timeout_seconds: int = 3600, 
-                 created_at: datetime = datetime.now(),
+                 created_at: datetime = datetime.now(UTC),
                  sql_statements: List[str] = None,
                  pipeline_name: str = None,
                  parallelism: int = 1,
@@ -142,7 +142,6 @@ class FlinkSQLTask(TaskBase):
         statements = []
         current_statement = []
         in_string = False
-        string_delimiter = None
         
         for line in sql_text.splitlines():
             line = line.strip()

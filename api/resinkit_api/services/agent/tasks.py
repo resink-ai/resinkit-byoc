@@ -515,7 +515,7 @@ class TaskManager:
                 
                 # Check if the task has expired
                 db_task = tasks_crud.get_task(db=db, task_id=task_id)
-                if db_task.expires_at and datetime.now(UTC) > db_task.expires_at:
+                if db_task.expires_at and datetime.now().timestamp() > db_task.expires_at.timestamp():
                     # Task has exceeded its timeout, mark as failed
                     error_info = {
                         "error": "Task exceeded its timeout limit",
@@ -601,7 +601,7 @@ class TaskManager:
                 await asyncio.sleep(self.polling_interval)
         
         except Exception as e:
-            logger.error(f"Error monitoring task {task_id}: {str(e)}")
+            logger.error(f"Error monitoring task {task_id}: {str(e)}", exc_info=True)
             # Make sure the task is marked as failed
             try:
                 tasks_crud.update_task_status(

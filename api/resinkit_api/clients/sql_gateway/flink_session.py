@@ -9,6 +9,7 @@ from flink_gateway_api.api.default import (
     complete_statement,
     execute_statement,
     open_session,
+    trigger_session,
 )
 from flink_gateway_api.models import (
     CompleteStatementRequestBody,
@@ -41,6 +42,7 @@ class FlinkSession:
         self.session_handle: Optional[str] = None
         self.session_name = session_name or f"session_{uuid.uuid4()}"
         self.client: Client = client
+        self.was_alive = False  # Whether the session was alive when last checked
 
     async def __aenter__(self):
         response = await open_session.asyncio(
@@ -97,6 +99,24 @@ class FlinkSession:
         Returns: a dispatch, results of which can be fetched synchronously or asynchronously
         """
         return ExecuteAllDispatch(self, sqls, query_props, execute_timeout)
+    
+    def trigger_heartbeat(self):
+        return trigger_session.sync_detailed(
+            session_handle=self.session_handle,
+            client=self.client
+        )
+    
+    def is_alive(self):
+        try:
+            response = self.client.get_httpx_client().request(
+                method="POST",
+                url=f"/sessions/{self.session_handle}/heartbeat",
+            )
+            self.was_alive = response.status_code == 200
+            return self.was_alive
+        except Exception:
+            self.was_alive = False
+            return False
 
 class SessionCompleteStatement:
     def __init__(self, session: FlinkSession):
