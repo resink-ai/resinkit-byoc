@@ -109,34 +109,26 @@ class FlinkSQLRunner(TaskRunnerBase):
                 log_file.write(f"SQL: {sql}\n")
                 
                 # Execute the statement
-                try:
-                    with session.execute(sql).sync() as operation:
-                        # Store the operation handle for later status checks
-                        if not operation or not hasattr(operation, 'operation_handle'):
-                            raise ValueError(f"Failed to get valid operation for SQL statement {i+1}")
-                        
-                        operation_handles.append(operation.operation_handle)
-                        
-                        # For SELECT statements, fetch and display results
-                        if sql.strip().upper().startswith("SELECT"):
-                            result_df = operation.fetch().sync()
-                            log_file.write(f"Results: {result_df.to_string()}\n")
-                        
-                        # Get the operation status
-                        status = operation.status().sync()
-                        log_file.write(f"Operation status: {status.status}\n")
-                        
-                        # If this is a job submission, extract the job ID
-                        if "jobId" in status.info:
-                            flink_job_id = status.info["jobId"]
-                            log_file.write(f"Flink job ID: {flink_job_id}\n")
-                            task.result["flink_job_id"] = flink_job_id
-                            self.job_id_to_task_id[flink_job_id] = task_id
-                except Exception as exec_error:
-                    log_file.write(f"Error executing SQL statement {i+1}: {str(exec_error)}\n")
-                    logger.error(f"Error executing SQL statement {i+1}: {str(exec_error)}", exc_info=True)
-                    raise ValueError(f"Failed to execute SQL statement {i+1}: {str(exec_error)}")
-            
+                with session.execute(sql).sync() as operation:
+                    # Store the operation handle for later status checks
+                    operation_handles.append(operation.operation_handle)
+                    
+                    # For SELECT statements, fetch and display results
+                    if sql.strip().upper().startswith("SELECT"):
+                        result_df = operation.fetch().sync()
+                        log_file.write(f"Results: {result_df.to_string()}\n")
+                    
+                    # Get the operation status
+                    status = operation.status().sync()
+                    log_file.write(f"Operation status: {status.status}\n")
+                    
+                    # If this is a job submission, extract the job ID
+                    if "jobId" in status.info:
+                        flink_job_id = status.info["jobId"]
+                        log_file.write(f"Flink job ID: {flink_job_id}\n")
+                        task.result["flink_job_id"] = flink_job_id
+                        self.job_id_to_task_id[flink_job_id] = task_id
+                    
             # Store the operation handles
             task.operation_handles = operation_handles
             task.result["operation_handles"] = operation_handles

@@ -21,7 +21,12 @@ class FlinkSqlGatewayClient:
         """
         self.gateway_url = gateway_url or settings.FLINK_SQL_GATEWAY_URL
         logger.info(f"Initializing Flink SQL Gateway client with URL: {self.gateway_url}")
-        self.client = Client(base_url=self.gateway_url)
+        # TODO: read client params from settings
+        self.client = Client(
+            base_url=self.gateway_url,
+            raise_on_unexpected_status=True,
+            timeout=10,
+        )
 
     def get_client(self) -> Client:
         return self.client
