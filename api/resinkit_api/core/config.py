@@ -58,7 +58,7 @@ class Settings(BaseSettings):
 
     ##### Database #####
     DB_PATH: str = "_data_/sqlite.db"
-    SQLALCHEMY_ECHO: Union[bool, str] = "debug"
+    SQLALCHEMY_ECHO: Union[bool, str] = True
 
     @computed_field
     @property

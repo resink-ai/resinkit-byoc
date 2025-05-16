@@ -38,6 +38,7 @@ class TaskManager:
     def __init__(self):
         self.polling_interval = 5  # Task monitoring poll interval in seconds
         self._monitoring_tasks = {}  # Track active monitoring tasks
+        logger.info("TaskManager initialized with polling interval: %s seconds", self.polling_interval)
         
     async def submit_task(self, payload: dict) -> dict:
         # Extract common base fields
@@ -45,10 +46,15 @@ class TaskManager:
         name = payload.get("name")
         description = payload.get("description")
 
+        logger.info("Submitting task: type=%s, name=%s", task_type, name)
+        logger.debug("Task payload: %s", payload)
+
         # Validate required fields
         if not task_type:
+            logger.warning("Task submission failed: task_type is missing")
             raise InvalidTaskError("task_type is required")
         if not name:
+            logger.warning("Task submission failed: name is missing")
             raise InvalidTaskError("name is required")
 
         # Extract optional fields
@@ -60,11 +66,13 @@ class TaskManager:
         # Generate a unique task ID using TaskBase
         task_id = TaskBase.generate_task_id(task_type)
         payload["task_id"] = task_id  # Ensure payload carries the generated task_id
+        logger.info("Generated task_id: %s for task type: %s", task_id, task_type)
 
         # Get database session
         db = next(get_db())
         try:
             # Create task in the database
+            logger.debug("Creating task in database: task_id=%s", task_id)
             db_task = tasks_crud.create_task(
                 db=db,
                 task_id=task_id,
@@ -77,8 +85,10 @@ class TaskManager:
                 notification_config=notification_config,
                 tags=tags
             )
+            logger.info("Task created in database: task_id=%s, status=%s", task_id, db_task.status.value)
 
             # Attempt to start executing the task asynchronously
+            logger.debug("Scheduling asynchronous execution for task_id=%s", task_id)
             asyncio.create_task(self.execute_task(task_id))
 
             # Return the task information
@@ -94,10 +104,12 @@ class TaskManager:
             }
         except Exception as e:
             db.rollback()
-            logger.error(f"Failed to create task: {str(e)}")
+            logger.error(f"Failed to create task: {str(e)}", exc_info=True)
             raise UnprocessableTaskError(f"Failed to create task: {str(e)}")
 
     async def get_task_details(self, task_id: str) -> dict:
+        logger.info("Getting details for task_id=%s", task_id)
+        
         # Get database session
         db = next(get_db())
         
@@ -105,8 +117,10 @@ class TaskManager:
         db_task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
+            logger.warning("Task not found: task_id=%s", task_id)
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
             
+        logger.debug("Retrieved task details: task_id=%s, status=%s", task_id, db_task.status.value)
         # Convert the database model to a dictionary response
         return {
             "task_id": db_task.task_id,
@@ -144,6 +158,9 @@ class TaskManager:
         sort_by: Optional[str],
         sort_order: Optional[str],
     ) -> dict:
+        logger.info("Listing tasks with filters: type=%s, status=%s, limit=%s", 
+                   task_type, status_, limit)
+        
         # Get database session
         db = next(get_db())
         
@@ -155,6 +172,9 @@ class TaskManager:
         # Convert date strings to datetime objects if provided
         created_after_date = datetime.fromisoformat(created_after) if created_after else None
         created_before_date = datetime.fromisoformat(created_before) if created_before else None
+        
+        logger.debug("Querying tasks with filters: status=%s, type=%s, name_contains=%s, tags=%s",
+                     status, task_type, task_name_contains, tags_include_any)
         
         # Query tasks with filters
         tasks = tasks_crud.get_tasks(
@@ -168,6 +188,8 @@ class TaskManager:
             task_name_contains=task_name_contains,
             tags_include_any=tags_include_any.split(",") if tags_include_any else None,
         )
+        
+        logger.info("Found %d tasks matching filters", len(tasks))
         
         # Format response
         task_list = []
@@ -202,6 +224,8 @@ class TaskManager:
         Returns:
             A dict with cancellation result
         """
+        logger.info("Attempting to cancel task: task_id=%s, force=%s", task_id, force)
+        
         # Get database session
         db = next(get_db())
         
@@ -209,14 +233,18 @@ class TaskManager:
         db_task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
+            logger.warning("Cannot cancel: Task not found: task_id=%s", task_id)
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
         
         # Verify that the task is in a cancellable state
         if db_task.status not in [TaskStatus.PENDING, TaskStatus.VALIDATING, TaskStatus.PREPARING, TaskStatus.RUNNING]:
+            logger.warning("Cannot cancel: Task is in non-cancellable state: task_id=%s, status=%s", 
+                         task_id, db_task.status.value)
             raise TaskConflictError(f"Task is not in a cancellable state. Current status: {db_task.status.value}")
         
         try:
             # Update status to CANCELLING
+            logger.info("Updating task status to CANCELLING: task_id=%s", task_id)
             tasks_crud.update_task_status(
                 db=db,
                 task_id=task_id,
@@ -229,15 +257,19 @@ class TaskManager:
             execution_details = db_task.get_execution_details()
             if execution_details and "job_id" in execution_details:
                 job_id = execution_details["job_id"]
+                logger.debug("Found job_id=%s for task_id=%s", job_id, task_id)
             
             if job_id:
                 # Get the appropriate runner for this task type
+                logger.debug("Getting runner for task_type=%s", db_task.task_type)
                 runner = get_runner_for_task_type(db_task.task_type)
                 
                 # Cancel the job in the runner
+                logger.info("Cancelling job in runner: job_id=%s, force=%s", job_id, force)
                 await runner.cancel(job_id, force=force)
                 
                 # Update task status to CANCELLED
+                logger.info("Updating task status to CANCELLED: task_id=%s", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -252,6 +284,7 @@ class TaskManager:
                 }
             else:
                 # If no job ID, just mark as cancelled
+                logger.info("No job_id found, marking task as CANCELLED: task_id=%s", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -266,7 +299,7 @@ class TaskManager:
                 }
         
         except Exception as e:
-            logger.error(f"Failed to cancel task {task_id}: {str(e)}")
+            logger.error(f"Failed to cancel task {task_id}: {str(e)}", exc_info=True)
             
             # Update with error info
             error_info = {
@@ -276,6 +309,7 @@ class TaskManager:
             }
             
             try:
+                logger.info("Updating task status to FAILED after cancel error: task_id=%s", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -283,8 +317,8 @@ class TaskManager:
                     actor="system",
                     error_info=error_info
                 )
-            except:
-                pass
+            except Exception as inner_e:
+                logger.error(f"Failed to update task status: {str(inner_e)}", exc_info=True)
                 
             raise UnprocessableTaskError(f"Failed to cancel task: {str(e)}")
 
@@ -314,18 +348,23 @@ class TaskManager:
         Raises:
             TaskNotFoundError: If the task is not found
         """
+        logger.info("Getting logs for task: task_id=%s, log_type=%s, level=%s", 
+                   task_id, log_type, log_level_filter)
+        
         db = next(get_db())
         
         # Find the task in the database
         db_task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
+            logger.warning("Cannot get logs: Task not found: task_id=%s", task_id)
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
         
         try:
+            logger.debug("Fetching logs from runner for task_id=%s", task_id)
             return get_runner_for_task_type(db_task.task_type).get_log_summary(task_id, level=log_level_filter)        
         except Exception as e:
-            logger.error(f"Failed to get logs for task {task_id}: {str(e)}")
+            logger.error(f"Failed to get logs for task {task_id}: {str(e)}", exc_info=True)
             return f"Error retrieving logs: {str(e)}"
 
     async def stream_task_logs(
@@ -337,6 +376,7 @@ class TaskManager:
         limit_lines: Optional[int],
         log_level_filter: Optional[str],
     ):
+        logger.info("Streaming logs for task: task_id=%s, log_type=%s", task_id, log_type)
         # For now, just return the same as get_task_logs
         return await self.get_task_logs(
             task_id, log_type, since_timestamp, since_token, 
@@ -344,6 +384,8 @@ class TaskManager:
         )
 
     async def get_task_results(self, task_id: str) -> dict:
+        logger.info("Getting results for task: task_id=%s", task_id)
+        
         # Get database session
         db = next(get_db())
         
@@ -351,12 +393,16 @@ class TaskManager:
         db_task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
+            logger.warning("Cannot get results: Task not found: task_id=%s", task_id)
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
         
         # Only completed tasks have results
         if db_task.status != TaskStatus.COMPLETED:
+            logger.warning("Cannot get results: Task not completed: task_id=%s, status=%s", 
+                         task_id, db_task.status.value)
             raise UnprocessableTaskError(f"Task is in {db_task.status.value} state, not COMPLETED")
         
+        logger.info("Returning results for completed task: task_id=%s", task_id)
         return {
             "task_id": task_id,
             "result_type": "task_summary",
@@ -372,6 +418,7 @@ class TaskManager:
         Args:
             task_id: ID of the task to execute
         """
+        logger.info("Starting execution of task: task_id=%s", task_id)
         db = next(get_db())
         
         try:
@@ -382,6 +429,7 @@ class TaskManager:
                 return
             
             # Update task status to VALIDATING
+            logger.info("Updating task status to VALIDATING: task_id=%s", task_id)
             db_task = tasks_crud.update_task_status(
                 db=db,
                 task_id=task_id,
@@ -391,15 +439,18 @@ class TaskManager:
             
             # Get the appropriate runner for this task type
             try:
+                logger.debug("Getting runner for task_type=%s", db_task.task_type)
                 runner = get_runner_for_task_type(db_task.task_type)
             except ValueError as e:
                 # If no runner is registered for this task type, mark the task as failed
+                logger.error(f"No runner found for task type: {db_task.task_type}")
                 error_info = {
                     "error": str(e),
                     "error_type": "ValueError",
                     "timestamp": datetime.now(UTC).isoformat()
                 }
                 
+                logger.info("Updating task status to FAILED: task_id=%s, reason=no_runner", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -412,9 +463,12 @@ class TaskManager:
             
             try:
                 # Validate the task configuration
+                logger.info("Validating task configuration: task_id=%s", task_id)
                 runner.validate_config(db_task.submitted_configs)
+                logger.debug("Task configuration validated successfully: task_id=%s", task_id)
                 
                 # Update task status to PREPARING
+                logger.info("Updating task status to PREPARING: task_id=%s", task_id)
                 db_task = tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -423,14 +477,19 @@ class TaskManager:
                 )
                 
                 # Submit the job to the runner
+                logger.info("Submitting job to runner: task_id=%s", task_id)
                 task_base = await runner.submit_job(db_task.submitted_configs)
+                logger.debug("Job submitted to runner: task_id=%s, job_id=%s", 
+                            task_id, task_base.job_id)
                 
                 # Update task status to RUNNING and include execution details
                 execution_details = {
                     "job_id": task_base.job_id,
                     "log_file": task_base.log_file
                 }
-                    
+                
+                logger.info("Updating task status to RUNNING: task_id=%s, job_id=%s", 
+                           task_id, task_base.job_id)
                 db_task = tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -440,16 +499,19 @@ class TaskManager:
                 )
                 
                 # Start background monitoring of the task
+                logger.info("Starting background monitoring for task: task_id=%s", task_id)
                 self._start_task_monitoring(task_id, runner, task_base)
                 
             except Exception as e:
                 # If validation or execution fails, mark the task as failed
+                logger.error(f"Error during task validation/execution: {str(e)}", exc_info=True)
                 error_info = {
                     "error": str(e),
                     "error_type": e.__class__.__name__,
                     "timestamp": datetime.now(UTC).isoformat()
                 }
                 
+                logger.info("Updating task status to FAILED: task_id=%s", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -460,7 +522,7 @@ class TaskManager:
                 logger.error(f"Failed to execute task {task_id}: {str(e)}")
         
         except Exception as e:
-            logger.error(f"Error executing task {task_id}: {str(e)}")
+            logger.error(f"Error executing task {task_id}: {str(e)}", exc_info=True)
 
     def _start_task_monitoring(self, task_id: str, runner: TaskRunnerBase, task_base: TaskBase) -> None:
         """
@@ -471,17 +533,23 @@ class TaskManager:
             runner: The task runner instance
             task_base: The task instance
         """
+        logger.info("Setting up monitoring for task: task_id=%s", task_id)
+        
         # Create and store the monitoring task
+        logger.debug("Creating monitoring task: task_id=%s", task_id)
         monitoring_task = asyncio.create_task(self._monitor_task(task_id, runner, task_base))
         self._monitoring_tasks[task_id] = monitoring_task
         
         # Set up callback to clean up when monitoring is done
+        logger.debug("Setting up cleanup callback for monitoring task: task_id=%s", task_id)
         monitoring_task.add_done_callback(
             lambda _: self._monitoring_tasks.pop(task_id, None)
         )
         
         # Start timeout monitor if timeout is set
         if task_base.task_timeout_seconds > 0:
+            logger.info("Setting up timeout monitor for task: task_id=%s, timeout=%s seconds", 
+                       task_id, task_base.task_timeout_seconds)
             timeout_task = asyncio.create_task(
                 self._task_timeout_monitor(task_id, runner, task_base, task_base.task_timeout_seconds)
             )
@@ -490,6 +558,7 @@ class TaskManager:
             self._monitoring_tasks[f"{task_id}_timeout"] = timeout_task
             
             # Clean up when done
+            logger.debug("Setting up cleanup callback for timeout task: task_id=%s", task_id)
             timeout_task.add_done_callback(
                 lambda _: self._monitoring_tasks.pop(f"{task_id}_timeout", None)
             )
@@ -503,24 +572,31 @@ class TaskManager:
             runner: The task runner instance
             task_base: The task instance
         """
+        logger.info("Starting task monitor loop: task_id=%s", task_id)
         db = next(get_db())
         
         try:
             # Poll for status periodically
             while True:
+                logger.debug("Polling task status from runner: task_id=%s", task_id)
                 # Fetch the latest task status from the runner
                 updated_task = await runner.fetch_task_status(task)
+                logger.debug("Runner reports task status: task_id=%s, status=%s", 
+                            task_id, updated_task.status.value)
                 
                 # Check if the task has expired
                 db_task = tasks_crud.get_task(db=db, task_id=task_id)
                 if db_task.expires_at and datetime.now().timestamp() > db_task.expires_at.timestamp():
                     # Task has exceeded its timeout, mark as failed
+                    logger.warning("Task has exceeded expiration time: task_id=%s, expires_at=%s", 
+                                  task_id, db_task.expires_at.isoformat())
                     error_info = {
                         "error": "Task exceeded its timeout limit",
                         "error_type": "TaskTimeoutError",
                         "timestamp": datetime.now(UTC).isoformat()
                     }
                     
+                    logger.info("Updating expired task status to FAILED: task_id=%s", task_id)
                     tasks_crud.update_task_status(
                         db=db,
                         task_id=task_id,
@@ -531,9 +607,10 @@ class TaskManager:
                     
                     # Attempt to cancel the job in the runner
                     try:
+                        logger.info("Attempting to cancel expired task in runner: task_id=%s", task_id)
                         await runner.cancel(task_id, force=True)
                     except Exception as e:
-                        logger.error(f"Failed to cancel expired task {task_id}: {str(e)}")
+                        logger.error(f"Failed to cancel expired task {task_id}: {str(e)}", exc_info=True)
                     
                     break
                 
@@ -543,26 +620,34 @@ class TaskManager:
                     db_status = TaskStatus.RUNNING
                 elif updated_task.status == TaskStatus.COMPLETED:
                     db_status = TaskStatus.COMPLETED
+                    logger.info("Task completed successfully: task_id=%s", task_id)
                 elif updated_task.status == TaskStatus.FAILED:
                     db_status = TaskStatus.FAILED
+                    logger.warning("Task failed: task_id=%s", task_id)
                 elif updated_task.status == TaskStatus.CANCELLED:
                     db_status = TaskStatus.CANCELLED
+                    logger.info("Task was cancelled: task_id=%s", task_id)
                 elif updated_task.status == TaskStatus.CANCELLING:
                     db_status = TaskStatus.CANCELLING
                 
                 # If we have a status to update, do it
                 if db_status and db_status != db_task.status:
+                    logger.info("Updating task status: task_id=%s, old_status=%s, new_status=%s", 
+                              task_id, db_task.status.value, db_status.value)
+                    
                     # Get the result if the task has completed
                     result_summary = None
                     error_info = None
                     
                     if db_status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
                         if db_status == TaskStatus.COMPLETED:
+                            logger.debug("Preparing result summary for completed task: task_id=%s", task_id)
                             result_summary = {
                                 "success": True,
                                 "result": updated_task.result
                             }
                         else:
+                            logger.debug("Preparing error info for failed task: task_id=%s", task_id)
                             error_info = {
                                 "error": updated_task.result.get("error", "Task failed"),
                                 "timestamp": datetime.now(UTC).isoformat()
@@ -570,14 +655,19 @@ class TaskManager:
                     
                     # Get logs for the task
                     try:
+                        logger.debug("Retrieving log summary for task: task_id=%s", task_id)
                         log_summary = runner.get_log_summary(task_id)
                         execution_details = {
                             "log_summary": log_summary
                         }
-                    except:
+                    except Exception as e:
+                        logger.warning("Failed to retrieve log summary: task_id=%s, error=%s", 
+                                    task_id, str(e))
                         execution_details = {}
                     
                     # Update task status in the database
+                    logger.debug("Persisting updated task status to database: task_id=%s, status=%s", 
+                               task_id, db_status.value)
                     tasks_crud.update_task_status(
                         db=db,
                         task_id=task_id,
@@ -590,15 +680,23 @@ class TaskManager:
                     
                     # If the task has reached a terminal state, stop monitoring
                     if db_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+                        logger.info("Task reached terminal state, stopping monitor: task_id=%s, status=%s", 
+                                  task_id, db_status.value)
                         break
+                else:
+                    logger.debug("No status change detected: task_id=%s, status=%s", 
+                               task_id, db_task.status.value)
                 
                 # Sleep before polling again
+                logger.debug("Sleeping for %s seconds before next poll: task_id=%s", 
+                           self.polling_interval, task_id)
                 await asyncio.sleep(self.polling_interval)
         
         except Exception as e:
             logger.error(f"Error monitoring task {task_id}: {str(e)}", exc_info=True)
             # Make sure the task is marked as failed
             try:
+                logger.info("Updating task status to FAILED due to monitoring error: task_id=%s", task_id)
                 tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -611,7 +709,7 @@ class TaskManager:
                     }
                 )
             except Exception as inner_e:
-                logger.error(f"Failed to update task status: {str(inner_e)}")
+                logger.error(f"Failed to update task status: {str(inner_e)}", exc_info=True)
 
     async def _task_timeout_monitor(self, task_id: str, runner: TaskRunnerBase, task_base: TaskBase, timeout_seconds: int):
         """
@@ -623,11 +721,17 @@ class TaskManager:
             task_base: The task instance
             timeout_seconds: The timeout in seconds
         """
+        logger.info("Starting timeout monitor for task: task_id=%s, timeout=%s seconds", 
+                   task_id, timeout_seconds)
+                   
         if timeout_seconds <= 0:
+            logger.debug("Timeout monitor disabled (timeout <= 0): task_id=%s", task_id)
             return
         
         try:
             # Wait for the timeout period
+            logger.debug("Waiting for timeout period: task_id=%s, timeout=%s seconds", 
+                       task_id, timeout_seconds)
             await asyncio.sleep(timeout_seconds)
             
             # Get the current DB status
@@ -639,10 +743,12 @@ class TaskManager:
                 logger.warning(f"Task {task_id} timed out after {timeout_seconds} seconds")
                 
                 # Fetch the latest task status from the runner
+                logger.debug("Double-checking task status from runner before timeout: task_id=%s", task_id)
                 updated_task = await runner.fetch_task_status(task_base)
                 
                 # Only proceed if the task is still running
                 if updated_task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]:
+                    logger.info("Confirmed task is still running, proceeding with timeout: task_id=%s", task_id)
                     # Update error info
                     error_info = {
                         "error": f"Task timed out after {timeout_seconds} seconds",
@@ -651,6 +757,7 @@ class TaskManager:
                     }
                     
                     # Update task status to FAILED due to timeout
+                    logger.info("Updating timed-out task status to FAILED: task_id=%s", task_id)
                     tasks_crud.update_task_status(
                         db=db,
                         task_id=task_id,
@@ -660,6 +767,13 @@ class TaskManager:
                     )
                     
                     # Cancel the task
+                    logger.info("Forcing cancellation of timed-out task: task_id=%s", task_id)
                     await runner.cancel(task_id, force=True)
+                else:
+                    logger.info("Task no longer running (status=%s), skipping timeout handling: task_id=%s", 
+                              updated_task.status.value, task_id)
+            else:
+                logger.info("Task already in terminal state (status=%s), ignoring timeout: task_id=%s", 
+                          db_task.status.value, task_id)
         except Exception as e:
-            logger.error(f"Error in timeout monitor for task {task_id}: {str(e)}")
+            logger.error(f"Error in timeout monitor for task {task_id}: {str(e)}", exc_info=True)
