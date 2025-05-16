@@ -1,5 +1,4 @@
-from typing import Optional, List, Dict, Any
-from shortuuid import ShortUUID
+from typing import Optional
 from datetime import datetime, UTC
 import asyncio
 
@@ -9,6 +8,7 @@ from resinkit_api.db.models import TaskStatus
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
+from resinkit_api.services.agent.task_base import TaskBase
 
 logger = get_logger(__name__)
 
@@ -57,8 +57,9 @@ class TaskManager:
         notification_config = payload.get("notification_config")
         tags = payload.get("tags")
 
-        # Generate a unique task ID
-        task_id = f"{task_type}_{ShortUUID().random(length=9)}"
+        # Generate a unique task ID using TaskBase
+        task_id = TaskBase.generate_task_id(task_type)
+        payload["task_id"] = task_id  # Ensure payload carries the generated task_id
 
         # Get database session
         db = next(get_db())
@@ -322,21 +323,7 @@ class TaskManager:
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
         
         try:
-            # Get the job ID from execution details
-            job_id = None
-            execution_details = db_task.get_execution_details()
-            if execution_details and "job_id" in execution_details:
-                job_id = execution_details["job_id"]
-            
-            if job_id:
-                # Get the appropriate runner for this task type
-                runner = get_runner_for_task_type(db_task.task_type)
-                
-                # Get logs from the runner
-                return runner.get_log_summary(job_id, level=log_level_filter)
-            else:
-                return "No logs available - task hasn't been submitted to a runner yet"
-        
+            return get_runner_for_task_type(db_task.task_type).get_log_summary(task_id, level=log_level_filter)        
         except Exception as e:
             logger.error(f"Failed to get logs for task {task_id}: {str(e)}")
             return f"Error retrieving logs: {str(e)}"
@@ -443,9 +430,6 @@ class TaskManager:
                     "job_id": task_base.job_id,
                     "log_file": task_base.log_file
                 }
-                
-                if hasattr(task_base, "execution_details"):
-                    execution_details.update(task_base.execution_details)
                     
                 db_task = tasks_crud.update_task_status(
                     db=db,
@@ -456,7 +440,7 @@ class TaskManager:
                 )
                 
                 # Start background monitoring of the task
-                self._start_task_monitoring(task_id, runner, task_base.job_id)
+                self._start_task_monitoring(task_id, runner, task_base)
                 
             except Exception as e:
                 # If validation or execution fails, mark the task as failed
@@ -478,40 +462,54 @@ class TaskManager:
         except Exception as e:
             logger.error(f"Error executing task {task_id}: {str(e)}")
 
-    def _start_task_monitoring(self, task_id: str, runner: TaskRunnerBase, job_id: str) -> None:
+    def _start_task_monitoring(self, task_id: str, runner: TaskRunnerBase, task_base: TaskBase) -> None:
         """
         Start a background task to monitor the task's progress
         
         Args:
             task_id: ID of the task to monitor
             runner: The task runner instance
-            job_id: ID of the job within the runner
+            task_base: The task instance
         """
         # Create and store the monitoring task
-        monitoring_task = asyncio.create_task(self._monitor_task(task_id, runner, job_id))
+        monitoring_task = asyncio.create_task(self._monitor_task(task_id, runner, task_base))
         self._monitoring_tasks[task_id] = monitoring_task
         
         # Set up callback to clean up when monitoring is done
         monitoring_task.add_done_callback(
             lambda _: self._monitoring_tasks.pop(task_id, None)
         )
+        
+        # Start timeout monitor if timeout is set
+        if task_base.task_timeout_seconds > 0:
+            timeout_task = asyncio.create_task(
+                self._task_timeout_monitor(task_id, runner, task_base, task_base.task_timeout_seconds)
+            )
+            
+            # Store the timeout task with a unique key
+            self._monitoring_tasks[f"{task_id}_timeout"] = timeout_task
+            
+            # Clean up when done
+            timeout_task.add_done_callback(
+                lambda _: self._monitoring_tasks.pop(f"{task_id}_timeout", None)
+            )
 
-    async def _monitor_task(self, task_id: str, runner: TaskRunnerBase, job_id: str) -> None:
+    async def _monitor_task(self, task_id: str, runner: TaskRunnerBase, task: TaskBase) -> None:
         """
         Monitor a running task and update its status in the database.
         
         Args:
             task_id: ID of the task being monitored
             runner: The task runner instance
-            job_id: ID of the job within the runner
+            task_base: The task instance
         """
         db = next(get_db())
         
         try:
             # Poll for status periodically
             while True:
-                # Get the current status from the runner
-                status = runner.get_status(job_id)
+                # Fetch the latest task status from the runner
+                updated_task = await runner.fetch_task_status(task)
                 
                 # Check if the task has expired
                 db_task = tasks_crud.get_task(db=db, task_id=task_id)
@@ -533,49 +531,46 @@ class TaskManager:
                     
                     # Attempt to cancel the job in the runner
                     try:
-                        await runner.cancel(job_id, force=True)
+                        await runner.cancel(task_id, force=True)
                     except Exception as e:
                         logger.error(f"Failed to cancel expired task {task_id}: {str(e)}")
                     
                     break
                 
                 # Map status from runner to TaskStatus
-                # This mapping might need adjustment depending on the runner implementation
                 db_status = None
-                if status == "RUNNING":
+                if updated_task.status == TaskStatus.RUNNING:
                     db_status = TaskStatus.RUNNING
-                elif status == "COMPLETED":
+                elif updated_task.status == TaskStatus.COMPLETED:
                     db_status = TaskStatus.COMPLETED
-                elif status == "FAILED":
+                elif updated_task.status == TaskStatus.FAILED:
                     db_status = TaskStatus.FAILED
-                elif status == "CANCELLED":
+                elif updated_task.status == TaskStatus.CANCELLED:
                     db_status = TaskStatus.CANCELLED
-                elif status == "CANCELLING":
+                elif updated_task.status == TaskStatus.CANCELLING:
                     db_status = TaskStatus.CANCELLING
                 
                 # If we have a status to update, do it
-                if db_status:
+                if db_status and db_status != db_task.status:
                     # Get the result if the task has completed
                     result_summary = None
                     error_info = None
                     
                     if db_status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-                        result_data = runner.get_result(job_id)
-                        if result_data:
-                            if db_status == TaskStatus.COMPLETED:
-                                result_summary = {
-                                    "success": True,
-                                    "result": result_data
-                                }
-                            else:
-                                error_info = {
-                                    "error": str(result_data),
-                                    "timestamp": datetime.now(UTC).isoformat()
-                                }
+                        if db_status == TaskStatus.COMPLETED:
+                            result_summary = {
+                                "success": True,
+                                "result": updated_task.result
+                            }
+                        else:
+                            error_info = {
+                                "error": updated_task.result.get("error", "Task failed"),
+                                "timestamp": datetime.now(UTC).isoformat()
+                            }
                     
                     # Get logs for the task
                     try:
-                        log_summary = runner.get_log_summary(job_id)
+                        log_summary = runner.get_log_summary(task_id)
                         execution_details = {
                             "log_summary": log_summary
                         }
@@ -617,3 +612,54 @@ class TaskManager:
                 )
             except Exception as inner_e:
                 logger.error(f"Failed to update task status: {str(inner_e)}")
+
+    async def _task_timeout_monitor(self, task_id: str, runner: TaskRunnerBase, task_base: TaskBase, timeout_seconds: int):
+        """
+        Monitor task timeout and cancel if exceeded.
+        
+        Args:
+            task_id: ID of the task being monitored
+            runner: The task runner instance
+            task_base: The task instance
+            timeout_seconds: The timeout in seconds
+        """
+        if timeout_seconds <= 0:
+            return
+        
+        try:
+            # Wait for the timeout period
+            await asyncio.sleep(timeout_seconds)
+            
+            # Get the current DB status
+            db = next(get_db())
+            db_task = tasks_crud.get_task(db=db, task_id=task_id)
+            
+            # If the task is still running after the timeout, cancel it
+            if db_task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]:
+                logger.warning(f"Task {task_id} timed out after {timeout_seconds} seconds")
+                
+                # Fetch the latest task status from the runner
+                updated_task = await runner.fetch_task_status(task_base)
+                
+                # Only proceed if the task is still running
+                if updated_task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]:
+                    # Update error info
+                    error_info = {
+                        "error": f"Task timed out after {timeout_seconds} seconds",
+                        "error_type": "TaskTimeoutError",
+                        "timestamp": datetime.now(UTC).isoformat()
+                    }
+                    
+                    # Update task status to FAILED due to timeout
+                    tasks_crud.update_task_status(
+                        db=db,
+                        task_id=task_id,
+                        new_status=TaskStatus.FAILED,
+                        actor="system",
+                        error_info=error_info
+                    )
+                    
+                    # Cancel the task
+                    await runner.cancel(task_id, force=True)
+        except Exception as e:
+            logger.error(f"Error in timeout monitor for task {task_id}: {str(e)}")

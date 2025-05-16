@@ -1,0 +1,18 @@
+task_type: flink_sql
+name: select_1
+description: run a trivial select 1 statement
+task_timeout_seconds: 3600
+
+job:
+  sql: >
+    SELECT 1
+  pipeline:
+    name: select 1
+    parallelism: 1
+
+resources:
+  flink_jars:
+    - name: Flink SQL Connector Kafka
+      type: lib
+      source: download
+      location: https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.19/flink-sql-connector-kafka-3.3.0-1.19.jar

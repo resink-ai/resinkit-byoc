@@ -9,15 +9,17 @@ from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobMa
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
+from resinkit_api.db.models import TaskStatus
 from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
 from resinkit_api.services.agent.flink.run_flink_cdc_pipeline_task import RunFlinkCdcPipelineTask
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
+from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
 
 logger = get_logger(__name__)
 
 
-class FlinkCdcPipelineRunner(TaskRunnerBase):
+class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
     def __init__(self, 
                  job_manager: FlinkJobManager, 
                  sql_gateway_client: FlinkSqlGatewayClient, 
@@ -44,8 +46,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
     def validate_config(cls, task_config: dict) -> None:
         """Validates the configuration for running a Flink CDC pipeline."""
         try:
-            task = RunFlinkCdcPipelineTask.from_config(task_config)
-            task.validate()
+            RunFlinkCdcPipelineTask.validate(task_config)
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
@@ -72,7 +73,8 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         
         # Execute the command
         logger.info(f"Starting Flink CDC Pipeline: {task.name}")
-        task.status = "RUNNING"
+        task.status = TaskStatus.RUNNING
+        await self.persist_task_status(task, TaskStatus.RUNNING)
         
         try:
             # Run the Flink command
@@ -84,14 +86,12 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             )
             task.process = process
             
-            # Store the process and update task status
-            await self._monitor_job(task)
-            
             return task
         except Exception as e:
-            task.status = "FAILED"
+            task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
             logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
+            await self.persist_task_status(task, TaskStatus.FAILED, str(e))
             raise
         finally:
             log_file.close()
@@ -101,7 +101,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         task = self.tasks.get(task_id)
         if not task:
             return "UNKNOWN"
-        return task.status
+        return task.status.value
 
     def get_result(self, task_id: str) -> Optional[Any]:
         """Gets the result of a completed Flink CDC pipeline job."""
@@ -137,11 +137,12 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             logger.warning(f"Task {task_id} not found")
             return
         
-        if task.status not in ["RUNNING", "PENDING"]:
-            logger.info(f"Task {task_id} is not running, current status: {task.status}")
+        if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
+            logger.info(f"Task {task_id} is not running, current status: {task.status.value}")
             return
         
-        task.status = "CANCELLING"
+        task.status = TaskStatus.CANCELLING
+        await self.persist_task_status(task, TaskStatus.CANCELLING)
         
         try:
             # If we have a process, terminate it
@@ -166,12 +167,14 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                 logger.info(f"Cancelling Flink job {flink_job_id}")
                 # TODO: Implement actual Flink job cancellation via API
             
-            task.status = "CANCELLED"
+            task.status = TaskStatus.CANCELLED
             logger.info(f"Successfully cancelled task {task_id}")
+            await self.persist_task_status(task, TaskStatus.CANCELLED)
         except Exception as e:
             logger.error(f"Failed to cancel task {task_id}: {str(e)}")
-            task.status = "FAILED"
+            task.status = TaskStatus.FAILED
             task.result = {"error": f"Cancel failed: {str(e)}"}
+            await self.persist_task_status(task, TaskStatus.FAILED, f"Cancel failed: {str(e)}")
             raise
 
     async def shutdown(self):
@@ -180,7 +183,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         
         # Cancel all running tasks
         running_tasks = [task_id for task_id, task in self.tasks.items() 
-                         if task.status in ["RUNNING", "PENDING"]]
+                         if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]]
         
         for task_id in running_tasks:
             try:
@@ -309,91 +312,63 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         logger.info(f"[IMPORTANT] Flink command: {cmd}")
         return cmd
 
-    async def _monitor_job(self, task: RunFlinkCdcPipelineTask):
+    async def fetch_task_status(self, task: RunFlinkCdcPipelineTask) -> RunFlinkCdcPipelineTask:
         """
-        Starts monitoring the running job in a background task.
-        Updates the task status and result based on the job execution.
-        """
-        # Create a background task to monitor the job
-        asyncio.create_task(self._job_monitor_task(task))
-        
-        # Create a timeout task if task_timeout_seconds is specified
-        if task.task_timeout_seconds > 0:
-            asyncio.create_task(self._task_timeout_monitor(task, task.task_timeout_seconds))
-
-    async def _task_timeout_monitor(self, task: RunFlinkCdcPipelineTask, timeout_seconds: int):
-        """
-        Monitor task execution time and force kill if it exceeds the timeout.
+        Fetches the latest status of a Flink CDC task and returns an updated task instance.
         
         Args:
-            task: The task to monitor
-            timeout_seconds: Maximum allowed execution time in seconds
+            task: The task instance to check status for
+            
+        Returns:
+            An updated task instance with the latest status
         """
-        try:
-            # Wait for the specified timeout period
-            await asyncio.sleep(timeout_seconds)
+        task_id = task.task_id
+        
+        # Check if task exists
+        if task_id not in self.tasks:
+            self.tasks[task_id] = task
             
-            # If the task is still running after the timeout, force kill it
-            if task.status in ["RUNNING", "PENDING"]:
-                logger.warning(f"Task {task.job_id} exceeded timeout of {timeout_seconds} seconds. Force killing...")
+        # Initialize status as the current task status
+        new_status = task.status
+        error_message = None
+        
+        # Check the process status if it exists
+        if task.process:
+            try:
+                # Check if the process has exited
+                return_code = task.process.returncode
                 
-                if task.process:
-                    # First try graceful termination
-                    task.process.terminate()
-                    
-                    try:
-                        # Give it 10 seconds to terminate gracefully
-                        await asyncio.wait_for(task.process.wait(), timeout=10.0)
-                    except asyncio.TimeoutError:
-                        # If still running after 10 seconds, force kill
-                        logger.warning(f"Task {task.job_id} did not terminate gracefully, force killing")
-                        task.process.kill()
-                
-                # Update task status and result
-                task.status = "TIMEOUT"
-                task.result = {
-                    "success": False,
-                    "error": f"Task execution exceeded timeout of {timeout_seconds} seconds",
-                    "message": "Task was forcefully terminated due to timeout"
-                }
-                logger.error(f"Flink CDC pipeline {task.job_id} timed out after {timeout_seconds} seconds")
-        except Exception as e:
-            logger.error(f"Error in timeout monitor for task {task.job_id}: {str(e)}")
-
-    async def _job_monitor_task(self, task: RunFlinkCdcPipelineTask):
-        """Background task to monitor a running Flink job."""
-        try:
-            # Wait for the process to complete
-            return_code = await task.process.wait()
-            
-            # Process the output to find the Flink job ID
-            flink_job_id = await self._extract_flink_job_id(task.log_file)
-            
-            if return_code == 0:
-                task.status = "COMPLETED"
-                task.result = {
-                    "success": True,
-                    "flink_job_id": flink_job_id,
-                    "message": "CDC pipeline successfully deployed"
-                }
-                logger.info(f"Flink CDC pipeline {task.job_id} completed successfully")
-            else:
-                task.status = "FAILED"
-                task.result = {
-                    "success": False,
-                    "flink_job_id": flink_job_id,
-                    "return_code": return_code,
-                    "message": f"CDC pipeline failed with return code {return_code}"
-                }
-                logger.error(f"Flink CDC pipeline {task.job_id} failed with return code {return_code}")
-        except Exception as e:
-            task.status = "FAILED"
-            task.result = {
-                "success": False,
-                "error": str(e),
-                "message": f"Exception during job monitoring: {str(e)}"
-            }
-            logger.error(f"Exception monitoring Flink CDC pipeline {task.job_id}: {str(e)}")
+                if return_code is not None:  # Process has exited
+                    if return_code == 0:
+                        new_status = TaskStatus.COMPLETED
+                        
+                        # Extract Flink job ID if available
+                        flink_job_id = await self._extract_flink_job_id(task.log_file)
+                        if flink_job_id:
+                            task.result = task.result or {}
+                            task.result["flink_job_id"] = flink_job_id
+                            task.result["success"] = True
+                            task.result["message"] = "CDC pipeline successfully deployed"
+                    else:
+                        new_status = TaskStatus.FAILED
+                        error_message = f"Process exited with return code {return_code}"
+                        task.result = task.result or {}
+                        task.result["success"] = False
+                        task.result["return_code"] = return_code
+                        task.result["message"] = f"CDC pipeline failed with return code {return_code}"
+            except Exception as e:
+                logger.error(f"Error checking process status for task {task_id}: {str(e)}")
+                new_status = TaskStatus.FAILED
+                error_message = str(e)
+        
+        # Update task status if changed
+        if new_status != task.status:
+            task.status = new_status
+            if new_status == TaskStatus.FAILED and error_message:
+                task.result = task.result or {}
+                task.result["error"] = error_message
+        
+        return task
 
     async def _extract_flink_job_id(self, log_file_path: str) -> Optional[str]:
         """

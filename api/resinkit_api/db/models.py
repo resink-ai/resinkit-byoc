@@ -36,6 +36,17 @@ class TaskStatus(enum.Enum):
     CANCELLING = "CANCELLING"
     CANCELLED = "CANCELLED"
 
+    @classmethod
+    def from_str(cls, status: str) -> "TaskStatus":
+        """Parse a status string to TaskStatus enum, fallback to FAILED if unknown."""
+        try:
+            # Special case: treat TIMEOUT as FAILED
+            if status == "TIMEOUT":
+                return cls.FAILED
+            return cls[status]
+        except (KeyError, TypeError):
+            return cls.FAILED
+
 
 class JSONString(TypeDecorator):
     """Custom type for JSON stored as string in SQLite"""

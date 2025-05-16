@@ -4,8 +4,10 @@ from typing import Dict, List, Optional, Any
 
 from sqlalchemy.orm import Session
 
+from resinkit_api.core.logging import get_logger
 from resinkit_api.db.models import Task, TaskEvent, TaskStatus
 
+logger = get_logger(__name__)
 
 # Tasks CRUD operations
 def get_task(db: Session, task_id: str) -> Optional[Task]:
@@ -126,6 +128,7 @@ def update_task_status(
     """Update a task's status and related information."""
     db_task = get_task(db, task_id)
     if not db_task:
+        logger.error(f"Task {task_id} not found")
         return None
     
     previous_status = db_task.status

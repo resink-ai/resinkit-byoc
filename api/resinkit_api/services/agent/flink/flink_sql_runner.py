@@ -1,21 +1,22 @@
 import asyncio
 import os
-import uuid
 from typing import Any, Dict, List, Optional
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.clients.sql_gateway.flink_operation import FlinkOperation
 from resinkit_api.core.logging import get_logger
+from resinkit_api.db.models import TaskStatus
 from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
 from resinkit_api.services.agent.flink.flink_sql_task import FlinkSQLTask
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
+from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
 
 logger = get_logger(__name__)
 
 
-class FlinkSQLRunner(TaskRunnerBase):
+class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
     """Runner for executing Flink SQL jobs via the SQL Gateway."""
     
     def __init__(self, 
@@ -50,8 +51,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             ValueError: If the configuration is invalid
         """
         try:
-            task = FlinkSQLTask.from_config(task_config)
-            task.validate()
+            FlinkSQLTask.validate(task_config)
         except Exception as e:
             raise ValueError(f"Invalid Flink SQL configuration: {str(e)}")
 
@@ -73,7 +73,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         
         # Create task instance
         task = FlinkSQLTask.from_config(task_config)
-        task_id = task.job_id
+        task_id = task.task_id
         self.tasks[task_id] = task
         
         # Process resources
@@ -84,7 +84,8 @@ class FlinkSQLRunner(TaskRunnerBase):
         
         try:
             # Update task status
-            task.status = "RUNNING"
+            task.status = TaskStatus.RUNNING
+            await self.persist_task_status(task, TaskStatus.RUNNING)
             log_file.write(f"Starting Flink SQL job: {task.name}\n")
             
             # Create session properties
@@ -97,9 +98,6 @@ class FlinkSQLRunner(TaskRunnerBase):
                 session_name=session_name,
                 open_if_not_alive=True,
             )
-            
-            # Start the monitoring task
-            asyncio.create_task(self._monitor_task(task, session_name))
             
             log_file.write(f"Created Flink SQL session: {session_name}\n")
             
@@ -139,14 +137,15 @@ class FlinkSQLRunner(TaskRunnerBase):
             # Store the session name
             self.session_to_task_id[session_name] = task_id
             
-            log_file.write(f"Flink SQL job submitted successfully, name: {task.name}, id: {task.job_id}")
+            log_file.write(f"Flink SQL job submitted successfully, name: {task.name}, id: {task.task_id}")
             
             return task
         except Exception as e:
-            task.status = "FAILED"
+            task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
             log_file.write(f"Failed to submit Flink SQL job: {str(e)}\n")
             logger.error(f"Failed to submit Flink SQL job: {str(e)}", exc_info=True)
+            await self.persist_task_status(task, TaskStatus.FAILED, str(e))
             raise
         finally:
             log_file.close()
@@ -164,7 +163,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         task = self.tasks.get(task_id)
         if not task:
             return "UNKNOWN"
-        return task.status
+        return task.status.value
 
     def get_result(self, task_id: str) -> Optional[Any]:
         """
@@ -223,11 +222,12 @@ class FlinkSQLRunner(TaskRunnerBase):
             logger.warning(f"Task {task_id} not found")
             return
         
-        if task.status not in ["RUNNING", "PENDING"]:
-            logger.info(f"Task {task_id} is not running, current status: {task.status}")
+        if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
+            logger.info(f"Task {task_id} is not running, current status: {task.status.value}")
             return
         
-        task.status = "CANCELLING"
+        task.status = TaskStatus.CANCELLING
+        await self.persist_task_status(task, TaskStatus.CANCELLING)
         
         try:
             # Get session name
@@ -244,6 +244,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             
             if not session.was_alive:
                 logger.warning(f"Session {session_name} was not alive when cancelling task {task_id}")
+                await self.persist_task_status(task, TaskStatus.FAILED, f"Session {session_name} was not alive")
                 return
             
             # Cancel each operation
@@ -275,12 +276,14 @@ class FlinkSQLRunner(TaskRunnerBase):
                 except Exception as e:
                     logger.error(f"Failed to cancel Flink job {flink_job_id}: {str(e)}")
             
-            task.status = "CANCELLED"
+            task.status = TaskStatus.CANCELLED
             logger.info(f"Successfully cancelled task {task_id}")
+            await self.persist_task_status(task, TaskStatus.CANCELLED)
         except Exception as e:
             logger.error(f"Failed to cancel task {task_id}: {str(e)}")
-            task.status = "FAILED"
+            task.status = TaskStatus.FAILED
             task.result["error"] = f"Cancel failed: {str(e)}"
+            await self.persist_task_status(task, TaskStatus.FAILED, f"Cancel failed: {str(e)}")
             raise
 
     async def shutdown(self):
@@ -289,7 +292,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         
         # Cancel all running tasks
         running_tasks = [task_id for task_id, task in self.tasks.items() 
-                         if task.status in ["RUNNING", "PENDING"]]
+                         if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]]
         
         for task_id in running_tasks:
             try:
@@ -339,85 +342,84 @@ class FlinkSQLRunner(TaskRunnerBase):
         
         return properties
 
-    async def _monitor_task(self, task: FlinkSQLTask, session_name: str):
+    async def fetch_task_status(self, task: FlinkSQLTask) -> FlinkSQLTask:
         """
-        Monitor the task execution and update status.
+        Fetches the latest status of a Flink SQL task and returns an updated task instance.
         
         Args:
-            task: The task instance
-            session_name: The SQL Gateway session name
+            task: The task instance to check status for
+            
+        Returns:
+            An updated task instance with the latest status
         """
-        # Start timeout monitor
-        asyncio.create_task(self._task_timeout_monitor(task, task.task_timeout_seconds))
+        task_id = task.task_id
         
-        # Monitor the task until it completes or fails
-        while task.status in ["RUNNING", "PENDING"]:
+        # Check if task exists
+        if task_id not in self.tasks:
+            self.tasks[task_id] = task
+        
+        # Get session name
+        session_name = task.result.get("session_name")
+        
+        # Initialize status as the current task status
+        new_status = task.status
+        error_message = None
+        
+        if session_name:
             try:
                 # Get session
                 session = self.sql_gateway_client.get_session(
                     session_name=session_name,
                     open_if_not_alive=False
                 )
+                
                 if not session.was_alive:
-                    logger.info(f"Session {session_name} was not alive when monitoring task {task.job_id}")
-                    return
-                
-                # Check each operation
-                for op_handle in task.operation_handles:
-                    try:
-                        # Create a FlinkOperation with the handle and check status
-                        operation = FlinkOperation(session, op_handle)
-                        status = operation.status().sync()
-                        
-                        # If any operation is still running, keep monitoring
-                        if status.status in ["RUNNING", "PENDING"]:
+                    logger.info(f"Session {session_name} was not alive for task {task_id}, consider task completed")
+                    new_status = TaskStatus.COMPLETED
+                else:
+                    # Check each operation
+                    operations_running = False
+                    operations_failed = False
+                    operations_error = None
+                    
+                    for op_handle in task.operation_handles:
+                        try:
+                            # Create a FlinkOperation with the handle and check status
+                            operation = FlinkOperation(session, op_handle)
+                            status = operation.status().sync()
+                            
+                            # If any operation is still running, keep monitoring
+                            if status.status in ["RUNNING", "PENDING"]:
+                                operations_running = True
+                                break
+                            
+                            # If an operation failed, the whole task failed
+                            if status.status == "ERROR":
+                                operations_failed = True
+                                operations_error = status.error
+                                break
+                        except Exception as e:
+                            logger.error(f"Error checking operation {op_handle}: {str(e)}")
+                            operations_failed = True
+                            operations_error = str(e)
                             break
-                        
-                        # If an operation failed, the whole task failed
-                        if status.status == "ERROR":
-                            task.status = "FAILED"
-                            task.result["error"] = status.error
-                            logger.error(f"Task {task.job_id} failed: {status.error}")
-                            return
-                    except Exception as e:
-                        logger.error(f"Error checking operation {op_handle}: {str(e)}")
-                
-                # If all operations completed successfully, the task is done
-                if task.status == "RUNNING":
-                    task.status = "COMPLETED"
-                    logger.info(f"Task {task.job_id} completed successfully")
-                    return
-                
-                # Wait before checking again
-                await asyncio.sleep(5)
+                    
+                    # Update status based on operations
+                    if operations_failed:
+                        new_status = TaskStatus.FAILED
+                        error_message = operations_error
+                    elif not operations_running and new_status == TaskStatus.RUNNING:
+                        new_status = TaskStatus.COMPLETED
             except Exception as e:
-                logger.error(f"Error monitoring task {task.job_id}: {str(e)}")
-                task.status = "FAILED"
-                task.result["error"] = str(e)
-                return
-
-    async def _task_timeout_monitor(self, task: FlinkSQLTask, timeout_seconds: int):
-        """
-        Monitor task timeout and cancel if exceeded.
+                logger.error(f"Error fetching status for task {task_id}: {str(e)}")
+                new_status = TaskStatus.FAILED
+                error_message = str(e)
         
-        Args:
-            task: The task instance
-            timeout_seconds: The timeout in seconds
-        """
-        if timeout_seconds <= 0:
-            return
+        # Update task status if changed
+        if new_status != task.status:
+            task.status = new_status
+            if new_status == TaskStatus.FAILED and error_message:
+                task.result = task.result or {}
+                task.result["error"] = error_message
         
-        try:
-            # Wait for the timeout period
-            await asyncio.sleep(timeout_seconds)
-            
-            # If the task is still running after the timeout, cancel it
-            if task.status in ["RUNNING", "PENDING"]:
-                logger.warning(f"Task {task.job_id} timed out after {timeout_seconds} seconds")
-                task.status = "TIMEOUT"
-                task.result["error"] = f"Task timed out after {timeout_seconds} seconds"
-                
-                # Cancel the task
-                await self.cancel(task.job_id, force=True)
-        except Exception as e:
-            logger.error(f"Error in timeout monitor for task {task.job_id}: {str(e)}")
+        return task

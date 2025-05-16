@@ -56,6 +56,11 @@ def configure_logging():
         force=True,
     )
     logging.getLogger("stripe").setLevel(logging.ERROR)
+    
+    # Configure Python logging to see SQLAlchemy logs
+    logging.basicConfig() # Basic configuration
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+
     return structlog.get_logger()
 
 

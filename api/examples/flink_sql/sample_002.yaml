@@ -1,0 +1,20 @@
+task_type: flink_sql
+name: select_literal
+description: select from constants
+task_timeout_seconds: 3600
+
+job:
+  sql: >
+    SELECT 
+      42 AS user_id,
+      'John Doe' AS full_name,
+      CAST('1990-05-15' AS DATE) AS birth_date,
+      TIMESTAMP '2025-05-15 14:30:00' AS registration_time,
+      true AS is_active,
+      CAST(3.14159 AS DECIMAL(10,5)) AS pi_value,
+      ARRAY['red', 'green', 'blue'] AS favorite_colors,
+      MAP['language', 'SQL', 'level', 'advanced'] AS skills,
+      ROW('New York', 'USA', 10001) AS address;
+  pipeline:
+    name: select one row
+    parallelism: 1

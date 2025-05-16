@@ -25,3 +25,15 @@ class TaskRunnerBase:
 
     async def cancel(self, task_id: str, force: bool = False):
         raise NotImplementedError
+
+    async def fetch_task_status(self, task: TaskBase) -> TaskBase:
+        """
+        Fetches the latest status of a task and returns an updated task instance.
+        
+        Args:
+            task: The task instance to check status for
+            
+        Returns:
+            An updated task instance with the latest status
+        """
+        raise NotImplementedError

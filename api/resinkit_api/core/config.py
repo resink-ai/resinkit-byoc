@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 from pydantic import (
     BaseModel,
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
 
     ##### Database #####
     DB_PATH: str = "_data_/sqlite.db"
+    SQLALCHEMY_ECHO: Union[bool, str] = "debug"
 
     @computed_field
     @property
