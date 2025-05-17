@@ -2,16 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
-import { useForm } from 'react-hook-form';
-import { Tab } from '@headlessui/react';
+import { notification, Tabs, Input, Button, Form, Space, Typography } from 'antd';
+import { useForm as useReactHookForm } from 'react-hook-form';
 import taskService from '../app/api/taskService';
+
+const { TabPane } = Tabs;
+const { TextArea } = Input;
+const { Title } = Typography;
 
 export default function TaskSubmissionForm() {
     const router = useRouter();
     const [submitting, setSubmitting] = useState(false);
     const [inputMethod, setInputMethod] = useState('json');
-    const { register, handleSubmit, formState: { errors } } = useForm();
+    const { handleSubmit } = useReactHookForm();
     const [yamlInput, setYamlInput] = useState('');
     const [jsonFields, setJsonFields] = useState<{ key: string; value: string }[]>([
         { key: '', value: '' },
@@ -57,7 +60,10 @@ export default function TaskSubmissionForm() {
                 });
 
                 if (Object.keys(payload).length === 0) {
-                    toast.error('Please add at least one key-value pair');
+                    notification.error({
+                        message: 'Error',
+                        description: 'Please add at least one key-value pair',
+                    });
                     setSubmitting(false);
                     return;
                 }
@@ -67,17 +73,26 @@ export default function TaskSubmissionForm() {
             } else {
                 // Submit YAML
                 if (!yamlInput.trim()) {
-                    toast.error('Please enter YAML content');
+                    notification.error({
+                        message: 'Error',
+                        description: 'Please enter YAML content',
+                    });
                     setSubmitting(false);
                     return;
                 }
                 await taskService.submitTaskYaml(yamlInput);
             }
 
-            toast.success('Task submitted successfully');
+            notification.success({
+                message: 'Success',
+                description: 'Task submitted successfully',
+            });
             router.push('/tasks');
         } catch (err: any) {
-            toast.error(`Failed to submit task: ${err.message || 'Unknown error'}`);
+            notification.error({
+                message: 'Error',
+                description: `Failed to submit task: ${err.message || 'Unknown error'}`,
+            });
             console.error('Error submitting task:', err);
         } finally {
             setSubmitting(false);
@@ -85,128 +100,102 @@ export default function TaskSubmissionForm() {
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-6">
+        <div className="bg-white shadow-md rounded-lg p-6">
+            <Title level={4} className="mb-6">
                 Submit New Task
-            </h2>
+            </Title>
 
-            <Tab.Group defaultIndex={0} onChange={(index) => setInputMethod(index === 0 ? 'json' : 'yaml')}>
-                <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 dark:bg-gray-700 p-1 mb-6">
-                    <Tab
-                        className={({ selected }) =>
-                            selected
-                                ? 'w-full rounded-lg py-2.5 text-sm font-medium leading-5 bg-white dark:bg-gray-800 shadow text-primary'
-                                : 'w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-gray-700 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-900 dark:hover:text-white'
-                        }
-                    >
-                        JSON
-                    </Tab>
-                    <Tab
-                        className={({ selected }) =>
-                            selected
-                                ? 'w-full rounded-lg py-2.5 text-sm font-medium leading-5 bg-white dark:bg-gray-800 shadow text-primary'
-                                : 'w-full rounded-lg py-2.5 text-sm font-medium leading-5 text-gray-700 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-900 dark:hover:text-white'
-                        }
-                    >
-                        YAML
-                    </Tab>
-                </Tab.List>
-                <Tab.Panels>
-                    <Tab.Panel>
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div className="space-y-4">
-                                {jsonFields.map((field, index) => (
-                                    <div key={index} className="flex space-x-2">
-                                        <div className="w-1/3">
-                                            <input
-                                                type="text"
-                                                placeholder="Key"
-                                                value={field.key}
-                                                onChange={(e) => updateJsonField(index, 'key', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                                            />
-                                        </div>
-                                        <div className="w-2/3 flex space-x-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Value"
-                                                value={field.value}
-                                                onChange={(e) => updateJsonField(index, 'value', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeJsonField(index)}
-                                                className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                                                disabled={jsonFields.length <= 1}
-                                            >
-                                                &times;
-                                            </button>
-                                        </div>
+            <Tabs
+                defaultActiveKey="json"
+                onChange={(key) => setInputMethod(key)}
+                className="mb-6"
+                type="card"
+            >
+                <TabPane tab="JSON" key="json">
+                    <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
+                        <div className="space-y-4">
+                            {jsonFields.map((field, index) => (
+                                <Space key={index} className="flex w-full">
+                                    <div style={{ width: '33%' }}>
+                                        <Input
+                                            placeholder="Key"
+                                            value={field.key}
+                                            onChange={(e) => updateJsonField(index, 'key', e.target.value)}
+                                        />
                                     </div>
-                                ))}
-                            </div>
+                                    <div style={{ width: '67%' }} className="flex space-x-2">
+                                        <Input
+                                            placeholder="Value"
+                                            value={field.value}
+                                            onChange={(e) => updateJsonField(index, 'value', e.target.value)}
+                                        />
+                                        <Button
+                                            type="primary"
+                                            danger
+                                            onClick={() => removeJsonField(index)}
+                                            disabled={jsonFields.length <= 1}
+                                        >
+                                            &times;
+                                        </Button>
+                                    </div>
+                                </Space>
+                            ))}
+                        </div>
 
-                            <div>
-                                <button
-                                    type="button"
-                                    onClick={addJsonField}
-                                    className="px-4 py-2 text-sm font-medium text-primary bg-white border border-primary rounded-md hover:bg-gray-50"
-                                >
-                                    Add Field
-                                </button>
-                            </div>
+                        <div>
+                            <Button
+                                type="dashed"
+                                onClick={addJsonField}
+                            >
+                                Add Field
+                            </Button>
+                        </div>
 
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={() => router.push('/tasks')}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit Task'}
-                                </button>
-                            </div>
-                        </form>
-                    </Tab.Panel>
-                    <Tab.Panel>
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                            <div>
-                                <textarea
-                                    value={yamlInput}
-                                    onChange={(e) => setYamlInput(e.target.value)}
-                                    placeholder="Enter YAML here..."
-                                    rows={10}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary font-mono text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                                />
-                            </div>
+                        <div className="pt-4 flex justify-end space-x-3">
+                            <Button
+                                onClick={() => router.push('/tasks')}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={submitting}
+                            >
+                                {submitting ? 'Submitting...' : 'Submit Task'}
+                            </Button>
+                        </div>
+                    </Form>
+                </TabPane>
+                <TabPane tab="YAML" key="yaml">
+                    <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
+                        <div>
+                            <TextArea
+                                value={yamlInput}
+                                onChange={(e) => setYamlInput(e.target.value)}
+                                placeholder="Enter YAML here..."
+                                rows={10}
+                                className="font-mono text-sm"
+                            />
+                        </div>
 
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={() => router.push('/tasks')}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit Task'}
-                                </button>
-                            </div>
-                        </form>
-                    </Tab.Panel>
-                </Tab.Panels>
-            </Tab.Group>
+                        <div className="pt-4 flex justify-end space-x-3">
+                            <Button
+                                onClick={() => router.push('/tasks')}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={submitting}
+                            >
+                                {submitting ? 'Submitting...' : 'Submit Task'}
+                            </Button>
+                        </div>
+                    </Form>
+                </TabPane>
+            </Tabs>
         </div>
     );
 } 

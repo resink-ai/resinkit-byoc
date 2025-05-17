@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
-import { Tab } from '@headlessui/react';
+import { notification, Tabs, Button, Badge, Spin, Tag, Space, Select } from 'antd';
 import { format } from 'date-fns';
 import { ArrowLeftIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { JsonView } from 'react-json-view-lite';
@@ -24,7 +23,7 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
     const [resultsLoading, setResultsLoading] = useState(false);
     const [logLevel, setLogLevel] = useState('INFO');
     const [error, setError] = useState<string | null>(null);
-    const [selectedTab, setSelectedTab] = useState(0);
+    const [activeKey, setActiveKey] = useState('1');
 
     // Function to fetch task details
     const fetchTaskDetails = useCallback(async () => {
@@ -50,7 +49,10 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
             const logsData = await taskService.getTaskLogs(taskId, logLevel);
             setLogs(logsData || []);
         } catch (err) {
-            toast.error('Failed to fetch logs');
+            notification.error({
+                message: 'Error',
+                description: 'Failed to fetch logs',
+            });
             console.error('Error fetching logs:', err);
         } finally {
             setLogsLoading(false);
@@ -66,7 +68,10 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
             const resultsData = await taskService.getTaskResults(taskId);
             setResults(resultsData);
         } catch (err) {
-            toast.error('Failed to fetch results');
+            notification.error({
+                message: 'Error',
+                description: 'Failed to fetch results',
+            });
             console.error('Error fetching results:', err);
         } finally {
             setResultsLoading(false);
@@ -80,27 +85,33 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
 
     // Fetch logs when tab changes to logs or log level changes
     useEffect(() => {
-        if (selectedTab === 1) {
+        if (activeKey === '2') {
             fetchTaskLogs();
         }
-    }, [selectedTab, fetchTaskLogs]);
+    }, [activeKey, fetchTaskLogs]);
 
     // Fetch results when tab changes to results
     useEffect(() => {
-        if (selectedTab === 2) {
+        if (activeKey === '3') {
             fetchTaskResults();
         }
-    }, [selectedTab, fetchTaskResults]);
+    }, [activeKey, fetchTaskResults]);
 
     // Handle task cancellation
     const handleCancelTask = async (force: boolean = false) => {
         if (window.confirm(`Are you sure you want to cancel this task${force ? ' forcefully' : ''}?`)) {
             try {
                 await taskService.cancelTask(taskId, force);
-                toast.success('Task cancellation initiated');
+                notification.success({
+                    message: 'Success',
+                    description: 'Task cancellation initiated',
+                });
                 fetchTaskDetails(); // Refresh task details
             } catch (err) {
-                toast.error('Failed to cancel task');
+                notification.error({
+                    message: 'Error',
+                    description: 'Failed to cancel task',
+                });
                 console.error('Error canceling task:', err);
             }
         }
@@ -110,15 +121,15 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'running':
-                return 'bg-blue-100 text-blue-800';
+                return 'processing';
             case 'success':
-                return 'bg-green-100 text-green-800';
+                return 'success';
             case 'failed':
-                return 'bg-red-100 text-red-800';
+                return 'error';
             case 'canceled':
-                return 'bg-yellow-100 text-yellow-800';
+                return 'warning';
             default:
-                return 'bg-gray-100 text-gray-800';
+                return 'default';
         }
     };
 
@@ -137,6 +148,175 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
                 return 'text-gray-600';
         }
     };
+
+    // Tab items
+    const tabItems = [
+        {
+            key: '1',
+            label: 'Overview',
+            children: task && (
+                <div className="mt-4">
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <h3 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-4">
+                            Task Properties
+                        </h3>
+                        <div className="space-y-2">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    Task ID
+                                </div>
+                                <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                    {task.id}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    Task Type
+                                </div>
+                                <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                    {task.task_type}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    Status
+                                </div>
+                                <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                    <Badge status={getStatusColor(task.status)} />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    Created At
+                                </div>
+                                <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                    {format(new Date(task.created_at), 'MMM d, yyyy HH:mm:ss')}
+                                </div>
+                            </div>
+                            {task.updated_at && (
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                        Updated At
+                                    </div>
+                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                        {format(new Date(task.updated_at), 'MMM d, yyyy HH:mm:ss')}
+                                    </div>
+                                </div>
+                            )}
+                            {task.tags && task.tags.length > 0 && (
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                        Tags
+                                    </div>
+                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
+                                        <div className="flex flex-wrap gap-1">
+                                            {task.tags.map((tag, index) => (
+                                                <Tag key={index} color={getStatusColor(task.status)}>
+                                                    {tag}
+                                                </Tag>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Additional task properties (dynamic) */}
+                        <h3 className="text-md font-medium text-gray-800 dark:text-gray-200 mt-6 mb-4">
+                            Additional Properties
+                        </h3>
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                            <JsonView data={task} />
+                        </div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: '2',
+            label: 'Logs',
+            children: (
+                <div className="mt-4">
+                    <div className="mb-4 flex justify-between items-center">
+                        <div className="flex items-center">
+                            <label htmlFor="logLevel" className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
+                                Log Level:
+                            </label>
+                            <Select
+                                id="logLevel"
+                                value={logLevel}
+                                onChange={(value) => setLogLevel(value)}
+                                className="w-32"
+                            >
+                                <Select.Option value="INFO">INFO</Select.Option>
+                                <Select.Option value="WARN">WARN</Select.Option>
+                                <Select.Option value="ERROR">ERROR</Select.Option>
+                                <Select.Option value="DEBUG">DEBUG</Select.Option>
+                            </Select>
+                        </div>
+                        <Button
+                            onClick={fetchTaskLogs}
+                            icon={<ArrowPathIcon className="w-4 h-4 mr-2" />}
+                        >
+                            Refresh Logs
+                        </Button>
+                    </div>
+
+                    <div className="bg-gray-800 text-gray-100 rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
+                        {logsLoading ? (
+                            <div className="flex justify-center items-center h-full">
+                                <Spin />
+                            </div>
+                        ) : logs.length === 0 ? (
+                            <div className="flex justify-center items-center h-full">
+                                <p>No logs available</p>
+                            </div>
+                        ) : (
+                            logs.map((log, index) => (
+                                <div key={index} className="mb-1">
+                                    <span className="text-gray-400">{log.timestamp}</span>{' '}
+                                    <span className={getLogLevelColor(log.level)}>
+                                        [{log.level}]
+                                    </span>{' '}
+                                    {log.message}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: '3',
+            label: 'Results',
+            children: (
+                <div className="mt-4">
+                    <div className="mb-4 flex justify-end">
+                        <Button
+                            onClick={fetchTaskResults}
+                            icon={<ArrowPathIcon className="w-4 h-4 mr-2" />}
+                        >
+                            Refresh Results
+                        </Button>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 min-h-52">
+                        {resultsLoading ? (
+                            <div className="flex justify-center items-center h-32">
+                                <Spin />
+                            </div>
+                        ) : results ? (
+                            <JsonView data={results} />
+                        ) : (
+                            <div className="flex justify-center items-center h-32">
+                                <p>No results available</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+    ];
 
     if (loading) {
         return (
@@ -180,40 +360,34 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
                             {task.name ? `${task.name} (${task.id})` : `Task ${task.id}`}
                         </h2>
                         <div className="flex items-center mt-2">
-                            <span
-                                className={`${getStatusColor(
-                                    task.status
-                                )} px-2 py-1 rounded-full text-xs font-medium mr-2`}
-                            >
-                                {task.status}
-                            </span>
+                            <Badge status={getStatusColor(task.status)} />
                             <span className="text-sm text-gray-600 dark:text-gray-400">
                                 {format(new Date(task.created_at), 'MMM d, yyyy HH:mm:ss')}
                             </span>
                         </div>
                     </div>
                     <div className="flex space-x-2">
-                        <button
+                        <Button
                             onClick={() => fetchTaskDetails()}
-                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            icon={<ArrowPathIcon className="w-5 h-5" />}
                             title="Refresh details"
-                        >
-                            <ArrowPathIcon className="w-5 h-5" />
-                        </button>
+                        />
                         {['pending', 'running'].includes(task.status.toLowerCase()) && (
                             <>
-                                <button
+                                <Button
                                     onClick={() => handleCancelTask(false)}
-                                    className="px-3 py-2 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600"
+                                    type="primary"
+                                    danger
                                 >
                                     Cancel Task
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     onClick={() => handleCancelTask(true)}
-                                    className="px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"
+                                    type="primary"
+                                    danger
                                 >
                                     Force Cancel
-                                </button>
+                                </Button>
                             </>
                         )}
                     </div>
@@ -221,205 +395,21 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
             </div>
 
             {/* Tabs section */}
-            <Tab.Group onChange={setSelectedTab}>
-                <Tab.List className="flex border-b border-gray-200 dark:border-gray-700">
-                    <Tab
-                        className={({ selected }) =>
-                            `py-2 px-4 text-sm font-medium border-b-2 ${selected
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`
-                        }
+            <Tabs
+                activeKey={activeKey}
+                onChange={(key) => setActiveKey(key)}
+                className="flex border-b border-gray-200 dark:border-gray-700"
+            >
+                {tabItems.map((item) => (
+                    <Tabs.TabPane
+                        key={item.key}
+                        tab={item.label}
+                        className={`py-2 px-4 text-sm font-medium ${activeKey === item.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                     >
-                        Overview
-                    </Tab>
-                    <Tab
-                        className={({ selected }) =>
-                            `py-2 px-4 text-sm font-medium border-b-2 ${selected
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`
-                        }
-                    >
-                        Logs
-                    </Tab>
-                    <Tab
-                        className={({ selected }) =>
-                            `py-2 px-4 text-sm font-medium border-b-2 ${selected
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`
-                        }
-                    >
-                        Results
-                    </Tab>
-                </Tab.List>
-                <Tab.Panels className="mt-6">
-                    {/* Overview Tab */}
-                    <Tab.Panel>
-                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                            <h3 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-4">
-                                Task Properties
-                            </h3>
-                            <div className="space-y-2">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        Task ID
-                                    </div>
-                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                        {task.id}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        Task Type
-                                    </div>
-                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                        {task.task_type}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        Status
-                                    </div>
-                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                        <span
-                                            className={`${getStatusColor(
-                                                task.status
-                                            )} px-2 py-1 rounded-full text-xs font-medium`}
-                                        >
-                                            {task.status}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                        Created At
-                                    </div>
-                                    <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                        {format(new Date(task.created_at), 'MMM d, yyyy HH:mm:ss')}
-                                    </div>
-                                </div>
-                                {task.updated_at && (
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                            Updated At
-                                        </div>
-                                        <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                            {format(new Date(task.updated_at), 'MMM d, yyyy HH:mm:ss')}
-                                        </div>
-                                    </div>
-                                )}
-                                {task.tags && task.tags.length > 0 && (
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400">
-                                            Tags
-                                        </div>
-                                        <div className="col-span-2 text-sm text-gray-800 dark:text-gray-200">
-                                            <div className="flex flex-wrap gap-1">
-                                                {task.tags.map((tag, index) => (
-                                                    <span
-                                                        key={index}
-                                                        className="bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-300 text-xs font-medium px-2 py-0.5 rounded"
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Additional task properties (dynamic) */}
-                            <h3 className="text-md font-medium text-gray-800 dark:text-gray-200 mt-6 mb-4">
-                                Additional Properties
-                            </h3>
-                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                <JsonView data={task} />
-                            </div>
-                        </div>
-                    </Tab.Panel>
-
-                    {/* Logs Tab */}
-                    <Tab.Panel>
-                        <div className="mb-4 flex justify-between items-center">
-                            <div className="flex items-center">
-                                <label htmlFor="logLevel" className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
-                                    Log Level:
-                                </label>
-                                <select
-                                    id="logLevel"
-                                    value={logLevel}
-                                    onChange={(e) => setLogLevel(e.target.value)}
-                                    className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                                >
-                                    <option value="INFO">INFO</option>
-                                    <option value="WARN">WARN</option>
-                                    <option value="ERROR">ERROR</option>
-                                    <option value="DEBUG">DEBUG</option>
-                                </select>
-                            </div>
-                            <button
-                                onClick={fetchTaskLogs}
-                                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                            >
-                                <ArrowPathIcon className="w-4 h-4 mr-2" />
-                                Refresh Logs
-                            </button>
-                        </div>
-
-                        <div className="bg-gray-800 text-gray-100 rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
-                            {logsLoading ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <p>Loading logs...</p>
-                                </div>
-                            ) : logs.length === 0 ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <p>No logs available</p>
-                                </div>
-                            ) : (
-                                logs.map((log, index) => (
-                                    <div key={index} className="mb-1">
-                                        <span className="text-gray-400">{log.timestamp}</span>{' '}
-                                        <span className={getLogLevelColor(log.level)}>
-                                            [{log.level}]
-                                        </span>{' '}
-                                        {log.message}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </Tab.Panel>
-
-                    {/* Results Tab */}
-                    <Tab.Panel>
-                        <div className="mb-4 flex justify-end">
-                            <button
-                                onClick={fetchTaskResults}
-                                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                            >
-                                <ArrowPathIcon className="w-4 h-4 mr-2" />
-                                Refresh Results
-                            </button>
-                        </div>
-
-                        <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 min-h-52">
-                            {resultsLoading ? (
-                                <div className="flex justify-center items-center h-32">
-                                    <p className="text-gray-600 dark:text-gray-300">Loading results...</p>
-                                </div>
-                            ) : results ? (
-                                <JsonView data={results} />
-                            ) : (
-                                <div className="flex justify-center items-center h-32">
-                                    <p className="text-gray-600 dark:text-gray-300">No results available</p>
-                                </div>
-                            )}
-                        </div>
-                    </Tab.Panel>
-                </Tab.Panels>
-            </Tab.Group>
+                        {item.children}
+                    </Tabs.TabPane>
+                ))}
+            </Tabs>
         </div>
     );
 } 

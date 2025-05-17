@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-toastify';
+import { notification, Table, Button, Space, Tag, Badge } from 'antd';
 import { format } from 'date-fns';
 import {
     PlusIcon,
@@ -93,10 +93,16 @@ export default function TaskList() {
         if (window.confirm(`Are you sure you want to cancel task ${taskId}?`)) {
             try {
                 await taskService.cancelTask(taskId);
-                toast.success('Task cancellation initiated');
+                notification.success({
+                    message: 'Success',
+                    description: 'Task cancellation initiated',
+                });
                 fetchTasks(); // Refresh the list
             } catch (err) {
-                toast.error('Failed to cancel task');
+                notification.error({
+                    message: 'Error',
+                    description: 'Failed to cancel task',
+                });
                 console.error('Error canceling task:', err);
             }
         }
