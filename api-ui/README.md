@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Resinkit Task Management UI
+
+A web user interface for managing tasks in Resinkit.
+
+## Features
+
+- View and filter task lists
+- Submit new tasks (JSON or YAML format)
+- View task details, logs, and results
+- Cancel running tasks
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ and npm
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+### Configuration
+
+By default, the application connects to the Resinkit API at `http://localhost:8602`.
+To change this, set the `NEXT_PUBLIC_API_URL` environment variable:
+
+```bash
+export NEXT_PUBLIC_API_URL=http://your-api-server:8602
+```
+
+Or add it to a `.env.local` file:
+
+```
+NEXT_PUBLIC_API_URL=http://your-api-server:8602
+```
+
+### Development
+
+To start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Building for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+### Running in Production
 
-To learn more about Next.js, take a look at the following resources:
+After building the application:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## UI Design Considerations
 
-## Deploy on Vercel
+This implementation follows these UI design considerations:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Clear Feedback:** Visual feedback for all user actions including loading states, success messages, and error messages.
+- **Error Handling:** User-friendly display of API errors with guidance when possible.
+- **Responsiveness:** Adaptive layout for various screen sizes.
+- **Consistency:** Consistent visual style and interaction patterns throughout the application.
+- **State Management:** Accurate reflection of task states with periodic refreshing of task data.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API Endpoints
+
+The application uses the following Resinkit API endpoints:
+
+- `GET /api/v1/agent/tasks` - List tasks with optional filtering
+- `POST /api/v1/agent/tasks` - Submit a new task (JSON)
+- `POST /api/v1/agent/tasks/yaml` - Submit a new task (YAML)
+- `GET /api/v1/agent/tasks/{task_id}` - Get task details
+- `GET /api/v1/agent/tasks/{task_id}/logs` - Get task logs
+- `GET /api/v1/agent/tasks/{task_id}/results` - Get task results
+- `POST /api/v1/agent/tasks/{task_id}/cancel` - Cancel a task
