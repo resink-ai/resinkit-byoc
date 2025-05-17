@@ -139,9 +139,7 @@ async def update_catalog(
     of the configuration for the given catalog name. The type of the catalog cannot be changed via PUT.
     """
     try:
-        return await get_service_manager().catalog.update(
-            catalogstore_name, catalog_name, catalog
-        )
+        return await get_service_manager().catalog.update(catalogstore_name, catalog_name, catalog)
     except HTTPException:
         raise
     except Exception as e:

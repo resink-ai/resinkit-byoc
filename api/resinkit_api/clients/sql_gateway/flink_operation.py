@@ -44,10 +44,10 @@ class ResultsFetchOpts:
 
 
 class FlinkOperation:
-    def __init__(self, session: 'FlinkSession', operation_handle: str):
+    def __init__(self, session: "FlinkSession", operation_handle: str):
         self.session = session
         self.operation_handle = operation_handle
-        self.client: 'Client' = session.client
+        self.client: "Client" = session.client
 
     async def __aenter__(self):
         return self
@@ -61,40 +61,32 @@ class FlinkOperation:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close().sync()
 
-    def status(self) -> 'OperationStatus':
+    def status(self) -> "OperationStatus":
         return OperationStatus(self)
 
-    def fetch(self, polling_opts: ResultsFetchOpts = ResultsFetchOpts()) -> 'OperationFetch':
+    def fetch(self, polling_opts: ResultsFetchOpts = ResultsFetchOpts()) -> "OperationFetch":
         return OperationFetch(self, polling_opts)
 
-    def close(self) -> 'OperationClose':
+    def close(self) -> "OperationClose":
         return OperationClose(self)
 
-    def cancel(self) -> 'OperationCancel':
+    def cancel(self) -> "OperationCancel":
         return OperationCancel(self)
 
 
 class OperationStatus:
-    def __init__(self, operation: 'FlinkOperation'):
+    def __init__(self, operation: "FlinkOperation"):
         self.operation = operation
 
     def sync(self) -> OperationStatusResponseBody:
-        return get_operation_status.sync(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return get_operation_status.sync(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
     async def asyncio(self) -> OperationStatusResponseBody:
-        return await get_operation_status.asyncio(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return await get_operation_status.asyncio(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
 
 class OperationFetch:
-    def __init__(self, operation: 'FlinkOperation', fetch_opts: ResultsFetchOpts):
+    def __init__(self, operation: "FlinkOperation", fetch_opts: ResultsFetchOpts):
         self.operation = operation
         self._fetch_opts = fetch_opts
         self._token = "0"  # Initial token, might need to be configurable
@@ -103,33 +95,33 @@ class OperationFetch:
         all_rows = []
         columns = None
         for res_data in fetch_results_gen(
-                self.operation.client,
-                self.operation.session.session_handle,
-                self.operation.operation_handle,
-                poll_interval_secs=self._fetch_opts.poll_interval_secs,
-                max_poll_secs=self._fetch_opts.max_poll_secs,
-                n_row_limit=self._fetch_opts.n_row_limit,
+            self.operation.client,
+            self.operation.session.session_handle,
+            self.operation.operation_handle,
+            poll_interval_secs=self._fetch_opts.poll_interval_secs,
+            max_poll_secs=self._fetch_opts.max_poll_secs,
+            n_row_limit=self._fetch_opts.n_row_limit,
         ):
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[:self._fetch_opts.n_row_limit], columns)
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns)
 
     async def asyncio(self) -> pd.DataFrame:
         columns, all_rows = None, []
         async for res_data in fetch_results_async_gen(
-                self.operation.client,
-                self.operation.session.session_handle,
-                self.operation.operation_handle,
-                poll_interval_secs=self._fetch_opts.poll_interval_secs,
-                max_poll_secs=self._fetch_opts.max_poll_secs,
-                n_row_limit=self._fetch_opts.n_row_limit,
+            self.operation.client,
+            self.operation.session.session_handle,
+            self.operation.operation_handle,
+            poll_interval_secs=self._fetch_opts.poll_interval_secs,
+            max_poll_secs=self._fetch_opts.max_poll_secs,
+            n_row_limit=self._fetch_opts.n_row_limit,
         ):
             res_data: FetchResultData
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[:self._fetch_opts.n_row_limit], columns)
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns)
 
 
 class OperationClose:
@@ -137,18 +129,10 @@ class OperationClose:
         self.operation = operation
 
     def sync(self) -> OperationStatusResponseBody:
-        return close_operation.sync(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return close_operation.sync(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
     async def asyncio(self) -> OperationStatusResponseBody:
-        return await close_operation.asyncio(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return await close_operation.asyncio(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
 
 class OperationCancel:
@@ -156,22 +140,14 @@ class OperationCancel:
         self.operation = operation
 
     def sync(self) -> OperationStatusResponseBody:
-        return cancel_operation.sync(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return cancel_operation.sync(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
     async def asyncio(self) -> OperationStatusResponseBody:
-        return await cancel_operation.asyncio(
-            self.operation.session.session_handle,
-            self.operation.operation_handle,
-            client=self.operation.client
-        )
+        return await cancel_operation.asyncio(self.operation.session.session_handle, self.operation.operation_handle, client=self.operation.client)
 
 
 class FlinkCompositeOperation:
-    def __init__(self, operations: List['FlinkOperation']):
+    def __init__(self, operations: List["FlinkOperation"]):
         self.operations = operations
 
     def __enter__(self):
@@ -188,15 +164,14 @@ class FlinkCompositeOperation:
         for op in reversed(self.operations):
             await op.close().asyncio()
 
-    def fetch_all(self, fetch_opts: 'ResultsFetchOpts' = ResultsFetchOpts()) -> List[pd.DataFrame]:
+    def fetch_all(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[pd.DataFrame]:
         results = []
         for op in self.operations:
             results.append(op.fetch(fetch_opts).sync())
         return results
 
-    async def fetch_all_async(self, fetch_opts: 'ResultsFetchOpts' = ResultsFetchOpts()) -> List[pd.DataFrame]:
+    async def fetch_all_async(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[pd.DataFrame]:
         results = []
         for op in self.operations:
             results.append(await op.fetch(fetch_opts).asyncio())
         return results
-

@@ -7,13 +7,14 @@ from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class E2eBase:
     """Base class for E2E tests"""
 
     def setup_method(self):
         """Setup method that runs before each test method"""
         self.BASE_URL = os.getenv("BASE_URL", "http://localhost:8602")
-    
+
     def get_var(self, var_name: str, default_value: str = None) -> str:
         """Get a variable from the environment, example: TEST_VAR_catalog_name"""
         env_key = f"TEST_VAR_{var_name}"
@@ -27,7 +28,7 @@ class E2eBase:
 
     def get(self, path: str, headers: Dict[str, str] = None) -> requests.Response:
         """Send a GET request"""
-        logger.info(f"GET request to {self.get_url(path)}") 
+        logger.info(f"GET request to {self.get_url(path)}")
         return requests.get(self.get_url(path), headers=headers)
 
     def post(self, path: str, data: Dict[str, Any], headers: Dict[str, str] = None) -> requests.Response:
@@ -45,13 +46,9 @@ class E2eBase:
         logger.info(f"DELETE request to {self.get_url(path)}")
         return requests.delete(self.get_url(path), headers=headers)
 
-    def assert_status_code(
-        self, response: requests.Response, expected_code: int
-    ) -> None:
+    def assert_status_code(self, response: requests.Response, expected_code: int) -> None:
         """Assert that the response has the expected status code"""
-        assert (
-            response.status_code == expected_code
-        ), f"Expected status {expected_code}, got {response.status_code}: {response.text}"
+        assert response.status_code == expected_code, f"Expected status {expected_code}, got {response.status_code}: {response.text}"
 
     def assert_json_response(
         self,
@@ -69,8 +66,6 @@ class E2eBase:
             pytest.fail(f"Response is not valid JSON: {response.text}")
 
         if expected_data:
-            assert (
-                json_data == expected_data
-            ), f"JSON response doesn't match expected data.\nGot: {json_data}\nExpected: {expected_data}"
+            assert json_data == expected_data, f"JSON response doesn't match expected data.\nGot: {json_data}\nExpected: {expected_data}"
 
         return json_data

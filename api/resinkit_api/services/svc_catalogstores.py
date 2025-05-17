@@ -4,7 +4,7 @@ from flink_gateway_api import Client as FlinkGatewayClient
 from resinkit_api.clients.sql_gateway.flink_session import FlinkSession
 from resinkit_api.core.flink_options import FlinkOptions
 from resinkit_api.api.models.catalogstore import CatalogStoreDefinition
-from resinkit_api.core.logging import get_logger    
+from resinkit_api.core.logging import get_logger
 
 import pandas as pd
 
@@ -14,9 +14,7 @@ logger = get_logger(__name__)
 class CatalogStoreService:
     """Service for managing catalog store configurations."""
 
-    def __init__(
-        self, sql_gateway_client: FlinkGatewayClient, refresh_interval_sec: int = 10
-    ):
+    def __init__(self, sql_gateway_client: FlinkGatewayClient, refresh_interval_sec: int = 10):
         """Initialize the catalog store service with an empty store."""
         self._sql_gateway_client = sql_gateway_client
         self._catalog_stores: Dict[str, CatalogStoreDefinition] = {}
@@ -33,12 +31,8 @@ class CatalogStoreService:
                 df_vars: pd.DataFrame = operation.fetch().sync()
                 if df_vars is not None:
                     self._flink_set_vars = df_vars.set_index("key")["value"].to_dict()
-                    cs_path = FlinkOptions.TABLE_CATALOG_STORE_FILE_PATH.value_of(
-                        self._flink_set_vars
-                    )
-                    cs_kind = FlinkOptions.TABLE_CATALOG_STORE_KIND.value_of(
-                        self._flink_set_vars
-                    )
+                    cs_path = FlinkOptions.TABLE_CATALOG_STORE_FILE_PATH.value_of(self._flink_set_vars)
+                    cs_kind = FlinkOptions.TABLE_CATALOG_STORE_KIND.value_of(self._flink_set_vars)
                     cs = CatalogStoreDefinition(
                         name="default",
                         kind=cs_kind,
@@ -58,9 +52,7 @@ class CatalogStoreService:
         self._refetch_settings()
         return self._catalog_stores.get(name)
 
-    async def create(
-        self, store: CatalogStoreDefinition
-    ) -> CatalogStoreDefinition:
+    async def create(self, store: CatalogStoreDefinition) -> CatalogStoreDefinition:
         raise NotImplementedError("Creating catalog stores is not supported")
 
     async def delete(self, name: str) -> None:

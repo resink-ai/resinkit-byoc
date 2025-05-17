@@ -11,7 +11,7 @@ class TaskRunnerBase:
     @classmethod
     def validate_config(cls, task_config: dict) -> None:
         raise NotImplementedError
-    
+
     def from_dao(self, dao: Task) -> TaskBase:
         raise NotImplementedError
 
@@ -33,10 +33,10 @@ class TaskRunnerBase:
     async def fetch_task_status(self, task: TaskBase) -> TaskBase:
         """
         Fetches the latest status of a task and returns an updated task instance.
-        
+
         Args:
             task: The task instance to check status for
-            
+
         Returns:
             An updated task instance with the latest status
         """

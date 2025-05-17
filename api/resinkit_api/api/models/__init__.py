@@ -1,1 +1,1 @@
-"""Data models and schemas.""" 
+"""Data models and schemas."""

@@ -3,7 +3,6 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field, field_validator
 
 
-
 class CatalogStoreDefinition(BaseModel):
     """Data model representing a catalog store configuration"""
 
@@ -20,9 +19,7 @@ class CatalogStoreDefinition(BaseModel):
         """Validate that file catalog stores have the required path option"""
         if info.data.get("kind") == "file":
             if "table.catalog-store.file.path" not in v:
-                raise ValueError(
-                    "File catalog stores must specify 'table.catalog-store.file.path'"
-                )
+                raise ValueError("File catalog stores must specify 'table.catalog-store.file.path'")
             if not isinstance(v["table.catalog-store.file.path"], str):
                 raise ValueError("'table.catalog-store.file.path' must be a string")
         return v

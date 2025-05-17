@@ -38,9 +38,7 @@ def configure_logging():
         # Console formatting - more concise exception rendering
         processors = shared_processors + [
             structlog.processors.format_exc_info,
-            structlog.dev.ConsoleRenderer(
-                colors=False, exception_formatter=structlog.dev.plain_traceback
-            ),
+            structlog.dev.ConsoleRenderer(colors=False, exception_formatter=structlog.dev.plain_traceback),
         ]
     # Configure structlog
     structlog.configure(
@@ -56,10 +54,10 @@ def configure_logging():
         force=True,
     )
     logging.getLogger("stripe").setLevel(logging.ERROR)
-    
+
     # Configure Python logging to see SQLAlchemy logs
-    logging.basicConfig() # Basic configuration
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    logging.basicConfig()  # Basic configuration
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
 
     return structlog.get_logger()
 

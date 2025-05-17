@@ -13,12 +13,7 @@ logger = get_logger(__name__)
 class CatalogService:
     """Service for managing catalogs within catalog stores."""
 
-    def __init__(
-        self, 
-        sql_gateway_client: FlinkGatewayClient, 
-        catalog_store_service: CatalogStoreService,
-        refresh_interval_sec: int = 10
-    ):
+    def __init__(self, sql_gateway_client: FlinkGatewayClient, catalog_store_service: CatalogStoreService, refresh_interval_sec: int = 10):
         """Initialize the catalog service."""
         self._sql_gateway_client = sql_gateway_client
         self._catalog_store_service = catalog_store_service
@@ -30,7 +25,7 @@ class CatalogService:
         """Refresh the catalogs from the Flink cluster with debounce."""
         if time.time() - self._last_refetch < self._refresh_interval:
             return
-        
+
         with FlinkSession(self._sql_gateway_client) as session:
             with session.execute("SHOW CATALOGS;").sync() as operation:
                 result = operation.fetch().sync()
@@ -49,7 +44,7 @@ class CatalogService:
         if session is None:
             session = FlinkSession(self._sql_gateway_client)
             close_session = True
-        
+
         try:
             with session.execute(f"DESCRIBE CATALOG {catalog_name};").sync() as operation:
                 details = operation.fetch().sync()
@@ -63,15 +58,11 @@ class CatalogService:
                             catalog_type = value
                         else:
                             props[key] = value
-                    
+
                     if store_name not in self._catalogs:
                         self._catalogs[store_name] = {}
-                    
-                    return {
-                        "name": catalog_name,
-                        "type": catalog_type,
-                        "properties": props
-                    }
+
+                    return {"name": catalog_name, "type": catalog_type, "properties": props}
         finally:
             if close_session:
                 session.close()
@@ -89,16 +80,12 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         self._refetch_catalogs(store_name)
-        
+
         # Return list of catalogs, filtering out sensitive properties
         return [
-            {
-                "name": name,
-                "type": info.get("type", "(unknown)"),
-                "properties": {k: v for k, v in info.get("properties", {}).items() if k != "password"}
-            }
+            {"name": name, "type": info.get("type", "(unknown)"), "properties": {k: v for k, v in info.get("properties", {}).items() if k != "password"}}
             for name, info in self._catalogs.get(store_name, {}).items()
         ]
 
@@ -115,9 +102,9 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         self._refetch_catalogs(store_name)
-        
+
         # Check if the catalog exists
         if store_name not in self._catalogs or catalog_name not in self._catalogs.get(store_name, {}):
             raise HTTPException(
@@ -128,12 +115,12 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         catalog_info = self._catalogs[store_name][catalog_name]
         return {
             "name": catalog_name,
             "type": catalog_info.get("type", "(unknown)"),
-            "properties": {k: v for k, v in catalog_info.get("properties", {}).items() if k != "password"}
+            "properties": {k: v for k, v in catalog_info.get("properties", {}).items() if k != "password"},
         }
 
     async def create(self, store_name: str, catalog: CatalogRequest) -> CatalogResponse:
@@ -149,9 +136,9 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         self._refetch_catalogs(store_name)
-        
+
         # Check if the catalog already exists
         if store_name in self._catalogs and catalog.name in self._catalogs.get(store_name, {}):
             raise HTTPException(
@@ -162,7 +149,7 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         # Generate the SQL for creating the catalog
         create_catalog_sql = self._generate_create_catalog_sql(catalog)
 
@@ -174,13 +161,9 @@ class CatalogService:
                     # Force a refetch of catalogs after creation
                     self._last_refetch = 0
                     self._refetch_catalogs(store_name)
-                    
+
                     # Return the created catalog details
-                    return {
-                        "name": catalog.name,
-                        "type": catalog.type,
-                        "properties": {k: v for k, v in catalog.properties.items() if k != "password"}
-                    }
+                    return {"name": catalog.name, "type": catalog.type, "properties": {k: v for k, v in catalog.properties.items() if k != "password"}}
             except Exception as e:
                 logger.error(f"Error creating catalog: {str(e)}")
                 raise HTTPException(
@@ -205,7 +188,7 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         # Verify the catalog name matches
         if catalog.name != catalog_name:
             raise HTTPException(
@@ -216,9 +199,9 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         self._refetch_catalogs(store_name)
-        
+
         # Check if the catalog exists
         if store_name not in self._catalogs or catalog_name not in self._catalogs.get(store_name, {}):
             raise HTTPException(
@@ -229,7 +212,7 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         # For update, we'll drop and recreate the catalog
         await self.delete(store_name, catalog_name)
         return await self.create(store_name, catalog)
@@ -247,9 +230,9 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         self._refetch_catalogs(store_name)
-        
+
         # Check if the catalog exists
         if store_name not in self._catalogs or catalog_name not in self._catalogs.get(store_name, {}):
             raise HTTPException(
@@ -260,7 +243,7 @@ class CatalogService:
                     "details": None,
                 },
             )
-        
+
         # Execute SQL to drop the catalog
         with FlinkSession(self._sql_gateway_client) as session:
             try:
@@ -287,18 +270,15 @@ class CatalogService:
 
     def _generate_create_catalog_sql(self, catalog: CatalogRequest) -> str:
         """Generate SQL for creating a catalog.
-        
+
         Example:
         CREATE CATALOG hive WITH (
             'type' = 'hive',
             'hive.metastore.uris' = 'thrift://localhost:9083'
         );
         """
-        properties_sql = ", ".join([
-            f"'{k}' = '{v}'"
-            for k, v in catalog.properties.items()
-        ])
-        
+        properties_sql = ", ".join([f"'{k}' = '{v}'" for k, v in catalog.properties.items()])
+
         return f"""
         CREATE CATALOG {catalog.name} WITH (
             'type' = '{catalog.type}',

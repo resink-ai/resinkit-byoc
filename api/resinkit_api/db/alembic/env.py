@@ -77,10 +77,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
             # For SQLite to handle constraints and indexes properly
-            render_as_batch=True  
+            render_as_batch=True,
         )
 
         with context.begin_transaction():
@@ -90,4 +90,4 @@ def run_migrations_online() -> None:
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online() 
+    run_migrations_online()

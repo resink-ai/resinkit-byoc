@@ -32,4 +32,4 @@ def check_service():
     """Check if the service is running before running tests"""
     service_url = os.getenv("BASE_URL", "http://localhost:8602")
     if not is_service_up(service_url):
-        pytest.skip(f"Service is not running at {service_url}. Please start the service before running the tests.") 
+        pytest.skip(f"Service is not running at {service_url}. Please start the service before running the tests.")

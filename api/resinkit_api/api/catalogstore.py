@@ -46,9 +46,7 @@ async def list_catalog_stores():
     status_code=status.HTTP_200_OK,
 )
 async def get_catalog_store(
-    catalogstore_name: str = Path(
-        ..., description="The unique name of the catalog store to retrieve"
-    ),
+    catalogstore_name: str = Path(..., description="The unique name of the catalog store to retrieve"),
 ):
     """
     Retrieves the definition of a specific catalog store identified by its name.
@@ -129,9 +127,7 @@ async def create_catalog_store(
     response_class=Response,
 )
 async def delete_catalog_store(
-    catalogstore_name: str = Path(
-        ..., description="The unique name of the catalog store to delete"
-    ),
+    catalogstore_name: str = Path(..., description="The unique name of the catalog store to delete"),
 ):
     """
     Deletes a specific catalog store identified by its name.

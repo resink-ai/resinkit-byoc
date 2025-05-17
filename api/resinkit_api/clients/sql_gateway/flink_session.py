@@ -1,4 +1,3 @@
-
 import uuid
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, AsyncGenerator, Dict, Generator, List, Optional
@@ -37,6 +36,7 @@ class FlinkSession:
             df = operation.fetch().sync()
     ```
     """
+
     def __init__(self, client: Client, properties: Dict[str, str] = None, session_name: str = None, create_if_not_exist: bool = True):
         self.properties = properties or {}
         self.session_handle: Optional[str] = None
@@ -72,7 +72,7 @@ class FlinkSession:
         )
         self.session_handle = response.session_handle
         self.was_alive = True
-    
+
     async def open_async(self):
         # If create_if_not_exist is False, do nothing
         if not self.create_if_not_exist:
@@ -82,8 +82,7 @@ class FlinkSession:
             return
         # Otherwise, open a new session
         response = await open_session.asyncio(
-            client=self.client,
-            body=OpenSessionRequestBody.from_dict({"properties": self.properties, "sessionName": self.session_name})
+            client=self.client, body=OpenSessionRequestBody.from_dict({"properties": self.properties, "sessionName": self.session_name})
         )
         self.session_handle = response.session_handle
         self.was_alive = True
@@ -95,7 +94,7 @@ class FlinkSession:
             close_session.sync(self.session_handle, client=self.client)
         except Exception as e:
             logger.warning(f"Failed to close session {self.session_name}: {str(e)}")
-    
+
     async def try_close_async(self):
         if not self.session_handle:
             return
@@ -104,10 +103,10 @@ class FlinkSession:
         except Exception as e:
             logger.warning(f"Failed to close session {self.session_name}: {str(e)}")
 
-    def complete_statement(self) -> 'SessionCompleteStatement':
+    def complete_statement(self) -> "SessionCompleteStatement":
         return SessionCompleteStatement(self)
 
-    def execute(self, sql: str, query_props: Optional[Dict[str, Any]] = None, execute_timeout: Optional[int] = None) -> 'ExecuteDispatch':
+    def execute(self, sql: str, query_props: Optional[Dict[str, Any]] = None, execute_timeout: Optional[int] = None) -> "ExecuteDispatch":
         """Execute a SQL statement in a single session.
         Args:
             sql: SQL statement to execute
@@ -118,7 +117,7 @@ class FlinkSession:
         """
         return ExecuteDispatch(self, sql, query_props, execute_timeout)
 
-    def execute_all(self, sqls: List[str], query_props: Optional[Dict[str, Any]] = None, execute_timeout: Optional[int] = None) -> 'ExecuteAllDispatch':
+    def execute_all(self, sqls: List[str], query_props: Optional[Dict[str, Any]] = None, execute_timeout: Optional[int] = None) -> "ExecuteAllDispatch":
         """Execute multiple SQL statements concurrently in a single session.
 
         Args:
@@ -129,13 +128,10 @@ class FlinkSession:
         Returns: a dispatch, results of which can be fetched synchronously or asynchronously
         """
         return ExecuteAllDispatch(self, sqls, query_props, execute_timeout)
-    
+
     def trigger_heartbeat(self):
-        return trigger_session.sync_detailed(
-            session_handle=self.session_handle,
-            client=self.client
-        )
-    
+        return trigger_session.sync_detailed(session_handle=self.session_handle, client=self.client)
+
     def is_alive(self):
         if not self.session_handle:
             return False
@@ -150,6 +146,7 @@ class FlinkSession:
             self.was_alive = False
             return False
 
+
 class SessionCompleteStatement:
     def __init__(self, session: FlinkSession):
         self.session = session
@@ -158,23 +155,29 @@ class SessionCompleteStatement:
         return complete_statement.sync(
             self.session.session_handle,
             client=self.session.client,
-            body=CompleteStatementRequestBody.from_dict({
-                "position": position,
-                "statement": statement,
-            }))
+            body=CompleteStatementRequestBody.from_dict(
+                {
+                    "position": position,
+                    "statement": statement,
+                }
+            ),
+        )
 
     async def asyncio(self, position: int, statement: str) -> CompleteStatementResponseBody:
         return await complete_statement.asyncio(
             self.session.session_handle,
             client=self.session.client,
-            body=CompleteStatementRequestBody.from_dict({
-                "position": position,
-                "statement": statement,
-            }))
+            body=CompleteStatementRequestBody.from_dict(
+                {
+                    "position": position,
+                    "statement": statement,
+                }
+            ),
+        )
 
 
 class ExecuteDispatch:
-    def __init__(self, session: 'FlinkSession', sql: str, query_props=None, execute_timeout=None):
+    def __init__(self, session: "FlinkSession", sql: str, query_props=None, execute_timeout=None):
         self.session = session
         self.sql = sql
         self.query_props = query_props
@@ -183,11 +186,7 @@ class ExecuteDispatch:
     @contextmanager
     def sync(self) -> Generator[FlinkOperation, None, None]:
         request_dict = get_execute_statement_request(self.sql, self.query_props, self.execute_timeout)
-        response = execute_statement.sync(
-            self.session.session_handle,
-            client=self.session.client,
-            body=ExecuteStatementRequestBody.from_dict(request_dict)
-        )
+        response = execute_statement.sync(self.session.session_handle, client=self.session.client, body=ExecuteStatementRequestBody.from_dict(request_dict))
         operation = FlinkOperation(self.session, response.operation_handle)
         try:
             yield operation
@@ -198,9 +197,7 @@ class ExecuteDispatch:
     async def asyncio(self) -> AsyncGenerator[FlinkOperation, None]:
         request_dict = get_execute_statement_request(self.sql, self.query_props, self.execute_timeout)
         response = await execute_statement.asyncio(
-            self.session.session_handle,
-            client=self.session.client,
-            body=ExecuteStatementRequestBody.from_dict(request_dict)
+            self.session.session_handle, client=self.session.client, body=ExecuteStatementRequestBody.from_dict(request_dict)
         )
         operation = FlinkOperation(self.session, response.operation_handle)
         try:
@@ -210,7 +207,7 @@ class ExecuteDispatch:
 
 
 class ExecuteAllDispatch:
-    def __init__(self, session: 'FlinkSession', sqls: List[str], query_props=None, execute_timeout=None):
+    def __init__(self, session: "FlinkSession", sqls: List[str], query_props=None, execute_timeout=None):
         self.session = session
         self.sqls = sqls
         self.query_props = query_props
@@ -221,11 +218,7 @@ class ExecuteAllDispatch:
         operations = []
         for sql in self.sqls:
             request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
-            response = execute_statement.sync(
-                self.session.session_handle,
-                client=self.session.client,
-                body=ExecuteStatementRequestBody.from_dict(request_dict)
-            )
+            response = execute_statement.sync(self.session.session_handle, client=self.session.client, body=ExecuteStatementRequestBody.from_dict(request_dict))
             operation = FlinkOperation(self.session, response.operation_handle)
             operations.append(operation)
         try:
@@ -240,9 +233,7 @@ class ExecuteAllDispatch:
         for sql in self.sqls:
             request_dict = get_execute_statement_request(sql, self.query_props, self.execute_timeout)
             response = await execute_statement.asyncio(
-                self.session.session_handle,
-                client=self.session.client,
-                body=ExecuteStatementRequestBody.from_dict(request_dict)
+                self.session.session_handle, client=self.session.client, body=ExecuteStatementRequestBody.from_dict(request_dict)
             )
             operation = FlinkOperation(self.session, response.operation_handle)
             operations.append(operation)

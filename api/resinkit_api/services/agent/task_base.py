@@ -55,15 +55,10 @@ class TaskBase:
         return (datetime.now(UTC) - self.created_at).total_seconds() > self.task_timeout_seconds
 
     def has_ended(self) -> bool:
-        return (
-            self.status == TaskStatus.FAILED or 
-            self.status == TaskStatus.COMPLETED or 
-            self.expired()
-        )
+        return self.status == TaskStatus.FAILED or self.status == TaskStatus.COMPLETED or self.expired()
 
     @classmethod
     def validate(cls, task_config: dict) -> None:
         # At base level, only task_type is required
         if not task_config["task_type"]:
             raise ValueError("task_type is required")
-

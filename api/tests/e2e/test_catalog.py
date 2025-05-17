@@ -4,6 +4,7 @@ from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class TestCatalog(E2eBase):
     """End-to-end tests for catalog endpoints"""
 
@@ -11,10 +12,7 @@ class TestCatalog(E2eBase):
         """Setup test by creating a catalog store to use"""
         super().setup_method()
         self.catalog_store_name = "default"
-        self.test_paimon_catalog_name = (
-            self.get_var("paimon_catalog_name")
-            or f"test_paimon_catalog_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
+        self.test_paimon_catalog_name = self.get_var("paimon_catalog_name") or f"test_paimon_catalog_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     def teardown_method(self):
         """Clean up by deleting the catalog store"""
@@ -62,13 +60,12 @@ class TestCatalog(E2eBase):
         json_data = self.assert_json_response(response)
         assert json_data["name"] == catalog_data["name"]
         assert json_data["type"] == catalog_data["type"]
-    
+
     def test_delete_paimon_catalog(self):
         """Test DELETE /catalogstores/{catalogstore_name}/catalogs/{catalog_name} with Paimon catalog"""
         response = self.delete(f"/catalogstores/{self.catalog_store_name}/catalogs/{self.test_paimon_catalog_name}")
         logger.info(f"Delete response: {response}")
         self.assert_status_code(response, 204)
-
 
     def test_create_hive_catalog(self):
         """Test POST /catalogstores/{catalogstore_name}/catalogs with Hive catalog"""
@@ -199,11 +196,11 @@ class TestCatalog(E2eBase):
     def test_catalog_crud_lifecycle(self):
         """Test complete CRUD lifecycle of a catalog"""
         catalog_name = "lifecycle_test_catalog"
-        
+
         # 1. Verify catalog doesn't exist initially
         get_response = self.get(f"/catalogstores/{self.catalog_store_name}/catalogs/{catalog_name}")
         self.assert_status_code(get_response, 404)
-        
+
         # 2. Create the catalog
         catalog_data = {
             "name": catalog_name,
@@ -217,14 +214,14 @@ class TestCatalog(E2eBase):
         }
         create_response = self.post(f"/catalogstores/{self.catalog_store_name}/catalogs", catalog_data)
         self.assert_status_code(create_response, 201)
-        
+
         # 3. Verify catalog exists in the list
         list_response = self.get(f"/catalogstores/{self.catalog_store_name}/catalogs")
         self.assert_status_code(list_response, 200)
         catalogs_list = self.assert_json_response(list_response)
         catalog_names = [catalog["name"] for catalog in catalogs_list]
         assert catalog_name in catalog_names
-        
+
         # 4. Get the catalog directly and verify data
         get_response = self.get(f"/catalogstores/{self.catalog_store_name}/catalogs/{catalog_name}")
         self.assert_status_code(get_response, 200)
@@ -233,7 +230,7 @@ class TestCatalog(E2eBase):
         assert json_data["type"] == catalog_data["type"]
         assert json_data["properties"]["default-database"] == catalog_data["properties"]["default-database"]
         assert "password" not in json_data["properties"]
-        
+
         # 5. Update the catalog
         updated_data = {
             "name": catalog_name,
@@ -249,11 +246,11 @@ class TestCatalog(E2eBase):
         self.assert_status_code(update_response, 200)
         json_data = self.assert_json_response(update_response)
         assert json_data["properties"]["default-database"] == updated_data["properties"]["default-database"]
-        
+
         # 6. Delete the catalog
         delete_response = self.delete(f"/catalogstores/{self.catalog_store_name}/catalogs/{catalog_name}")
         self.assert_status_code(delete_response, 204)
-        
+
         # 7. Verify it's deleted
         get_response = self.get(f"/catalogstores/{self.catalog_store_name}/catalogs/{catalog_name}")
         self.assert_status_code(get_response, 404)

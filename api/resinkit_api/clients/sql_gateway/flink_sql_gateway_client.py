@@ -31,12 +31,7 @@ class FlinkSqlGatewayClient:
     def get_client(self) -> Client:
         return self.client
 
-    def get_session(
-        self, 
-        properties: Optional[dict] = None, 
-        session_name: Optional[str] = None,
-        create_if_not_exist: bool = True
-    ) -> FlinkSession:
+    def get_session(self, properties: Optional[dict] = None, session_name: Optional[str] = None, create_if_not_exist: bool = True) -> FlinkSession:
         """Get a Flink session instance.
 
         Args:

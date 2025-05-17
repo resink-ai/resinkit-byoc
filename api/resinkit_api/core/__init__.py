@@ -1,1 +1,1 @@
-"""Core functionality module.""" 
+"""Core functionality module."""

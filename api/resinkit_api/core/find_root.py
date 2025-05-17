@@ -7,6 +7,7 @@ from dotenv import find_dotenv
 # Cache for project root path
 _project_root_cache = None
 
+
 def find_git_root() -> Path | None:
     try:
         git_root = subprocess.check_output(
@@ -23,9 +24,7 @@ def find_git_root() -> Path | None:
 
 def find_dotenv_path() -> Path | None:
     try:
-        dotenv_path = find_dotenv(
-            filename=".env.common", usecwd=True, raise_error_if_not_found=False
-        )
+        dotenv_path = find_dotenv(filename=".env.common", usecwd=True, raise_error_if_not_found=False)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
@@ -38,10 +37,10 @@ def find_project_root() -> Path:
     The result is cached after the first call.
     """
     global _project_root_cache
-    
+
     if _project_root_cache is not None:
         return _project_root_cache
-    
+
     # 1. Use PROJECT_ROOT if set
     project_root = os.getenv("PROJECT_ROOT")
     if project_root:
@@ -59,7 +58,6 @@ def find_project_root() -> Path:
     if git_root:
         _project_root_cache = git_root
         return _project_root_cache
-
 
     raise Exception("No .env.common file found")
 

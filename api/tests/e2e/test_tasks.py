@@ -19,11 +19,7 @@ task_timeout_seconds: 300
     def test_create_task_with_yaml(self):
         """Test /tasks/yaml endpoint for creating a task with YAML content"""
         # Make request to create a task with YAML content
-        response = requests.post(
-            self.get_url("/tasks/yaml"),
-            headers={"Content-Type": "text/plain", "accept": "application/json"},
-            data=self.task_yaml
-        )
+        response = requests.post(self.get_url("/tasks/yaml"), headers={"Content-Type": "text/plain", "accept": "application/json"}, data=self.task_yaml)
         self.assert_status_code(response, 202)
         json_data = self.assert_json_response(response)
         assert "status" in json_data, "Response should contain 'status' field"

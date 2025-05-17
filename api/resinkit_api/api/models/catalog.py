@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Any
 from pydantic import BaseModel, Field, field_validator
 
+
 # Define JDBC catalog properties model
 class JdbcCatalogProperties(BaseModel):
     default_database: str = Field(..., alias="default-database")
@@ -17,7 +18,7 @@ class JdbcCatalogProperties(BaseModel):
                 "password": "password",
                 "base-url": "jdbc:postgresql://localhost:5432",
             }
-        }
+        },
     }
 
 
@@ -37,7 +38,7 @@ class HiveCatalogProperties(BaseModel):
                 "hive-version": "3.1.2",
                 "hadoop-conf-dir": "/path/to/hadoop/conf",
             }
-        }
+        },
     }
 
 
@@ -58,9 +59,7 @@ class CatalogRequest(BaseModel):
             required_fields = ["default-database", "username", "password", "base-url"]
             for field in required_fields:
                 if field not in v:
-                    raise ValueError(
-                        f"Missing required field for JDBC catalog: {field}"
-                    )
+                    raise ValueError(f"Missing required field for JDBC catalog: {field}")
         return v
 
     model_config = {

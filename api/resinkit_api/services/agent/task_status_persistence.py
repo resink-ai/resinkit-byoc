@@ -6,6 +6,7 @@ from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class TaskStatusPersistenceMixin:
     async def persist_task_status(self, task, status: TaskStatus, error_message: str = None):
         """
@@ -20,19 +21,13 @@ class TaskStatusPersistenceMixin:
             result_summary = None
             execution_details = None
             if status == TaskStatus.FAILED and error_message:
-                error_info = {
-                    "error": error_message,
-                    "timestamp": datetime.now(UTC).isoformat()
-                }
+                error_info = {"error": error_message, "timestamp": datetime.now(UTC).isoformat()}
             if status == TaskStatus.COMPLETED:
-                result_summary = {
-                    "success": True,
-                    "result": getattr(task, 'result', None)
-                }
+                result_summary = {"success": True, "result": getattr(task, "result", None)}
             # Add log summary if available
             log_summary = None
             try:
-                if hasattr(self, 'get_log_summary'):
+                if hasattr(self, "get_log_summary"):
                     log_summary = self.get_log_summary(task)
             except Exception:
                 pass
@@ -48,10 +43,10 @@ class TaskStatusPersistenceMixin:
                     actor="system",
                     error_info=error_info,
                     result_summary=result_summary,
-                    execution_details=execution_details
+                    execution_details=execution_details,
                 )
                 logger.info(f"Persisted task {task.task_id} status: {status}")
             finally:
                 db.close()
         except Exception as e:
-            logger.error(f"Failed to persist task {getattr(task, 'task_id', '?')} status: {str(e)}") 
+            logger.error(f"Failed to persist task {getattr(task, 'task_id', '?')} status: {str(e)}")

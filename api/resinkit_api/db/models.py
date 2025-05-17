@@ -50,6 +50,7 @@ class TaskStatus(enum.Enum):
 
 class JSONString(TypeDecorator):
     """Custom type for JSON stored as string in SQLite"""
+
     impl = String
     cache_ok = True
 
