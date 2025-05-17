@@ -4,6 +4,9 @@ from typing import Optional
 import yaml
 from resinkit_api.services.agent import get_task_manager, tasks as agent_tasks_service
 from resinkit_api.services.agent.tasks import TaskManager
+from resinkit_api.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -41,6 +44,7 @@ async def submit_task_yaml(yaml_payload: str = Body(..., media_type="text/plain"
     except agent_tasks_service.UnprocessableTaskError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        logger.error(f"Failed to submit task: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 

@@ -33,7 +33,7 @@ class TaskStatusPersistenceMixin:
             log_summary = None
             try:
                 if hasattr(self, 'get_log_summary'):
-                    log_summary = self.get_log_summary(task.task_id)
+                    log_summary = self.get_log_summary(task)
             except Exception:
                 pass
             execution_details = {"task_id": task.task_id}

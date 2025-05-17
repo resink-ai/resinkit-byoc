@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 import os
 import uuid
 import tempfile
@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 from resinkit_api.services.agent.task_base import TaskBase
-from resinkit_api.db.models import Task, TaskStatus
+from resinkit_api.db.models import Task
 from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +39,6 @@ class FlinkSQLTask(TaskBase):
         self.pipeline_name = pipeline_name or name
         self.parallelism = parallelism
         self.resources = resources or {}
-        self.job_id: Optional[str] = None
         self.operation_handles: List[str] = []
         self.result: Dict[str, Any] = {}
         self.log_file = os.path.join(tempfile.gettempdir(), f"{self.name}_{uuid.uuid4()}.log")
@@ -74,12 +73,14 @@ class FlinkSQLTask(TaskBase):
     def from_dao(cls, task_dao: Task) -> "FlinkSQLTask":
         config = task_dao.submitted_configs or {}
         job_config = config.get("job", {})
+        # recalculate task timeout seconds based on expires_at
+        task_timeout_seconds = (task_dao.expires_at - task_dao.created_at).total_seconds()
         pipeline_config = job_config.get("pipeline", {})
         return cls(
             task_id=task_dao.task_id,
             name=task_dao.task_name,
             description=task_dao.description,
-            task_timeout_seconds=task_dao.task_timeout_seconds,
+            task_timeout_seconds=task_timeout_seconds,
             created_at=task_dao.created_at,
             sql_statements=cls._parse_sql_statements(job_config.get("sql", "")),
             pipeline_name=pipeline_config.get("name", task_dao.task_name),

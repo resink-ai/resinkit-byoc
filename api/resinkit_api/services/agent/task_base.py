@@ -63,10 +63,7 @@ class TaskBase:
 
     @classmethod
     def validate(cls, task_config: dict) -> None:
+        # At base level, only task_type is required
         if not task_config["task_type"]:
             raise ValueError("task_type is required")
-        if not task_config["name"]:
-            raise ValueError("name is required")
-        if not task_config["task_id"]:
-            raise ValueError("task_id is required")
 

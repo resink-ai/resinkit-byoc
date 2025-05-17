@@ -4,7 +4,7 @@ import asyncio
 
 from resinkit_api.db import tasks_crud
 from resinkit_api.db.database import get_db
-from resinkit_api.db.models import TaskStatus
+from resinkit_api.db.models import Task, TaskStatus
 from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
@@ -41,21 +41,12 @@ class TaskManager:
         logger.info("TaskManager initialized with polling interval: %s seconds", self.polling_interval)
         
     async def submit_task(self, payload: dict) -> dict:
+        TaskBase.validate(payload)
+
         # Extract common base fields
         task_type = payload.get("task_type")
         name = payload.get("name")
         description = payload.get("description")
-
-        logger.info("Submitting task: type=%s, name=%s", task_type, name)
-        logger.debug("Task payload: %s", payload)
-
-        # Validate required fields
-        if not task_type:
-            logger.warning("Task submission failed: task_type is missing")
-            raise InvalidTaskError("task_type is required")
-        if not name:
-            logger.warning("Task submission failed: name is missing")
-            raise InvalidTaskError("name is required")
 
         # Extract optional fields
         priority = payload.get("priority", 0)
@@ -114,7 +105,7 @@ class TaskManager:
         db = next(get_db())
         
         # Find the task in the database
-        db_task = tasks_crud.get_task(db=db, task_id=task_id)
+        db_task: Task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
             logger.warning("Task not found: task_id=%s", task_id)
@@ -252,51 +243,28 @@ class TaskManager:
                 actor="user"
             )
             
-            # Get the job ID from execution details
-            job_id = None
-            execution_details = db_task.get_execution_details()
-            if execution_details and "job_id" in execution_details:
-                job_id = execution_details["job_id"]
-                logger.debug("Found job_id=%s for task_id=%s", job_id, task_id)
+            # Get the appropriate runner for this task type
+            logger.debug("Getting runner for task_type=%s", db_task.task_type)
+            runner = get_runner_for_task_type(db_task.task_type)
             
-            if job_id:
-                # Get the appropriate runner for this task type
-                logger.debug("Getting runner for task_type=%s", db_task.task_type)
-                runner = get_runner_for_task_type(db_task.task_type)
-                
-                # Cancel the job in the runner
-                logger.info("Cancelling job in runner: job_id=%s, force=%s", job_id, force)
-                await runner.cancel(job_id, force=force)
-                
-                # Update task status to CANCELLED
-                logger.info("Updating task status to CANCELLED: task_id=%s", task_id)
-                tasks_crud.update_task_status(
-                    db=db,
-                    task_id=task_id,
-                    new_status=TaskStatus.CANCELLED,
-                    actor="user"
-                )
-                
-                return {
-                    "task_id": task_id,
-                    "success": True,
-                    "message": "Task cancelled successfully"
-                }
-            else:
-                # If no job ID, just mark as cancelled
-                logger.info("No job_id found, marking task as CANCELLED: task_id=%s", task_id)
-                tasks_crud.update_task_status(
-                    db=db,
-                    task_id=task_id,
-                    new_status=TaskStatus.CANCELLED,
-                    actor="user"
-                )
-                
-                return {
-                    "task_id": task_id,
-                    "success": True,
-                    "message": "Task marked as cancelled"
-                }
+            # Cancel the task in the runner using task_id
+            logger.info("Cancelling task in runner: task_id=%s, force=%s", task_id, force)
+            await runner.cancel(runner.from_dao(db_task), force=force)
+            
+            # Update task status to CANCELLED
+            logger.info("Updating task status to CANCELLED: task_id=%s", task_id)
+            tasks_crud.update_task_status(
+                db=db,
+                task_id=task_id,
+                new_status=TaskStatus.CANCELLED,
+                actor="user"
+            )
+            
+            return {
+                "task_id": task_id,
+                "success": True,
+                "message": "Task cancelled successfully"
+            }
         
         except Exception as e:
             logger.error(f"Failed to cancel task {task_id}: {str(e)}", exc_info=True)
@@ -354,7 +322,7 @@ class TaskManager:
         db = next(get_db())
         
         # Find the task in the database
-        db_task = tasks_crud.get_task(db=db, task_id=task_id)
+        db_task: Task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
             logger.warning("Cannot get logs: Task not found: task_id=%s", task_id)
@@ -362,7 +330,8 @@ class TaskManager:
         
         try:
             logger.debug("Fetching logs from runner for task_id=%s", task_id)
-            return get_runner_for_task_type(db_task.task_type).get_log_summary(task_id, level=log_level_filter)        
+            runner = get_runner_for_task_type(db_task.task_type)
+            return runner.get_log_summary(runner.from_dao(db_task), level=log_level_filter)        
         except Exception as e:
             logger.error(f"Failed to get logs for task {task_id}: {str(e)}", exc_info=True)
             return f"Error retrieving logs: {str(e)}"
@@ -390,7 +359,7 @@ class TaskManager:
         db = next(get_db())
         
         # Find the task in the database
-        db_task = tasks_crud.get_task(db=db, task_id=task_id)
+        db_task: Task = tasks_crud.get_task(db=db, task_id=task_id)
         
         if not db_task:
             logger.warning("Cannot get results: Task not found: task_id=%s", task_id)
@@ -423,73 +392,47 @@ class TaskManager:
         
         try:
             # Get the task from the database
-            db_task = tasks_crud.get_task(db=db, task_id=task_id)
+            db_task: Task = tasks_crud.get_task(db=db, task_id=task_id)
             if not db_task:
                 logger.error(f"Task not found: {task_id}")
                 return
             
             # Update task status to VALIDATING
             logger.info("Updating task status to VALIDATING: task_id=%s", task_id)
-            db_task = tasks_crud.update_task_status(
+            db_task: Task = tasks_crud.update_task_status(
                 db=db,
                 task_id=task_id,
                 new_status=TaskStatus.VALIDATING,
                 actor="system"
             )
             
-            # Get the appropriate runner for this task type
-            try:
-                logger.debug("Getting runner for task_type=%s", db_task.task_type)
-                runner = get_runner_for_task_type(db_task.task_type)
-            except ValueError as e:
-                # If no runner is registered for this task type, mark the task as failed
-                logger.error(f"No runner found for task type: {db_task.task_type}")
-                error_info = {
-                    "error": str(e),
-                    "error_type": "ValueError",
-                    "timestamp": datetime.now(UTC).isoformat()
-                }
-                
-                logger.info("Updating task status to FAILED: task_id=%s, reason=no_runner", task_id)
-                tasks_crud.update_task_status(
-                    db=db,
-                    task_id=task_id,
-                    new_status=TaskStatus.FAILED,
-                    actor="system",
-                    error_info=error_info
-                )
-                logger.error(f"Failed to execute task {task_id}: {str(e)}")
-                return
-            
             try:
                 # Validate the task configuration
                 logger.info("Validating task configuration: task_id=%s", task_id)
+                runner = get_runner_for_task_type(db_task.task_type)
                 runner.validate_config(db_task.submitted_configs)
                 logger.debug("Task configuration validated successfully: task_id=%s", task_id)
                 
                 # Update task status to PREPARING
                 logger.info("Updating task status to PREPARING: task_id=%s", task_id)
-                db_task = tasks_crud.update_task_status(
+                db_task: Task = tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
                     new_status=TaskStatus.PREPARING,
                     actor="system"
                 )
                 
-                # Submit the job to the runner
-                logger.info("Submitting job to runner: task_id=%s", task_id)
-                task_base = await runner.submit_job(db_task.submitted_configs)
-                logger.debug("Job submitted to runner: task_id=%s, job_id=%s", 
-                            task_id, task_base.job_id)
+                # Submit the task to the runner
+                logger.info("Submitting task to runner: task_id=%s", task_id)
+                task_base = await runner.submit_task(runner.from_dao(db_task))
+                logger.debug("Task submitted to runner: task_id=%s", task_id)
                 
                 # Update task status to RUNNING and include execution details
                 execution_details = {
-                    "job_id": task_base.job_id,
                     "log_file": task_base.log_file
                 }
                 
-                logger.info("Updating task status to RUNNING: task_id=%s, job_id=%s", 
-                           task_id, task_base.job_id)
+                logger.info("Updating task status to RUNNING: task_id=%s", task_id)
                 db_task = tasks_crud.update_task_status(
                     db=db,
                     task_id=task_id,
@@ -519,7 +462,7 @@ class TaskManager:
                     actor="system",
                     error_info=error_info
                 )
-                logger.error(f"Failed to execute task {task_id}: {str(e)}")
+                logger.error(f"Failed to execute task {task_id}: {str(e)}", exc_info=True)
         
         except Exception as e:
             logger.error(f"Error executing task {task_id}: {str(e)}", exc_info=True)
@@ -605,7 +548,7 @@ class TaskManager:
                         error_info=error_info
                     )
                     
-                    # Attempt to cancel the job in the runner
+                    # Attempt to cancel the task in the runner
                     try:
                         logger.info("Attempting to cancel expired task in runner: task_id=%s", task_id)
                         await runner.cancel(task_id, force=True)
@@ -656,7 +599,7 @@ class TaskManager:
                     # Get logs for the task
                     try:
                         logger.debug("Retrieving log summary for task: task_id=%s", task_id)
-                        log_summary = runner.get_log_summary(task_id)
+                        log_summary = runner.get_log_summary(task)
                         execution_details = {
                             "log_summary": log_summary
                         }

@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 from resinkit_api.services.agent.task_base import TaskBase
-from resinkit_api.db.models import Task, TaskStatus
+from resinkit_api.db.models import Task
 
 
 class RunFlinkCdcPipelineTask(TaskBase):

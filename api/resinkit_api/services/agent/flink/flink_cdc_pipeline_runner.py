@@ -9,7 +9,7 @@ from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobMa
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
-from resinkit_api.db.models import TaskStatus
+from resinkit_api.db.models import Task, TaskStatus
 from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
 from resinkit_api.services.agent.flink.run_flink_cdc_pipeline_task import RunFlinkCdcPipelineTask
 from resinkit_api.services.agent.task_base import TaskBase
@@ -50,26 +50,31 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
-    async def submit_job(self, task_config: dict) -> TaskBase:
-        """Submits a Flink CDC pipeline job."""
-        # Validate configuration
-        self.validate_config(task_config)
+    def from_dao(self, dao: Task) -> RunFlinkCdcPipelineTask:
+        """
+        Create a FlinkCdcPipelineRunner instance from a Task DAO.
         
-        # Create task instance from config
-        task = RunFlinkCdcPipelineTask.from_config(task_config)
-        self.tasks[task.job_id] = task
+        Args:
+            dao: The Task DAO
+            
+        Returns:
+            The FlinkCdcPipelineRunner instance
+        """
+        return RunFlinkCdcPipelineTask.from_dao(dao)
+
+    async def submit_task(self, task: TaskBase) -> TaskBase:
+        """Submits a Flink CDC pipeline job."""
+        # TODO: move task cache to TaskManager class
+        self.tasks[task.task_id] = task
         
         # Prepare environment variables and artifacts
         env_vars = await self._prepare_environment(task)
         
         # Create configuration files
         config_files = await self._prepare_config_files(task)
-        
+
         # Prepare the command to run
         cmd = await self._build_flink_command(task, config_files)
-        
-        # Open log file for the task
-        log_file = open(task.log_file, "w")
         
         # Execute the command
         logger.info(f"Starting Flink CDC Pipeline: {task.name}")
@@ -77,6 +82,8 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         await self.persist_task_status(task, TaskStatus.RUNNING)
         
         try:
+            # Open log file for the task
+            log_file = open(task.log_file, "w")
             # Run the Flink command
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -96,23 +103,20 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         finally:
             log_file.close()
 
-    def get_status(self, task_id: str) -> str:
+    def get_status(self, task: TaskBase) -> str:
         """Gets the status of a submitted Flink CDC pipeline job."""
-        task = self.tasks.get(task_id)
         if not task:
             return "UNKNOWN"
         return task.status.value
 
-    def get_result(self, task_id: str) -> Optional[Any]:
+    def get_result(self, task: TaskBase) -> Optional[Any]:
         """Gets the result of a completed Flink CDC pipeline job."""
-        task = self.tasks.get(task_id)
         if not task:
             return None
         return task.result
 
-    def get_log_summary(self, task_id: str, level: str = "INFO") -> str:
+    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> str:
         """Gets a summary of logs for a Flink CDC pipeline job."""
-        task = self.tasks.get(task_id)
         if not task or not task.log_file or not os.path.exists(task.log_file):
             return "No logs available"
         
@@ -127,18 +131,17 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             # Return the most recent logs, limited to 100 lines
             return "".join(filtered_logs[-100:])
         except Exception as e:
-            logger.error(f"Failed to read logs for task {task_id}: {str(e)}")
+            logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
             return f"Error reading logs: {str(e)}"
 
-    async def cancel(self, task_id: str, force: bool = False):
+    async def cancel(self, task: RunFlinkCdcPipelineTask, force: bool = False):
         """Cancels a running Flink CDC pipeline job."""
-        task = self.tasks.get(task_id)
         if not task:
-            logger.warning(f"Task {task_id} not found")
+            logger.warning(f"Task {task.task_id} not found")
             return
         
         if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
-            logger.info(f"Task {task_id} is not running, current status: {task.status.value}")
+            logger.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             return
         
         task.status = TaskStatus.CANCELLING
@@ -156,7 +159,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                 try:
                     await asyncio.wait_for(task.process.wait(), timeout=30.0)
                 except asyncio.TimeoutError:
-                    logger.warning(f"Timeout waiting for task {task_id} to terminate, forcing kill")
+                    logger.warning(f"Timeout waiting for task {task.task_id} to terminate, forcing kill")
                     task.process.kill()
             
             # If the job is running in Flink and we have the job ID, also cancel it there
@@ -168,10 +171,10 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                 # TODO: Implement actual Flink job cancellation via API
             
             task.status = TaskStatus.CANCELLED
-            logger.info(f"Successfully cancelled task {task_id}")
+            logger.info(f"Successfully cancelled task {task.task_id}")
             await self.persist_task_status(task, TaskStatus.CANCELLED)
         except Exception as e:
-            logger.error(f"Failed to cancel task {task_id}: {str(e)}")
+            logger.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             task.status = TaskStatus.FAILED
             task.result = {"error": f"Cancel failed: {str(e)}"}
             await self.persist_task_status(task, TaskStatus.FAILED, f"Cancel failed: {str(e)}")
@@ -312,61 +315,78 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         logger.info(f"[IMPORTANT] Flink command: {cmd}")
         return cmd
 
-    async def fetch_task_status(self, task: RunFlinkCdcPipelineTask) -> RunFlinkCdcPipelineTask:
+    async def fetch_task_status(self, task_id: str) -> RunFlinkCdcPipelineTask:
         """
-        Fetches the latest status of a Flink CDC task and returns an updated task instance.
+        Fetches the latest status of a Flink CDC pipeline task.
         
         Args:
-            task: The task instance to check status for
+            task_id: The task ID to check status for
             
         Returns:
             An updated task instance with the latest status
         """
-        task_id = task.task_id
+        task = self.tasks.get(task_id)
+        if not task:
+            logger.warning(f"Task {task_id} not found")
+            return None
         
-        # Check if task exists
-        if task_id not in self.tasks:
-            self.tasks[task_id] = task
-            
-        # Initialize status as the current task status
-        new_status = task.status
-        error_message = None
+        # Check if the task has a process
+        if not task.process:
+            logger.warning(f"Task {task_id} has no process")
+            return task
         
-        # Check the process status if it exists
-        if task.process:
+        # Check if the process is still running
+        if task.process.returncode is None:
+            # Process is still running
             try:
-                # Check if the process has exited
-                return_code = task.process.returncode
+                # Try to check for a Flink job ID if we don't have one yet
+                if not task.result.get("flink_job_id"):
+                    flink_job_id = await self._extract_flink_job_id(task.log_file)
+                    if flink_job_id:
+                        logger.info(f"Found Flink job ID for task {task_id}: {flink_job_id}")
+                        task.result["flink_job_id"] = flink_job_id
+                        self.job_id_to_task_id[flink_job_id] = task_id
                 
-                if return_code is not None:  # Process has exited
-                    if return_code == 0:
-                        new_status = TaskStatus.COMPLETED
+                # If we now have a Flink job ID, check its status in the Flink Job Manager
+                if task.result.get("flink_job_id") and self.job_manager:
+                    flink_job_id = task.result["flink_job_id"]
+                    try:
+                        job_details = await self.job_manager.get_job_details(flink_job_id)
+                        logger.debug(f"Job {flink_job_id} status: {job_details.get('state')}")
                         
-                        # Extract Flink job ID if available
-                        flink_job_id = await self._extract_flink_job_id(task.log_file)
-                        if flink_job_id:
-                            task.result = task.result or {}
-                            task.result["flink_job_id"] = flink_job_id
-                            task.result["success"] = True
-                            task.result["message"] = "CDC pipeline successfully deployed"
-                    else:
-                        new_status = TaskStatus.FAILED
-                        error_message = f"Process exited with return code {return_code}"
-                        task.result = task.result or {}
-                        task.result["success"] = False
-                        task.result["return_code"] = return_code
-                        task.result["message"] = f"CDC pipeline failed with return code {return_code}"
+                        # Map Flink job status to our task status
+                        flink_status = job_details.get("state", "").upper()
+                        
+                        if flink_status in ["RUNNING", "CREATED", "RESTARTING"]:
+                            task.status = TaskStatus.RUNNING
+                        elif flink_status in ["FINISHED", "COMPLETED"]:
+                            task.status = TaskStatus.COMPLETED
+                            task.result.update(job_details)
+                            await self.persist_task_status(task, TaskStatus.COMPLETED)
+                        elif flink_status in ["FAILED", "FAILING"]:
+                            task.status = TaskStatus.FAILED
+                            task.result["error"] = job_details.get("failure-cause", {}).get("stack-trace", "Unknown error")
+                            await self.persist_task_status(task, TaskStatus.FAILED, task.result["error"])
+                        elif flink_status in ["CANCELED", "CANCELLING"]:
+                            task.status = TaskStatus.CANCELLED
+                            await self.persist_task_status(task, TaskStatus.CANCELLED)
+                    except Exception as e:
+                        logger.warning(f"Failed to get job details for {flink_job_id}: {str(e)}")
             except Exception as e:
-                logger.error(f"Error checking process status for task {task_id}: {str(e)}")
-                new_status = TaskStatus.FAILED
-                error_message = str(e)
-        
-        # Update task status if changed
-        if new_status != task.status:
-            task.status = new_status
-            if new_status == TaskStatus.FAILED and error_message:
-                task.result = task.result or {}
+                logger.error(f"Error updating task {task_id} status: {str(e)}")
+        else:
+            # Process has exited
+            exit_code = task.process.returncode
+            logger.info(f"Task {task_id} process exited with code {exit_code}")
+            
+            if exit_code == 0:
+                task.status = TaskStatus.COMPLETED
+                await self.persist_task_status(task, TaskStatus.COMPLETED)
+            else:
+                task.status = TaskStatus.FAILED
+                error_message = f"Process exited with code {exit_code}"
                 task.result["error"] = error_message
+                await self.persist_task_status(task, TaskStatus.FAILED, error_message)
         
         return task
 

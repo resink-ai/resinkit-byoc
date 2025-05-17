@@ -37,42 +37,72 @@ class FlinkSession:
             df = operation.fetch().sync()
     ```
     """
-    def __init__(self, client: Client, properties: Dict[str, str] = None, session_name: str = None):
+    def __init__(self, client: Client, properties: Dict[str, str] = None, session_name: str = None, create_if_not_exist: bool = True):
         self.properties = properties or {}
         self.session_handle: Optional[str] = None
         self.session_name = session_name or f"session_{uuid.uuid4()}"
         self.client: Client = client
         self.was_alive = False  # Whether the session was alive when last checked
+        self.create_if_not_exist = create_if_not_exist
 
     async def __aenter__(self):
-        response = await open_session.asyncio(
-            client=self.client,
-            body=OpenSessionRequestBody.from_dict({
-                "properties": self.properties,
-                "sessionName": self.session_name
-            })
-        )
-        self.session_handle = response.session_handle
+        await self.open_async()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session_handle:
-            await close_session.asyncio(self.session_handle, client=self.client)
+        await self.try_close_async()
 
     def __enter__(self):
-        response = open_session.sync(
-            client=self.client,
-            body=OpenSessionRequestBody.from_dict({
-                "properties": self.properties,
-                "sessionName": self.session_name
-            })
-        )
-        self.session_handle = response.session_handle
+        self.open_sync()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.session_handle:
+        self.try_close_sync()
+
+    def open_sync(self):
+        # If create_if_not_exist is False, do nothing
+        if not self.create_if_not_exist:
+            return
+        # If session is alive, do nothing
+        if self.is_alive():
+            return
+        # Otherwise, open a new session
+        response = open_session.sync(
+            client=self.client, body=OpenSessionRequestBody.from_dict({"properties": self.properties, "sessionName": self.session_name})
+        )
+        self.session_handle = response.session_handle
+        self.was_alive = True
+    
+    async def open_async(self):
+        # If create_if_not_exist is False, do nothing
+        if not self.create_if_not_exist:
+            return
+        # If session is alive, do nothing
+        if self.is_alive():
+            return
+        # Otherwise, open a new session
+        response = await open_session.asyncio(
+            client=self.client,
+            body=OpenSessionRequestBody.from_dict({"properties": self.properties, "sessionName": self.session_name})
+        )
+        self.session_handle = response.session_handle
+        self.was_alive = True
+
+    def try_close_sync(self):
+        if not self.session_handle:
+            return
+        try:
             close_session.sync(self.session_handle, client=self.client)
+        except Exception as e:
+            logger.warning(f"Failed to close session {self.session_name}: {str(e)}")
+    
+    async def try_close_async(self):
+        if not self.session_handle:
+            return
+        try:
+            await close_session.asyncio(self.session_handle, client=self.client)
+        except Exception as e:
+            logger.warning(f"Failed to close session {self.session_name}: {str(e)}")
 
     def complete_statement(self) -> 'SessionCompleteStatement':
         return SessionCompleteStatement(self)
@@ -107,6 +137,8 @@ class FlinkSession:
         )
     
     def is_alive(self):
+        if not self.session_handle:
+            return False
         try:
             response = self.client.get_httpx_client().request(
                 method="POST",

@@ -1,5 +1,6 @@
 from typing import Any, Optional
 
+from resinkit_api.db.models import Task
 from resinkit_api.services.agent.task_base import TaskBase
 
 
@@ -10,20 +11,23 @@ class TaskRunnerBase:
     @classmethod
     def validate_config(cls, task_config: dict) -> None:
         raise NotImplementedError
-
-    async def submit_job(self, task_config: dict) -> TaskBase:
+    
+    def from_dao(self, dao: Task) -> TaskBase:
         raise NotImplementedError
 
-    def get_status(self, task_id: str) -> str:
+    async def submit_task(self, task: TaskBase) -> TaskBase:
         raise NotImplementedError
 
-    def get_result(self, task_id: str) -> Optional[Any]:
+    def get_status(self, task: TaskBase) -> str:
         raise NotImplementedError
 
-    def get_log_summary(self, task_id: str, level: str = "INFO") -> str:
+    def get_result(self, task: TaskBase) -> Optional[Any]:
         raise NotImplementedError
 
-    async def cancel(self, task_id: str, force: bool = False):
+    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> str:
+        raise NotImplementedError
+
+    async def cancel(self, task: TaskBase, force: bool = False):
         raise NotImplementedError
 
     async def fetch_task_status(self, task: TaskBase) -> TaskBase:

@@ -35,7 +35,7 @@ class FlinkSqlGatewayClient:
         self, 
         properties: Optional[dict] = None, 
         session_name: Optional[str] = None,
-        open_if_not_alive: bool = True
+        create_if_not_exist: bool = True
     ) -> FlinkSession:
         """Get a Flink session instance.
 
@@ -47,7 +47,7 @@ class FlinkSqlGatewayClient:
             FlinkSession: A session instance for the Flink SQL Gateway.
         """
         client = self.get_client()
-        session = FlinkSession(client, properties, session_name)
-        if open_if_not_alive and not session.is_alive():
-            session.__enter__()
+        session = FlinkSession(client, properties, session_name, create_if_not_exist)
+        if create_if_not_exist:
+            session.open_sync()
         return session
