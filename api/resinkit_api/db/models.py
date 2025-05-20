@@ -65,6 +65,33 @@ class JSONString(TypeDecorator):
         return json.loads(value)
 
 
+class Variable(Base):
+    """Model for storing encrypted variables"""
+    __tablename__ = "variables"
+
+    name = Column(String, primary_key=True)
+    encrypted_value = Column(String, nullable=False)
+    description = Column(Text)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.current_timestamp(),
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        server_default=func.current_timestamp(),
+    )
+    created_by = Column(String, nullable=False)
+
+    # Define indexes
+    __table_args__ = (
+        Index("idx_variables_name", "name"),
+    )
+
+
 class Task(Base):
     __tablename__ = "tasks"
 

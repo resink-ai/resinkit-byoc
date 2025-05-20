@@ -1,7 +1,7 @@
 task_type: flink_sql
 name: selec_1
 description: naive select 1 statement
-task_timeout_seconds: 3600
+task_timeout_seconds: 30
 
 job:
   sql: >

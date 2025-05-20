@@ -1,0 +1,24 @@
+task_type: flink_sql
+name: Select from datagen
+description: Create dummy table and then select first 10
+task_timeout_seconds: 300
+
+job:
+  sql: >
+    -- checkpoint every 3000 milliseconds
+    SET 'execution.checkpointing.interval' = '3s';
+
+    -- Create dummy table
+    CREATE TABLE dummy (
+        id INT,
+        name STRING
+    ) WITH (
+        'connector' = 'datagen'
+    );
+
+    -- Query the table
+    SELECT * FROM dummy LIMIT 10;
+
+  pipeline:
+    name: select from datagen
+    parallelism: 1

@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     ##### Database #####
     DB_PATH: str = "_data_/sqlite.db"
     SQLALCHEMY_ECHO: Union[bool, str] = True
+    
+    VARIABLE_ENCRYPTION_KEY: str = "resinkit-default-encryption-key-0519"
 
     @computed_field
     @property

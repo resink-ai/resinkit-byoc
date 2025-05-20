@@ -13,6 +13,7 @@ from resinkit_api.services.agent.flink.flink_sql_task import FlinkSQLTask
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
+from resinkit_api.services.agent.data_models import InvalidTaskError
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,10 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         self.tasks: Dict[str, FlinkSQLTask] = {}
         self.job_id_to_task_id: Dict[str, str] = {}
         self.session_to_task_id: Dict[str, str] = {}
+        self.task_id_to_session_id: Dict[str, str] = {}
+        self.task_id_to_operation_ids: Dict[str, List[Any]] = {}
+        # TODO: add a task_id_to_session_id mapping
+        # TODO: add a task_id_to_operation_id mapping
 
     @classmethod
     def validate_config(cls, task_config: dict) -> None:
@@ -127,7 +132,17 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                         task.result["results"].append(result_df.to_json(orient="records", date_format="iso"))
 
                     # Get the operation status
+                    print(f"DEBUG: http://localhost:8083/sessions/{session.session_handle}/operations/{operation.operation_handle}/status")
                     status = operation.status().sync()
+                    if status.status == "ERROR":
+                        error_message = getattr(status, "error", None) or str(status.to_dict())
+                        log_file.write("Operation status: ERROR\n")
+                        log_file.write(f"Operation error: {error_message}\n")
+                        task.status = TaskStatus.FAILED
+                        task.result = {"error": error_message}
+                        await self.persist_task_status(task, TaskStatus.FAILED, error_message)
+                        logger.error(f"Flink SQL operation failed: {error_message}")
+                        raise InvalidTaskError(f"Flink SQL operation failed: {error_message}")
                     log_file.write(f"Operation status: {status.status}\n")
 
                     # If this is a job submission, extract the job ID
@@ -141,9 +156,12 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             task.operation_handles = operation_handles
             task.result["operation_handles"] = operation_handles
             task.result["session_name"] = session_name
+            task.result["session_id"] = session.session_handle
 
             # Store the session name
             self.session_to_task_id[session_name] = task_id
+            self.task_id_to_session_id[task_id] = session.session_handle
+            self.task_id_to_operation_ids[task_id] = operation_handles
 
             log_file.write(f"Flink SQL job submitted successfully, name: {task.name}, id: {task.task_id}")
 
@@ -363,7 +381,8 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             try:
                 # Get session
                 session = self.sql_gateway_client.get_session(session_name=session_name, create_if_not_exist=False)
-
+                # FIXME: newly created session is always not alive!!
+                # FIXME: even session is not alive, we can still fetch status;
                 if not session.was_alive:
                     logger.info(f"Session {session_name} was not alive for task {task.task_id}, consider task completed")
                     new_status = TaskStatus.COMPLETED

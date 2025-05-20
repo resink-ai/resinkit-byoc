@@ -26,6 +26,7 @@ dependencies = [
   "sqlalchemy>=2.0.4,<3",
   "alembic>=1.15.2,<2",
   "shortuuid>=1.0.13,<2",
+  "cryptography>=45.0.0,<46",
 ]
 
 [dependency-groups]

@@ -1,0 +1,17 @@
+task_type: flink_sql
+name: select_literal
+description: select multiple rows
+task_timeout_seconds: 30
+
+job:
+  sql: >
+    SELECT * FROM (
+    VALUES
+        (23, 'Alice Liddell', CAST('2024-12-29 10:30:00' AS TIMESTAMP)),
+        (19, 'Bob Smith', CAST('2024-12-28 11:45:00' AS TIMESTAMP)),
+        (27, 'Charlie Brown', CAST('2024-12-27 14:15:00' AS TIMESTAMP)),
+        (31, 'David Jones', CAST('2024-12-26 16:20:00' AS TIMESTAMP))
+    ) AS t(age, name, created_at);
+  pipeline:
+    name: select multiple rows
+    parallelism: 1
