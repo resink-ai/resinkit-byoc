@@ -28,6 +28,7 @@ def get_tasks(
     tags_include_any: Optional[List[str]] = None,
     created_after: Optional[datetime] = None,
     created_before: Optional[datetime] = None,
+    sort_params: Optional[Dict[str, int]] = None,
 ) -> List[Task]:
     """Get a list of tasks with optional filtering."""
     query = db.query(Task)
@@ -60,7 +61,20 @@ def get_tasks(
         for tag in tags_include_any:
             query = query.filter(Task.tags.like(f"%{tag}%"))
 
-    return query.order_by(Task.created_at.desc()).offset(skip).limit(limit).all()
+    # Apply custom sorting if provided
+    if sort_params:
+        for field, direction in sort_params.items():
+            if hasattr(Task, field):
+                column = getattr(Task, field)
+                if direction > 0:
+                    query = query.order_by(column.asc())
+                else:
+                    query = query.order_by(column.desc())
+    else:
+        # Default sorting by created_at descending
+        query = query.order_by(Task.created_at.desc())
+
+    return query.offset(skip).limit(limit).all()
 
 
 def create_task(

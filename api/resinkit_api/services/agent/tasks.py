@@ -157,7 +157,22 @@ class TaskManager:
         # Process filters
         status = TaskStatus[status_] if status_ else None
         limit = limit or 100
-        skip = 0  # TODO: Implement pagination with page_token
+        
+        # Process pagination with page_token
+        skip = 0
+        if page_token:
+            try:
+                import base64
+                import json
+                # Decode the page token to get the skip value
+                decoded_token = base64.b64decode(page_token).decode('utf-8')
+                token_data = json.loads(decoded_token)
+                skip = token_data.get('offset', 0)
+                logger.debug("Using page_token, skip set to: %d", skip)
+            except Exception as e:
+                logger.warning("Invalid page_token: %s, error: %s", page_token, str(e))
+                # If the token is invalid, start from the beginning
+                skip = 0
 
         # Convert date strings to datetime objects if provided
         created_after_date = datetime.fromisoformat(created_after) if created_after else None
@@ -165,19 +180,35 @@ class TaskManager:
 
         logger.debug("Querying tasks with filters: status=%s, type=%s, name_contains=%s, tags=%s", status, task_type, task_name_contains, tags_include_any)
 
+        # Process sort parameters
+        sort_params = None
+        if sort_by:
+            # Default to ascending sort order if not specified
+            direction = 1 if sort_order and sort_order.upper() == 'ASC' else -1
+            sort_params = {sort_by: direction}
+            logger.debug("Sorting by %s, direction: %s", sort_by, "ASC" if direction == 1 else "DESC")
+
         # Query tasks with filters
+        # Request one more than the limit to determine if there are more results
+        query_limit = limit + 1
         tasks = tasks_crud.get_tasks(
             db=db,
             skip=skip,
-            limit=limit,
+            limit=query_limit,
             status=status,
             task_type=task_type,
             created_after=created_after_date,
             created_before=created_before_date,
             task_name_contains=task_name_contains,
             tags_include_any=tags_include_any.split(",") if tags_include_any else None,
+            sort_params=sort_params,
         )
 
+        # Determine if there are more results
+        has_more = len(tasks) > limit
+        # Trim the results to the requested limit
+        tasks = tasks[:limit]
+        
         logger.info("Found %d tasks matching filters", len(tasks))
 
         # Format response
@@ -197,11 +228,21 @@ class TaskManager:
                 }
             )
 
-        # TODO: Implement next_page_token based on pagination
+        # Generate next_page_token if there are more results
+        next_page_token = None
+        if has_more:
+            import base64
+            import json
+            # Create a token with the next offset
+            next_offset = skip + limit
+            token_data = {"offset": next_offset}
+            next_page_token = base64.b64encode(json.dumps(token_data).encode('utf-8')).decode('utf-8')
+            logger.debug("Generated next_page_token for offset: %d", next_offset)
+
         return {
             "tasks": task_list,
             "total_count": len(task_list),
-            "next_page_token": None,
+            "next_page_token": next_page_token,
         }
 
     async def cancel_task(self, task_id: str, force: bool = False) -> dict:

@@ -6,6 +6,13 @@
 # --- Configuration ---
 # Consider changing this if you want SSH on a non-standard port
 SSH_PORT="22"
+
+# Port for FRPC to connect to
+FRPC_PORT="7000"
+
+# Port for FRPS to listen on
+FRPS_PORT="6000"
+
 # Set your desired timezone (e.g., "America/Los_Angeles", "Europe/London", "UTC")
 # Leave empty to skip timezone setup
 TIMEZONE="America/Los_Angeles" # <--- CHANGE THIS TO YOUR TIMEZONE if desired
@@ -34,15 +41,15 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Check if dialog is installed for better prompts, install if not
-if ! command -v dialog > /dev/null; then
+if ! command -v dialog >/dev/null; then
     log "Installing 'dialog' for better user interaction..."
-    apt-get update > /dev/null
-    apt-get install -y dialog > /dev/null
+    apt-get update >/dev/null
+    apt-get install -y dialog >/dev/null
 fi
 
 # --- User Input ---
 # Use dialog for better prompting if available, otherwise use read
-if command -v dialog > /dev/null; then
+if command -v dialog >/dev/null; then
     NEW_USERNAME=$(dialog --inputbox "Enter the username for the new sudo user:" 8 40 3>&1 1>&2 2>&3 3>&-)
     dialog --msgbox "You will now be asked to paste the SSH public key for the new user ($NEW_USERNAME).\n\nMake sure it's the PUBLIC key (usually ends with .pub) and includes the 'ssh-rsa' or 'ssh-ed25519' part." 10 60
     SSH_PUBLIC_KEY=$(dialog --inputbox "Paste the SSH public key for user '$NEW_USERNAME':" 12 70 3>&1 1>&2 2>&3 3>&-)
@@ -53,7 +60,6 @@ else
     read -rp "Paste the SSH public key for user '$NEW_USERNAME': " SSH_PUBLIC_KEY
 fi
 
-
 # Validate input
 if [ -z "$NEW_USERNAME" ]; then
     error_exit "Username cannot be empty."
@@ -63,9 +69,8 @@ if [ -z "$SSH_PUBLIC_KEY" ]; then
 fi
 # Basic check if the key looks like a key (starts with ssh- or ecdsa-)
 if ! [[ "$SSH_PUBLIC_KEY" =~ ^(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ]]; then
-   log "Warning: Pasted public key doesn't look like a standard SSH key format. Proceeding anyway."
+    log "Warning: Pasted public key doesn't look like a standard SSH key format. Proceeding anyway."
 fi
-
 
 # --- System Update ---
 log "Updating package lists and upgrading system packages..."
@@ -112,7 +117,7 @@ log "User '$NEW_USERNAME' added to sudo group."
 log "Setting up SSH key authentication for '$NEW_USERNAME'..."
 USER_HOME=$(eval echo ~$NEW_USERNAME)
 mkdir -p "$USER_HOME/.ssh"
-echo "$SSH_PUBLIC_KEY" > "$USER_HOME/.ssh/authorized_keys"
+echo "$SSH_PUBLIC_KEY" >"$USER_HOME/.ssh/authorized_keys"
 
 # Set correct permissions
 chmod 700 "$USER_HOME/.ssh"
@@ -142,7 +147,7 @@ sed -i -E 's/^#?ChallengeResponseAuthentication\s+.*/ChallengeResponseAuthentica
 #     log "Changing SSH port to $SSH_PORT..."
 #     sed -i -E "s/^#?Port\s+.*/Port $SSH_PORT/" "$SSHD_CONFIG"
 # else
-    log "Keeping SSH port as $SSH_PORT."
+log "Keeping SSH port as $SSH_PORT."
 # fi
 
 log "Validating SSH configuration..."
@@ -165,6 +170,12 @@ ufw default allow outgoing
 # Allow SSH traffic on the configured port
 log "Allowing SSH traffic on port $SSH_PORT..."
 ufw allow "$SSH_PORT/tcp"
+
+log "Allowing custom application traffic on port $FRPC_PORT/tcp..."
+ufw allow "$FRPC_PORT/tcp"
+
+log "Allowing FRPS traffic on port $FRPS_PORT/tcp..."
+ufw allow "$FRPS_PORT/tcp"
 
 # (Optional) Allow HTTP/HTTPS if this will be a web server
 log "Allowing HTTP (port 80) and HTTPS (port 443)..."
@@ -195,6 +206,8 @@ log "   - Root login disabled."
 log "   - Password authentication disabled (key-based only)."
 log "   - SSH key added for user '$NEW_USERNAME'."
 log " * Firewall (UFW) enabled and allows traffic on port $SSH_PORT/tcp."
+log " * Firewall (UFW) allows custom application traffic on port $FRPC_PORT/tcp."
+log " * Firewall (UFW) allows FRPS traffic on port $FRPS_PORT/tcp."
 log " * Fail2ban installed and running to protect against brute-force attacks."
 log " * Basic utilities installed."
 if [ -n "$TIMEZONE" ]; then log " * Timezone set to $TIMEZONE."; fi

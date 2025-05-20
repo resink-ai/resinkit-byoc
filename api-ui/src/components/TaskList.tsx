@@ -90,6 +90,14 @@ export default function TaskList() {
     };
 
     const handleCancelTask = async (taskId: string) => {
+        if (!taskId) {
+            notification.error({
+                message: 'Error',
+                description: 'Invalid task ID',
+            });
+            return;
+        }
+
         if (window.confirm(`Are you sure you want to cancel task ${taskId}?`)) {
             try {
                 await taskService.cancelTask(taskId);
@@ -109,6 +117,13 @@ export default function TaskList() {
     };
 
     const handleViewTask = (taskId: string) => {
+        if (!taskId) {
+            notification.error({
+                message: 'Error',
+                description: 'Invalid task ID',
+            });
+            return;
+        }
         router.push(`/tasks/${taskId}`);
     };
 
@@ -217,13 +232,13 @@ export default function TaskList() {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr>
+                            <tr key="loading-row">
                                 <td colSpan={6} className="px-6 py-4 text-center">
                                     Loading tasks...
                                 </td>
                             </tr>
                         ) : tasks.length === 0 ? (
-                            <tr>
+                            <tr key="empty-row">
                                 <td colSpan={6} className="px-6 py-4 text-center">
                                     No tasks found. Try adjusting your filters.
                                 </td>
@@ -231,14 +246,14 @@ export default function TaskList() {
                         ) : (
                             tasks.map((task) => (
                                 <tr
-                                    key={task.id}
+                                    key={task.task_id}
                                     className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
                                     <td
                                         className="px-6 py-4 font-medium text-primary cursor-pointer"
-                                        onClick={() => handleViewTask(task.id)}
+                                        onClick={() => handleViewTask(task.task_id)}
                                     >
-                                        {task.id}
+                                        {task.task_id}
                                     </td>
                                     <td className="px-6 py-4">{task.task_type}</td>
                                     <td className="px-6 py-4">
@@ -255,9 +270,9 @@ export default function TaskList() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-wrap gap-1">
-                                            {task.tags?.map((tag) => (
+                                            {task.tags?.map((tag, index) => (
                                                 <span
-                                                    key={`${task.id}-${tag}`}
+                                                    key={`${task.task_id}-${tag}-${index}`}
                                                     className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs font-medium px-2 py-0.5 rounded"
                                                 >
                                                     {tag}
@@ -268,7 +283,10 @@ export default function TaskList() {
                                     <td className="px-6 py-4">
                                         <div className="flex space-x-2">
                                             <button
-                                                onClick={() => handleViewTask(task.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleViewTask(task.task_id);
+                                                }}
                                                 title="View Details"
                                                 className="text-blue-600 hover:text-blue-900"
                                             >
@@ -276,7 +294,10 @@ export default function TaskList() {
                                             </button>
                                             {['pending', 'running'].includes(task.status.toLowerCase()) && (
                                                 <button
-                                                    onClick={() => handleCancelTask(task.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCancelTask(task.task_id);
+                                                    }}
                                                     title="Cancel Task"
                                                     className="text-red-600 hover:text-red-900"
                                                 >
