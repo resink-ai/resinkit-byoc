@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, UTC
 import asyncio
+
 
 from resinkit_api.db import tasks_crud
 from resinkit_api.db.database import get_db
@@ -9,29 +10,15 @@ from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.runner_registry import get_runner_for_task_type
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
 from resinkit_api.services.agent.task_base import TaskBase
+from resinkit_api.services.agent.data_models import (
+    LogEntry,
+    TaskNotFoundError,
+    UnprocessableTaskError,
+    TaskConflictError,
+    TaskResult,
+)
 
 logger = get_logger(__name__)
-
-
-# Custom exceptions for API error handling
-class TaskError(Exception):
-    pass
-
-
-class InvalidTaskError(TaskError):
-    pass
-
-
-class TaskNotFoundError(TaskError):
-    pass
-
-
-class UnprocessableTaskError(TaskError):
-    pass
-
-
-class TaskConflictError(Exception):
-    pass
 
 
 class TaskManager:
@@ -150,24 +137,19 @@ class TaskManager:
         sort_order: Optional[str],
     ) -> dict:
         logger.info("Listing tasks with filters: type=%s, status=%s, limit=%s", task_type, status_, limit)
-
-        # Get database session
         db = next(get_db())
-
-        # Process filters
         status = TaskStatus[status_] if status_ else None
         limit = limit or 100
-        
-        # Process pagination with page_token
         skip = 0
         if page_token:
             try:
                 import base64
                 import json
+
                 # Decode the page token to get the skip value
-                decoded_token = base64.b64decode(page_token).decode('utf-8')
+                decoded_token = base64.b64decode(page_token).decode("utf-8")
                 token_data = json.loads(decoded_token)
-                skip = token_data.get('offset', 0)
+                skip = token_data.get("offset", 0)
                 logger.debug("Using page_token, skip set to: %d", skip)
             except Exception as e:
                 logger.warning("Invalid page_token: %s, error: %s", page_token, str(e))
@@ -184,7 +166,7 @@ class TaskManager:
         sort_params = None
         if sort_by:
             # Default to ascending sort order if not specified
-            direction = 1 if sort_order and sort_order.upper() == 'ASC' else -1
+            direction = 1 if sort_order and sort_order.upper() == "ASC" else -1
             sort_params = {sort_by: direction}
             logger.debug("Sorting by %s, direction: %s", sort_by, "ASC" if direction == 1 else "DESC")
 
@@ -208,7 +190,7 @@ class TaskManager:
         has_more = len(tasks) > limit
         # Trim the results to the requested limit
         tasks = tasks[:limit]
-        
+
         logger.info("Found %d tasks matching filters", len(tasks))
 
         # Format response
@@ -233,10 +215,11 @@ class TaskManager:
         if has_more:
             import base64
             import json
+
             # Create a token with the next offset
             next_offset = skip + limit
             token_data = {"offset": next_offset}
-            next_page_token = base64.b64encode(json.dumps(token_data).encode('utf-8')).decode('utf-8')
+            next_page_token = base64.b64encode(json.dumps(token_data).encode("utf-8")).decode("utf-8")
             logger.debug("Generated next_page_token for offset: %d", next_offset)
 
         return {
@@ -314,7 +297,7 @@ class TaskManager:
         since_token: Optional[str] = None,
         limit_lines: Optional[int] = None,
         log_level_filter: Optional[str] = "INFO",
-    ) -> str:
+    ) -> List[LogEntry]:
         """
         Get logs for a task.
 
@@ -327,7 +310,7 @@ class TaskManager:
             log_level_filter: Log level to filter by
 
         Returns:
-            A string containing the logs
+            A list of LogEntry objects containing the logs
 
         Raises:
             TaskNotFoundError: If the task is not found
@@ -349,7 +332,8 @@ class TaskManager:
             return runner.get_log_summary(runner.from_dao(db_task), level=log_level_filter)
         except Exception as e:
             logger.error(f"Failed to get logs for task {task_id}: {str(e)}", exc_info=True)
-            return f"Error retrieving logs: {str(e)}"
+            # Return a single error log entry
+            return [LogEntry(timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error retrieving logs: {str(e)}")]
 
     async def stream_task_logs(
         self,
@@ -359,12 +343,12 @@ class TaskManager:
         since_token: Optional[str],
         limit_lines: Optional[int],
         log_level_filter: Optional[str],
-    ):
+    ) -> List[LogEntry]:
         logger.info("Streaming logs for task: task_id=%s, log_type=%s", task_id, log_type)
         # For now, just return the same as get_task_logs
         return await self.get_task_logs(task_id, log_type, since_timestamp, since_token, limit_lines, log_level_filter)
 
-    async def get_task_results(self, task_id: str) -> dict:
+    async def get_task_results(self, task_id: str) -> TaskResult:
         logger.info("Getting results for task: task_id=%s", task_id)
 
         # Get database session
@@ -380,15 +364,14 @@ class TaskManager:
         # Only completed tasks have results
         if db_task.status != TaskStatus.COMPLETED:
             logger.warning("Cannot get results: Task not completed: task_id=%s, status=%s", task_id, db_task.status.value)
-            raise UnprocessableTaskError(f"Task is in {db_task.status.value} state, not COMPLETED")
 
         logger.info("Returning results for completed task: task_id=%s", task_id)
-        return {
-            "task_id": task_id,
-            "result_type": "task_summary",
-            "data": db_task.result_summary or {},
-            "summary": "Task result data",
-        }
+        return TaskResult(
+            task_id=task_id,
+            result_type="task_summary",
+            data=db_task.result_summary or {},
+            summary="Task result data",
+        )
 
     async def execute_task(self, task_id: str) -> None:
         """

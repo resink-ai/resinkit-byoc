@@ -4,6 +4,8 @@ import os
 import tempfile
 import yaml
 from typing import Any, Dict, List, Optional
+import re
+from datetime import datetime
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
@@ -11,9 +13,9 @@ from resinkit_api.core.config import settings
 from resinkit_api.core.logging import get_logger
 from resinkit_api.db.models import Task, TaskStatus
 from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
-from resinkit_api.services.agent.flink.run_flink_cdc_pipeline_task import RunFlinkCdcPipelineTask
+from resinkit_api.services.agent.flink.flink_cdc_pipeline_task import FlinkCdcPipelineTask
 from resinkit_api.services.agent.task_base import TaskBase
-from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
+from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
 
 logger = get_logger(__name__)
@@ -31,7 +33,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         """
         super().__init__(runtime_env or {})
         self.flink_home = settings.FLINK_HOME
-        self.tasks: Dict[str, RunFlinkCdcPipelineTask] = {}
+        self.tasks: Dict[str, FlinkCdcPipelineTask] = {}
         self.job_id_to_task_id: Dict[str, str] = {}
         self.job_manager = job_manager
         self.sql_gateway_client = sql_gateway_client
@@ -42,11 +44,11 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
     def validate_config(cls, task_config: dict) -> None:
         """Validates the configuration for running a Flink CDC pipeline."""
         try:
-            RunFlinkCdcPipelineTask.validate(task_config)
+            FlinkCdcPipelineTask.validate(task_config)
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
-    def from_dao(self, dao: Task) -> RunFlinkCdcPipelineTask:
+    def from_dao(self, dao: Task) -> FlinkCdcPipelineTask:
         """
         Create a FlinkCdcPipelineRunner instance from a Task DAO.
 
@@ -56,11 +58,10 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         Returns:
             The FlinkCdcPipelineRunner instance
         """
-        return RunFlinkCdcPipelineTask.from_dao(dao)
+        return FlinkCdcPipelineTask.from_dao(dao)
 
     async def submit_task(self, task: TaskBase) -> TaskBase:
         """Submits a Flink CDC pipeline job."""
-        # TODO: move task cache to TaskManager class
         self.tasks[task.task_id] = task
 
         # Prepare environment variables and artifacts
@@ -106,10 +107,10 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             return None
         return task.result
 
-    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> str:
+    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> List[LogEntry]:
         """Gets a summary of logs for a Flink CDC pipeline job."""
         if not task or not task.log_file or not os.path.exists(task.log_file):
-            return "No logs available"
+            return []
 
         try:
             # Read the log file and extract relevant lines based on level
@@ -119,13 +120,30 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             # Filter logs by level
             filtered_logs = [log for log in logs if level in log]
 
-            # Return the most recent logs, limited to 100 lines
-            return "".join(filtered_logs[-100:])
+            # Limit to the most recent 100 lines
+            limited_logs = filtered_logs[-100:]
+
+            # Parse log entries into LogEntry objects
+            result = []
+            for log in limited_logs:
+                # Try to extract timestamp, level, and message using regex
+                # Common log format: [2023-01-01 12:34:56,789] [INFO] This is a log message
+                log_pattern = r"(?:\[?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\]?)\s*(?:\[?([A-Z]+)\]?)\s*(.+)"
+                match = re.search(log_pattern, log)
+
+                if match:
+                    timestamp, log_level, message = match.groups()
+                    result.append(LogEntry(timestamp=timestamp, level=log_level, message=message.strip()))
+                else:
+                    # If we can't parse the log format, use defaults
+                    result.append(LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level=level, message=log.strip()))
+
+            return result
         except Exception as e:
             logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
-            return f"Error reading logs: {str(e)}"
+            return [LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error reading logs: {str(e)}")]
 
-    async def cancel(self, task: RunFlinkCdcPipelineTask, force: bool = False):
+    async def cancel(self, task: FlinkCdcPipelineTask, force: bool = False):
         """Cancels a running Flink CDC pipeline job."""
         if not task:
             logger.warning(f"Task {task.task_id} not found")
@@ -208,7 +226,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                 except Exception as e:
                     logger.error(f"Failed to clean up temporary directory {temp_dir}: {str(e)}")
 
-    async def _prepare_environment(self, task: RunFlinkCdcPipelineTask) -> Dict[str, str]:
+    async def _prepare_environment(self, task: FlinkCdcPipelineTask) -> Dict[str, str]:
         """Prepares the environment variables for running a Flink CDC pipeline."""
         env = os.environ.copy()
 
@@ -224,7 +242,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
 
         return env
 
-    async def _prepare_config_files(self, task: RunFlinkCdcPipelineTask) -> Dict[str, str]:
+    async def _prepare_config_files(self, task: FlinkCdcPipelineTask) -> Dict[str, str]:
         """Prepares configuration files needed for the Flink CDC pipeline."""
         config_files = {}
 
@@ -233,14 +251,14 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         self._temp_dirs.append(temp_dir)  # Track for cleanup
 
         # Create pipeline configuration file
-        if task.pipeline:
-            pipeline_config_path = os.path.join(temp_dir, "pipeline-config.yaml")
-            with open(pipeline_config_path, "w") as f:
-                yaml.dump(task.pipeline, f, default_flow_style=False, sort_keys=False)
-            config_files["pipeline_config"] = pipeline_config_path
+        if task.job:
+            job_config_path = os.path.join(temp_dir, "job-config.yaml")
+            with open(job_config_path, "w") as f:
+                yaml.dump(task.job, f, default_flow_style=False, sort_keys=False)
+            config_files["job_config"] = job_config_path
         return config_files
 
-    async def _build_flink_command(self, task: RunFlinkCdcPipelineTask, config_files: Dict[str, str]) -> List[str]:
+    async def _build_flink_command(self, task: FlinkCdcPipelineTask, config_files: Dict[str, str]) -> List[str]:
         """Builds the command to run the Flink CDC pipeline."""
         # Base command using flink-cdc.sh
         cmd = [f"{settings.FLINK_CDC_HOME}/bin/flink-cdc.sh"]
@@ -306,7 +324,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         logger.info(f"[IMPORTANT] Flink command: {cmd}")
         return cmd
 
-    async def fetch_task_status(self, task_id: str) -> RunFlinkCdcPipelineTask:
+    async def fetch_task_status(self, task_id: str) -> FlinkCdcPipelineTask:
         """
         Fetches the latest status of a Flink CDC pipeline task.
 

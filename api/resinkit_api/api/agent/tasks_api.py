@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Body, Query, Path, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from typing import Optional
+from typing import Optional, List
 import yaml
 from resinkit_api.services.agent import get_task_manager, tasks as agent_tasks_service
-from resinkit_api.services.agent.tasks import TaskManager
+from resinkit_api.services.agent.tasks import TaskManager, TaskResult
+from resinkit_api.services.agent.task_runner_base import LogEntry
 from resinkit_api.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -101,7 +102,7 @@ async def cancel_task(
 
 
 # 5. Get Task Logs
-@router.get("/tasks/{task_id}/logs")
+@router.get("/tasks/{task_id}/logs", response_model=List[LogEntry])
 async def get_task_logs(
     task_id: str = Path(...),
     level: str = Query("INFO", description="Log level filter (INFO, WARN, ERROR, DEBUG)"),
@@ -109,7 +110,7 @@ async def get_task_logs(
 ):
     try:
         logs = await task_manager.get_task_logs(task_id, log_level_filter=level)
-        return StreamingResponse(content=iter([logs.encode()]), media_type="text/plain")
+        return logs
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
     except Exception as e:
@@ -117,7 +118,7 @@ async def get_task_logs(
 
 
 # 6. Get Task Results
-@router.get("/tasks/{task_id}/results")
+@router.get("/tasks/{task_id}/results", response_model=TaskResult)
 async def get_task_results(task_id: str = Path(...), task_manager: TaskManager = Depends(get_task_manager)):
     try:
         return await task_manager.get_task_results(task_id)

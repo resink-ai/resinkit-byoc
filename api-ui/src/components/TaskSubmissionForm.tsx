@@ -6,7 +6,6 @@ import { notification, Tabs, Input, Button, Form, Space, Typography } from 'antd
 import { useForm as useReactHookForm } from 'react-hook-form';
 import taskService from '../app/api/taskService';
 
-const { TabPane } = Tabs;
 const { TextArea } = Input;
 const { Title } = Typography;
 
@@ -99,6 +98,102 @@ export default function TaskSubmissionForm() {
         }
     };
 
+    // Tab items configuration
+    const tabItems = [
+        {
+            key: 'json',
+            label: 'JSON',
+            children: (
+                <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
+                    <div className="space-y-4">
+                        {jsonFields.map((field, index) => (
+                            <Space key={index} className="flex w-full">
+                                <div style={{ width: '33%' }}>
+                                    <Input
+                                        placeholder="Key"
+                                        value={field.key}
+                                        onChange={(e) => updateJsonField(index, 'key', e.target.value)}
+                                    />
+                                </div>
+                                <div style={{ width: '67%' }} className="flex space-x-2">
+                                    <Input
+                                        placeholder="Value"
+                                        value={field.value}
+                                        onChange={(e) => updateJsonField(index, 'value', e.target.value)}
+                                    />
+                                    <Button
+                                        type="primary"
+                                        danger
+                                        onClick={() => removeJsonField(index)}
+                                        disabled={jsonFields.length <= 1}
+                                    >
+                                        &times;
+                                    </Button>
+                                </div>
+                            </Space>
+                        ))}
+                    </div>
+
+                    <div>
+                        <Button
+                            type="dashed"
+                            onClick={addJsonField}
+                        >
+                            Add Field
+                        </Button>
+                    </div>
+
+                    <div className="pt-4 flex justify-end space-x-3">
+                        <Button
+                            onClick={() => router.push('/tasks')}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={submitting}
+                        >
+                            {submitting ? 'Submitting...' : 'Submit Task'}
+                        </Button>
+                    </div>
+                </Form>
+            )
+        },
+        {
+            key: 'yaml',
+            label: 'YAML',
+            children: (
+                <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
+                    <div>
+                        <TextArea
+                            value={yamlInput}
+                            onChange={(e) => setYamlInput(e.target.value)}
+                            placeholder="Enter YAML here..."
+                            rows={10}
+                            className="font-mono text-sm"
+                        />
+                    </div>
+
+                    <div className="pt-4 flex justify-end space-x-3">
+                        <Button
+                            onClick={() => router.push('/tasks')}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={submitting}
+                        >
+                            {submitting ? 'Submitting...' : 'Submit Task'}
+                        </Button>
+                    </div>
+                </Form>
+            )
+        }
+    ];
+
     return (
         <div className="bg-white shadow-md rounded-lg p-6">
             <Title level={4} className="mb-6">
@@ -110,92 +205,8 @@ export default function TaskSubmissionForm() {
                 onChange={(key) => setInputMethod(key)}
                 className="mb-6"
                 type="card"
-            >
-                <TabPane tab="JSON" key="json">
-                    <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
-                        <div className="space-y-4">
-                            {jsonFields.map((field, index) => (
-                                <Space key={index} className="flex w-full">
-                                    <div style={{ width: '33%' }}>
-                                        <Input
-                                            placeholder="Key"
-                                            value={field.key}
-                                            onChange={(e) => updateJsonField(index, 'key', e.target.value)}
-                                        />
-                                    </div>
-                                    <div style={{ width: '67%' }} className="flex space-x-2">
-                                        <Input
-                                            placeholder="Value"
-                                            value={field.value}
-                                            onChange={(e) => updateJsonField(index, 'value', e.target.value)}
-                                        />
-                                        <Button
-                                            type="primary"
-                                            danger
-                                            onClick={() => removeJsonField(index)}
-                                            disabled={jsonFields.length <= 1}
-                                        >
-                                            &times;
-                                        </Button>
-                                    </div>
-                                </Space>
-                            ))}
-                        </div>
-
-                        <div>
-                            <Button
-                                type="dashed"
-                                onClick={addJsonField}
-                            >
-                                Add Field
-                            </Button>
-                        </div>
-
-                        <div className="pt-4 flex justify-end space-x-3">
-                            <Button
-                                onClick={() => router.push('/tasks')}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={submitting}
-                            >
-                                {submitting ? 'Submitting...' : 'Submit Task'}
-                            </Button>
-                        </div>
-                    </Form>
-                </TabPane>
-                <TabPane tab="YAML" key="yaml">
-                    <Form onFinish={handleSubmit(onSubmit)} layout="vertical" className="space-y-4">
-                        <div>
-                            <TextArea
-                                value={yamlInput}
-                                onChange={(e) => setYamlInput(e.target.value)}
-                                placeholder="Enter YAML here..."
-                                rows={10}
-                                className="font-mono text-sm"
-                            />
-                        </div>
-
-                        <div className="pt-4 flex justify-end space-x-3">
-                            <Button
-                                onClick={() => router.push('/tasks')}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={submitting}
-                            >
-                                {submitting ? 'Submitting...' : 'Submit Task'}
-                            </Button>
-                        </div>
-                    </Form>
-                </TabPane>
-            </Tabs>
+                items={tabItems}
+            />
         </div>
     );
 } 

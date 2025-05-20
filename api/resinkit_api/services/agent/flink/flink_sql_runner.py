@@ -1,5 +1,7 @@
 import os
 from typing import Any, Dict, List, Optional
+import re
+from datetime import datetime
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
@@ -9,7 +11,7 @@ from resinkit_api.db.models import Task, TaskStatus
 from resinkit_api.services.agent.flink.flink_resource_manager import FlinkResourceManager
 from resinkit_api.services.agent.flink.flink_sql_task import FlinkSQLTask
 from resinkit_api.services.agent.task_base import TaskBase
-from resinkit_api.services.agent.task_runner_base import TaskRunnerBase
+from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
 
 logger = get_logger(__name__)
@@ -184,7 +186,7 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             return None
         return task.result
 
-    def get_log_summary(self, task: FlinkSQLTask, level: str = "INFO") -> str:
+    def get_log_summary(self, task: FlinkSQLTask, level: str = "INFO") -> List[LogEntry]:
         """
         Gets a summary of logs for a Flink SQL job.
 
@@ -193,10 +195,10 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             level: The log level to filter by
 
         Returns:
-            A summary of logs
+            A list of log entries
         """
         if not task or not task.log_file or not os.path.exists(task.log_file):
-            return "No logs available"
+            return []
 
         try:
             # Read the log file and extract relevant lines based on level
@@ -206,11 +208,28 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             # Filter logs by level
             filtered_logs = [log for log in logs if level in log]
 
-            # Return the most recent logs, limited to 100 lines
-            return "".join(filtered_logs[-100:])
+            # Limit to the most recent 100 lines
+            limited_logs = filtered_logs[-100:]
+
+            # Parse log entries into LogEntry objects
+            result = []
+            for log in limited_logs:
+                # Try to extract timestamp, level, and message using regex
+                # Common log format: [2023-01-01 12:34:56,789] [INFO] This is a log message
+                log_pattern = r"(?:\[?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\]?)\s*(?:\[?([A-Z]+)\]?)\s*(.+)"
+                match = re.search(log_pattern, log)
+
+                if match:
+                    timestamp, log_level, message = match.groups()
+                    result.append(LogEntry(timestamp=timestamp, level=log_level, message=message.strip()))
+                else:
+                    # If we can't parse the log format, use defaults
+                    result.append(LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level=level, message=log.strip()))
+
+            return result
         except Exception as e:
             logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
-            return f"Error reading logs: {str(e)}"
+            return [LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error reading logs: {str(e)}")]
 
     async def cancel(self, task: FlinkSQLTask, force: bool = False):
         """

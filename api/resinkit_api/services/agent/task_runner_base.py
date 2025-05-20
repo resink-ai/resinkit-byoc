@@ -1,7 +1,8 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from resinkit_api.db.models import Task
 from resinkit_api.services.agent.task_base import TaskBase
+from resinkit_api.services.agent.data_models import LogEntry
 
 
 class TaskRunnerBase:
@@ -24,7 +25,7 @@ class TaskRunnerBase:
     def get_result(self, task: TaskBase) -> Optional[Any]:
         raise NotImplementedError
 
-    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> str:
+    def get_log_summary(self, task: TaskBase, level: str = "INFO") -> List[LogEntry]:
         raise NotImplementedError
 
     async def cancel(self, task: TaskBase, force: bool = False):

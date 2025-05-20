@@ -7,7 +7,7 @@ from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.db.models import Task
 
 
-class RunFlinkCdcPipelineTask(TaskBase):
+class FlinkCdcPipelineTask(TaskBase):
     def __init__(
         self,
         task_id: str,
@@ -15,7 +15,7 @@ class RunFlinkCdcPipelineTask(TaskBase):
         description: str = "",
         task_timeout_seconds: int = 3600,
         created_at: datetime = None,
-        pipeline: Dict[str, Any] = None,
+        job: Dict[str, Any] = None,
         runtime: Dict[str, Any] = None,
         resources: Dict[str, Any] = None,
     ):
@@ -31,12 +31,12 @@ class RunFlinkCdcPipelineTask(TaskBase):
         self.log_file = f"/tmp/flink_cdc_{self.task_id}.log"
         self.result = None
         self.execution_details: Dict[str, Any] = {}
-        self.pipeline = pipeline or {}
+        self.job = job or {}
         self.runtime = runtime or {}
         self.resources = resources or {}
 
     @classmethod
-    def from_config(cls, task_config: dict) -> "RunFlinkCdcPipelineTask":
+    def from_config(cls, task_config: dict) -> "FlinkCdcPipelineTask":
         cls.validate(task_config)
         return cls(
             task_id=task_config.get("task_id"),
@@ -44,13 +44,13 @@ class RunFlinkCdcPipelineTask(TaskBase):
             description=task_config.get("description", ""),
             task_timeout_seconds=task_config.get("task_timeout_seconds", 3600),
             created_at=task_config.get("created_at"),
-            pipeline=task_config.get("pipeline", {}),
+            job=task_config.get("job", {}),
             runtime=task_config.get("runtime", {}),
             resources=task_config.get("resources", {}),
         )
 
     @classmethod
-    def from_dao(cls, task_dao: Task) -> "RunFlinkCdcPipelineTask":
+    def from_dao(cls, task_dao: Task) -> "FlinkCdcPipelineTask":
         config = task_dao.submitted_configs or {}
         return cls(
             task_id=task_dao.task_id,
@@ -58,17 +58,17 @@ class RunFlinkCdcPipelineTask(TaskBase):
             description=task_dao.description,
             task_timeout_seconds=task_dao.task_timeout_seconds,
             created_at=task_dao.created_at,
-            pipeline=config.get("pipeline", {}),
+            job=config.get("job", {}),
             runtime=config.get("runtime", {}),
             resources=config.get("resources", {}),
         )
 
     @classmethod
     def validate(cls, config: dict) -> None:
-        """Validate the RunFlinkCdcPipelineTask configuration dictionary."""
+        """Validate the FlinkCdcPipelineTask configuration dictionary."""
         TaskBase.validate(config)
-        if not config.get("pipeline"):
-            raise ValueError("Missing required 'pipeline' configuration")
+        if not config.get("job"):
+            raise ValueError("Missing required 'job' configuration")
         runtime = config.get("runtime")
         if runtime is not None and not isinstance(runtime, dict):
             raise ValueError("Runtime configuration must be a dictionary")
