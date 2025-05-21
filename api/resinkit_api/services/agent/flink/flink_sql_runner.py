@@ -14,6 +14,7 @@ from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
 from resinkit_api.services.agent.data_models import InvalidTaskError
+from resinkit_api.services.agent.common.log_file_manager import LogFileManager
 
 logger = get_logger(__name__)
 
@@ -39,8 +40,6 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         self.session_to_task_id: Dict[str, str] = {}
         self.task_id_to_session_id: Dict[str, str] = {}
         self.task_id_to_operation_ids: Dict[str, List[Any]] = {}
-        # TODO: add a task_id_to_session_id mapping
-        # TODO: add a task_id_to_operation_id mapping
 
     @classmethod
     def validate_config(cls, task_config: dict) -> None:
@@ -89,14 +88,13 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         # Process resources
         resources = await self.resource_manager.process_resources(task.resources)
 
+        lfm = LogFileManager(task.log_file, limit=1000)
+
         try:
-            # TODO: create a LogManager class to handle task logs, flink job logs, etc.
-            # Open log file for the task
-            log_file = open(task.log_file, "w")
             # Update task status
             task.status = TaskStatus.RUNNING
             await self.persist_task_status(task, TaskStatus.RUNNING)
-            log_file.write(f"Starting Flink SQL job: {task.name}\n")
+            lfm.info(f"Starting Flink SQL job: {task.name}")
 
             # Create session properties
             session_properties = self._create_session_properties(task, resources)
@@ -108,47 +106,32 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                 session_name=session_name,
                 create_if_not_exist=True,
             )
-
-            log_file.write(f"Created Flink SQL session: {session_name}\n")
-
+            lfm.info(f"Created Flink SQL session: {session_name}")
             # Execute each SQL statement
             operation_handles = []
             for i, sql in enumerate(task.sql_statements):
-                log_file.write(f"Executing SQL statement {i+1}/{len(task.sql_statements)}\n")
-                log_file.write(f"SQL: {sql}\n")
+                lfm.info(f"Executing SQL statement {i+1}/{len(task.sql_statements)}")
+                lfm.info(f"SQL: {sql}")
                 flink_job_id = None
 
                 # Execute the statement
                 with session.execute(sql).sync() as operation:
                     # Store the operation handle for later status checks
                     operation_handles.append(operation.operation_handle)
-
                     # For SELECT statements, fetch and display results
                     if sql.strip().upper().startswith("SELECT"):
                         result_df = operation.fetch().sync()
-                        log_file.write(f"Results: {result_df.to_string()}\n")
+                        lfm.info(f"Results: {result_df.to_string()}")
                         if not task.result.get("results"):
                             task.result["results"] = []
                         task.result["results"].append(result_df.to_json(orient="records", date_format="iso"))
-
                     # Get the operation status
-                    print(f"DEBUG: http://localhost:8083/sessions/{session.session_handle}/operations/{operation.operation_handle}/status")
                     status = operation.status().sync()
-                    if status.status == "ERROR":
-                        error_message = getattr(status, "error", None) or str(status.to_dict())
-                        log_file.write("Operation status: ERROR\n")
-                        log_file.write(f"Operation error: {error_message}\n")
-                        task.status = TaskStatus.FAILED
-                        task.result = {"error": error_message}
-                        await self.persist_task_status(task, TaskStatus.FAILED, error_message)
-                        logger.error(f"Flink SQL operation failed: {error_message}")
-                        raise InvalidTaskError(f"Flink SQL operation failed: {error_message}")
-                    log_file.write(f"Operation status: {status.status}\n")
-
+                    lfm.info(f"Operation status: {status.status}")
                     # If this is a job submission, extract the job ID
                     if "jobId" in status.to_dict():
                         flink_job_id = status.to_dict()["jobId"]
-                        log_file.write(f"Flink job ID: {flink_job_id}\n")
+                        lfm.info(f"Flink job ID: {flink_job_id}")
                         task.result["flink_job_id"] = flink_job_id
                         self.job_id_to_task_id[flink_job_id] = task_id
 
@@ -163,18 +146,16 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             self.task_id_to_session_id[task_id] = session.session_handle
             self.task_id_to_operation_ids[task_id] = operation_handles
 
-            log_file.write(f"Flink SQL job submitted successfully, name: {task.name}, id: {task.task_id}")
+            lfm.info(f"Flink SQL job submitted successfully, name: {task.name}, id: {task.task_id}")
 
             return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
-            log_file.write(f"Failed to submit Flink SQL job: {str(e)}\n")
+            lfm.error(f"Failed to submit Flink SQL job: {str(e)}")
             logger.error(f"Failed to submit Flink SQL job: {str(e)}", exc_info=True)
             await self.persist_task_status(task, TaskStatus.FAILED, str(e))
             raise
-        finally:
-            log_file.close()
 
     def get_status(self, task: TaskBase) -> str:
         """
@@ -219,32 +200,9 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             return []
 
         try:
-            # Read the log file and extract relevant lines based on level
-            with open(task.log_file, "r") as f:
-                logs = f.readlines()
-
-            # Filter logs by level
-            filtered_logs = [log for log in logs if level in log]
-
-            # Limit to the most recent 100 lines
-            limited_logs = filtered_logs[-100:]
-
-            # Parse log entries into LogEntry objects
-            result = []
-            for log in limited_logs:
-                # Try to extract timestamp, level, and message using regex
-                # Common log format: [2023-01-01 12:34:56,789] [INFO] This is a log message
-                log_pattern = r"(?:\[?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\]?)\s*(?:\[?([A-Z]+)\]?)\s*(.+)"
-                match = re.search(log_pattern, log)
-
-                if match:
-                    timestamp, log_level, message = match.groups()
-                    result.append(LogEntry(timestamp=timestamp, level=log_level, message=message.strip()))
-                else:
-                    # If we can't parse the log format, use defaults
-                    result.append(LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level=level, message=log.strip()))
-
-            return result
+            lfm = LogFileManager(task.log_file, limit=1000)
+            entries = lfm.get_entries(level=level)
+            return entries
         except Exception as e:
             logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
             return [LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error reading logs: {str(e)}")]

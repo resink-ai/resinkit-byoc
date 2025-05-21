@@ -17,6 +17,7 @@ from resinkit_api.services.agent.flink.flink_cdc_pipeline_task import FlinkCdcPi
 from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.task_status_persistence import TaskStatusPersistenceMixin
+from resinkit_api.services.agent.common.log_file_manager import LogFileManager
 
 logger = get_logger(__name__)
 
@@ -73,27 +74,26 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         # Prepare the command to run
         cmd = await self._build_flink_command(task, config_files)
 
+        log_manager = LogFileManager(task.log_file, limit=1000)
+
         # Execute the command
         logger.info(f"Starting Flink CDC Pipeline: {task.name}")
         task.status = TaskStatus.RUNNING
         await self.persist_task_status(task, TaskStatus.RUNNING)
 
         try:
-            # Open log file for the task
-            log_file = open(task.log_file, "w")
             # Run the Flink command
-            process = await asyncio.create_subprocess_exec(*cmd, stdout=log_file, stderr=log_file, env=env_vars)
+            process = await asyncio.create_subprocess_exec(*cmd, stdout=open(task.log_file, "a"), stderr=open(task.log_file, "a"), env=env_vars)
             task.process = process
-
+            log_manager.info(f"Started Flink CDC pipeline process for task: {task.name}")
             return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
+            log_manager.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
             logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
             await self.persist_task_status(task, TaskStatus.FAILED, str(e))
             raise
-        finally:
-            log_file.close()
 
     def get_status(self, task: TaskBase) -> str:
         """Gets the status of a submitted Flink CDC pipeline job."""
@@ -113,32 +113,9 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             return []
 
         try:
-            # Read the log file and extract relevant lines based on level
-            with open(task.log_file, "r") as f:
-                logs = f.readlines()
-
-            # Filter logs by level
-            filtered_logs = [log for log in logs if level in log]
-
-            # Limit to the most recent 100 lines
-            limited_logs = filtered_logs[-100:]
-
-            # Parse log entries into LogEntry objects
-            result = []
-            for log in limited_logs:
-                # Try to extract timestamp, level, and message using regex
-                # Common log format: [2023-01-01 12:34:56,789] [INFO] This is a log message
-                log_pattern = r"(?:\[?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\]?)\s*(?:\[?([A-Z]+)\]?)\s*(.+)"
-                match = re.search(log_pattern, log)
-
-                if match:
-                    timestamp, log_level, message = match.groups()
-                    result.append(LogEntry(timestamp=timestamp, level=log_level, message=message.strip()))
-                else:
-                    # If we can't parse the log format, use defaults
-                    result.append(LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level=level, message=log.strip()))
-
-            return result
+            log_manager = LogFileManager(task.log_file, limit=1000)
+            entries = log_manager.get_entries(level=level)
+            return entries[-100:]
         except Exception as e:
             logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
             return [LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error reading logs: {str(e)}")]
