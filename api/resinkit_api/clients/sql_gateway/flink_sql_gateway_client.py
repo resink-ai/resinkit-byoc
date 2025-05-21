@@ -46,3 +46,10 @@ class FlinkSqlGatewayClient:
         if create_if_not_exist:
             session.open_sync()
         return session
+
+    def get_session_status(self, session_handle: str) -> str:
+        """Get the status of a Flink session."""
+        client = self.get_client()
+        
+        session = FlinkSession(client, session_handle)
+        return session.status_sync()

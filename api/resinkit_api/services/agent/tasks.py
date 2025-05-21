@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime, UTC
 import asyncio
+from sqlalchemy.orm import Session
 
 
 from resinkit_api.db import tasks_crud
@@ -641,3 +642,29 @@ class TaskManager:
                 logger.info("Task already in terminal state (status=%s), ignoring timeout: task_id=%s", db_task.status.value, task_id)
         except Exception as e:
             logger.error(f"Error in timeout monitor for task {task_id}: {str(e)}", exc_info=True)
+
+    def permanently_delete_task(self, task_id: str, db: Session) -> None:
+        """
+        Permanently delete a task and its events if the task is in an end state (COMPLETED, FAILED, CANCELLED, or expired).
+        Raises TaskNotFoundError if not found, TaskConflictError if not in end state.
+        """
+        from resinkit_api.db.models import TaskStatus
+        from resinkit_api.db.tasks_crud import get_task, delete_task_events
+        task = get_task(db, task_id)
+        if not task:
+            raise TaskNotFoundError(f"Task with ID {task_id} not found")
+
+        # Check if task is in an end state
+        end_states = [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]
+        is_expired = False
+        if task.expires_at:
+            from datetime import datetime
+            is_expired = datetime.now(UTC).timestamp() > task.expires_at.timestamp()
+        if task.status not in end_states and not is_expired:
+            raise TaskConflictError(f"Task is not in an end state (COMPLETED, FAILED, CANCELLED, or expired). Current status: {task.status.value}")
+
+        # Delete all task events
+        delete_task_events(db, task_id)
+        # Hard delete the task
+        db.delete(task)
+        db.commit()

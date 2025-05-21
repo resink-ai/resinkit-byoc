@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
+from resinkit_api.clients.sql_gateway.flink_session import FlinkSession
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
 from resinkit_api.clients.sql_gateway.flink_operation import FlinkOperation
 from resinkit_api.core.logging import get_logger
@@ -205,7 +206,7 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             return entries
         except Exception as e:
             logger.error(f"Failed to read logs for task {task.task_id}: {str(e)}")
-            return [LogEntry(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level="ERROR", message=f"Error reading logs: {str(e)}")]
+            return [LogEntry(timestamp=datetime.now().timestamp(), level="ERROR", message=f"Error reading logs: {str(e)}")]
 
     async def cancel(self, task: FlinkSQLTask, force: bool = False):
         """
@@ -219,8 +220,10 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             logger.warning(f"Task {task.task_id} not found")
             return
 
+        lfm = LogFileManager(task.log_file, limit=1000)
         if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
             logger.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
+            lfm.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             return
 
         task.status = TaskStatus.CANCELLING
@@ -231,12 +234,14 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             session_name = task.result.get("session_name")
             if not session_name:
                 logger.warning(f"No session name found for task {task.task_id}")
+                lfm.warning(f"No session name found for task {task.task_id}")
                 return
 
             # Get session
             with self.sql_gateway_client.get_session(session_name=session_name, create_if_not_exist=False) as session:
                 if not session.was_alive:
                     logger.warning(f"Session {session_name} was not alive when cancelling task {task.task_id}, consider task completed")
+                    lfm.warning(f"Session {session_name} was not alive when cancelling task {task.task_id}, consider task completed")
                     await self.persist_task_status(task, TaskStatus.COMPLETED, f"Session {session_name} was not alive")
                     return
 
@@ -246,14 +251,17 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                         async with FlinkOperation(session, op_handle) as operation:
                             response = await operation.cancel().asyncio()
                             logger.info(f"Cancelled operation {op_handle} for task {task.task_id}, response: {response}")
+                            lfm.info(f"Cancelled operation {op_handle} for task {task.task_id}, response: {response}")
                     except Exception as e:
                         logger.error(f"Failed to cancel operation {op_handle}: {str(e)}")
-
+                        lfm.error(f"Failed to cancel operation {op_handle}: {str(e)}")
                 task.status = TaskStatus.CANCELLED
                 logger.info(f"Successfully cancelled task {task.task_id}")
+                lfm.info(f"Successfully cancelled task {task.task_id}")
                 await self.persist_task_status(task, TaskStatus.CANCELLED)
         except Exception as e:
             logger.error(f"Failed to cancel task {task.task_id}: {str(e)}")
+            lfm.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             task.status = TaskStatus.FAILED
             task.result["error"] = f"Cancel failed: {str(e)}"
             await self.persist_task_status(task, TaskStatus.FAILED, f"Cancel failed: {str(e)}")
@@ -330,12 +338,18 @@ class FlinkSQLRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
 
         # Get session name
         session_name = task.result.get("session_name")
+        task_id = task.task_id
+        session_id = self.task_id_to_session_id[task_id]
+        operation_id = self.task_id_to_operation_ids[task_id][-1]
 
         # Initialize status as the current task status
         new_status = task.status
         error_message = None
-
-        if session_name:
+        if session_id and operation_id:
+            session_status = FlinkSession.get_session_status(self.sql_gateway_client.get_client(), session_id, operation_id)
+            if session_status:
+                new_status = session_status
+        elif session_name:
             try:
                 # Get session
                 session = self.sql_gateway_client.get_session(session_name=session_name, create_if_not_exist=False)

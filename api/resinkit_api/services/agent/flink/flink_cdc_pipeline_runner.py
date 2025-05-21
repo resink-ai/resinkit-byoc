@@ -4,7 +4,6 @@ import os
 import tempfile
 import yaml
 from typing import Any, Dict, List, Optional
-import re
 from datetime import datetime
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
@@ -74,7 +73,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
         # Prepare the command to run
         cmd = await self._build_flink_command(task, config_files)
 
-        log_manager = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000)
 
         # Execute the command
         logger.info(f"Starting Flink CDC Pipeline: {task.name}")
@@ -85,12 +84,12 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             # Run the Flink command
             process = await asyncio.create_subprocess_exec(*cmd, stdout=open(task.log_file, "a"), stderr=open(task.log_file, "a"), env=env_vars)
             task.process = process
-            log_manager.info(f"Started Flink CDC pipeline process for task: {task.name}")
+            lfm.info(f"Started Flink CDC pipeline process for task: {task.name}")
             return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
-            log_manager.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
+            lfm.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
             logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
             await self.persist_task_status(task, TaskStatus.FAILED, str(e))
             raise
@@ -126,8 +125,11 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
             logger.warning(f"Task {task.task_id} not found")
             return
 
+        lfm = LogFileManager(task.log_file, limit=1000)
+
         if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
             logger.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
+            lfm.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             return
 
         task.status = TaskStatus.CANCELLING
@@ -146,6 +148,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                     await asyncio.wait_for(task.process.wait(), timeout=30.0)
                 except asyncio.TimeoutError:
                     logger.warning(f"Timeout waiting for task {task.task_id} to terminate, forcing kill")
+                    lfm.warning(f"Timeout waiting for task {task.task_id} to terminate, forcing kill")
                     task.process.kill()
 
             # If the job is running in Flink and we have the job ID, also cancel it there
@@ -154,13 +157,16 @@ class FlinkCdcPipelineRunner(TaskRunnerBase, TaskStatusPersistenceMixin):
                 # Cancel the job in Flink (this would require additional implementation
                 # for the actual Flink job cancellation API call)
                 logger.info(f"Cancelling Flink job {flink_job_id}")
+                lfm.info(f"Cancelling Flink job {flink_job_id}")
                 # TODO: Implement actual Flink job cancellation via API
 
             task.status = TaskStatus.CANCELLED
             logger.info(f"Successfully cancelled task {task.task_id}")
+            lfm.info(f"Successfully cancelled task {task.task_id}")
             await self.persist_task_status(task, TaskStatus.CANCELLED)
         except Exception as e:
             logger.error(f"Failed to cancel task {task.task_id}: {str(e)}")
+            lfm.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             task.status = TaskStatus.FAILED
             task.result = {"error": f"Cancel failed: {str(e)}"}
             await self.persist_task_status(task, TaskStatus.FAILED, f"Cancel failed: {str(e)}")

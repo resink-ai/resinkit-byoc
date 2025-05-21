@@ -9,13 +9,18 @@ from flink_gateway_api.api.default import (
     execute_statement,
     open_session,
     trigger_session,
+    get_operation_status,
 )
 from flink_gateway_api.models import (
     CompleteStatementRequestBody,
     CompleteStatementResponseBody,
     ExecuteStatementRequestBody,
     OpenSessionRequestBody,
+    OperationStatusResponseBody,
 )
+
+from flink_gateway_api.types import UNSET
+
 from resinkit_api.clients.sql_gateway.flink_operation import FlinkCompositeOperation, FlinkOperation
 from resinkit_api.clients.sql_gateway.session_utils import (
     get_execute_statement_request,
@@ -145,6 +150,22 @@ class FlinkSession:
         except Exception:
             self.was_alive = False
             return False
+
+    @staticmethod
+    def get_session_status(
+        client: Client,
+        session_handle: str,
+        operation_handle: str,
+    ) -> Optional[str]:
+        try:
+            response: OperationStatusResponseBody = get_operation_status.sync(
+                session_handle=session_handle, operation_handle=operation_handle, client=client
+            )
+            if response.status == UNSET:
+                return None
+            return response.status
+        except Exception:
+            return None
 
 
 class SessionCompleteStatement:

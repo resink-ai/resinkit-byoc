@@ -221,3 +221,13 @@ def create_task_event(
     db.commit()
     db.refresh(db_event)
     return db_event
+
+
+def delete_task_events(db: Session, task_id: str) -> int:
+    """
+    Permanently delete all TaskEvent records for a given task_id.
+    Returns the number of deleted events.
+    """
+    deleted = db.query(TaskEvent).filter(TaskEvent.task_id == task_id).delete()
+    db.commit()
+    return deleted
