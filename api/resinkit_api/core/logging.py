@@ -25,6 +25,7 @@ def configure_logging():
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_source,
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
@@ -50,7 +51,7 @@ def configure_logging():
     # Configure stdlib logging
     logging.basicConfig(
         level=getattr(logging, log_level),
-        format="%(message)s",
+        format="%(message)s [%(name)s %(filename)s]",
         force=True,
     )
     logging.getLogger("stripe").setLevel(logging.ERROR)

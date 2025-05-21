@@ -29,18 +29,18 @@ logger = get_logger(__name__)
 @dataclass
 class ResultsFetchOpts:
     poll_interval_secs: float = 0.1
-    max_poll_secs: float = 10
+    max_poll_secs: float = 10  # set to 0 or negative pull once
     n_row_limit: int = 500
 
     def __post_init__(self):
         if self.poll_interval_secs < 0:
             raise ValueError(f"poll_interval_secs must be non-negative, got {self.poll_interval_secs}")
 
-        if self.max_poll_secs is not None and self.max_poll_secs < 0:
-            raise ValueError(f"max_poll_secs must be non-negative, got {self.max_poll_secs}")
-
         if self.n_row_limit < 0:
             raise ValueError(f"n_row_limit must be non-negative, got {self.n_row_limit}")
+
+
+PULL_ONCE_OPTS = ResultsFetchOpts(max_poll_secs=0)
 
 
 class FlinkOperation:
@@ -67,6 +67,9 @@ class FlinkOperation:
     def fetch(self, polling_opts: ResultsFetchOpts = ResultsFetchOpts()) -> "OperationFetch":
         return OperationFetch(self, polling_opts)
 
+    def fetch_once(self) -> "OperationFetch":
+        return OperationFetch(self, PULL_ONCE_OPTS)
+
     def close(self) -> "OperationClose":
         return OperationClose(self)
 
@@ -91,9 +94,10 @@ class OperationFetch:
         self._fetch_opts = fetch_opts
         self._token = "0"  # Initial token, might need to be configurable
 
-    def sync(self) -> pd.DataFrame:
+    def sync(self) -> tuple[pd.DataFrame, str]:
         all_rows = []
         columns = None
+        job_id = None
         for res_data in fetch_results_gen(
             self.operation.client,
             self.operation.session.session_handle,
@@ -104,11 +108,14 @@ class OperationFetch:
         ):
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
+            if job_id is None and hasattr(res_data, 'job_id'):
+                job_id = res_data.job_id
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns)
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id
 
-    async def asyncio(self) -> pd.DataFrame:
+    async def asyncio(self) -> tuple[pd.DataFrame, str]:
         columns, all_rows = None, []
+        job_id = None
         async for res_data in fetch_results_async_gen(
             self.operation.client,
             self.operation.session.session_handle,
@@ -120,8 +127,10 @@ class OperationFetch:
             res_data: FetchResultData
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
+            if job_id is None and hasattr(res_data, 'job_id'):
+                job_id = res_data.job_id
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns)
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id
 
 
 class OperationClose:
@@ -164,13 +173,13 @@ class FlinkCompositeOperation:
         for op in reversed(self.operations):
             await op.close().asyncio()
 
-    def fetch_all(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[pd.DataFrame]:
+    def fetch_all(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[tuple[pd.DataFrame, str]]:
         results = []
         for op in self.operations:
             results.append(op.fetch(fetch_opts).sync())
         return results
 
-    async def fetch_all_async(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[pd.DataFrame]:
+    async def fetch_all_async(self, fetch_opts: "ResultsFetchOpts" = ResultsFetchOpts()) -> List[tuple[pd.DataFrame, str]]:
         results = []
         for op in self.operations:
             results.append(await op.fetch(fetch_opts).asyncio())

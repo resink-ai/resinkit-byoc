@@ -28,7 +28,7 @@ class TaskRunnerBase:
     def get_log_summary(self, task: TaskBase, level: str = "INFO") -> List[LogEntry]:
         raise NotImplementedError
 
-    async def cancel(self, task: TaskBase, force: bool = False):
+    async def cancel(self, task: TaskBase, force: bool = False) -> TaskBase:
         raise NotImplementedError
 
     async def fetch_task_status(self, task: TaskBase) -> TaskBase:

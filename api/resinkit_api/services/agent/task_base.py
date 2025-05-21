@@ -62,3 +62,8 @@ class TaskBase:
         # At base level, only task_type is required
         if not task_config["task_type"]:
             raise ValueError("task_type is required")
+    
+    def get_job_id(self) -> str | None:
+        if not hasattr(self, "result") or not self.result:
+            return None
+        return self.result.get("job_id")

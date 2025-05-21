@@ -271,6 +271,8 @@ async def cancel_task(
         return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=result)
     except agent_tasks_service.TaskNotFoundError:
         raise HTTPException(status_code=404, detail="Task not found")
+    except TaskConflictError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except agent_tasks_service.UnprocessableTaskError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:

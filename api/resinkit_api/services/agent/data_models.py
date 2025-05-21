@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 
 class LogEntry(BaseModel):
-    timestamp: str
+    timestamp: str | int | float
     level: str
     message: str
 
@@ -26,6 +26,10 @@ class UnprocessableTaskError(TaskError):
 
 
 class TaskConflictError(Exception):
+    pass
+
+
+class TaskExecutionError(TaskError):
     pass
 
 

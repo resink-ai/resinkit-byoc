@@ -21,9 +21,11 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
+from resinkit_api.core.logging import get_logger
+
 Base = declarative_base()
 
-
+logger = get_logger(__name__)
 class TaskStatus(enum.Enum):
     PENDING = "PENDING"
     SUBMITTED = "SUBMITTED"
@@ -57,7 +59,11 @@ class JSONString(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
-        return json.dumps(value)
+        try:
+            return json.dumps(value)
+        except Exception as e:
+            logger.error(f"Error dumping JSON: {str(e)}", exc_info=True)
+            return None
 
     def process_result_value(self, value, dialect):
         if value is None:

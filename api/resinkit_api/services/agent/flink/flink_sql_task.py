@@ -1,6 +1,5 @@
 from typing import Dict, List, Any
 import os
-import uuid
 import tempfile
 from datetime import datetime
 
@@ -41,7 +40,7 @@ class FlinkSQLTask(TaskBase):
         self.resources = resources or {}
         self.operation_handles: List[str] = []
         self.result: Dict[str, Any] = {}
-        self.log_file = os.path.join(tempfile.gettempdir(), f"{self.name}_{uuid.uuid4()}.log")
+        self.log_file = os.path.join(tempfile.gettempdir(), f"{self.task_id}.log")
 
     @classmethod
     def from_config(cls, task_config: Dict[str, Any]) -> "FlinkSQLTask":
