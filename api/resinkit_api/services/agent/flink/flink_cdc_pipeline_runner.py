@@ -63,7 +63,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
     async def submit_task(self, task: TaskBase) -> TaskBase:
         """
         Submits a Flink CDC pipeline job.
-        
+
         Raises:
             TaskExecutionError: If job submission fails
         """
@@ -88,26 +88,19 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             # Run the Flink command
             process = await asyncio.create_subprocess_exec(*cmd, stdout=open(task.log_file, "a"), stderr=open(task.log_file, "a"), env=env_vars)
             task.process = process
-            
+
             # Update execution_details with command and log file information
-            task.execution_details = {
-                "log_file": task.log_file,
-                "command": " ".join(cmd)
-            }
-            
+            task.execution_details = {"log_file": task.log_file, "command": " ".join(cmd)}
+
             lfm.info(f"Started Flink CDC pipeline process for task: {task.name}")
             return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
-            
+
             # Update error_info with exception details
-            task.error_info = {
-                "error": str(e),
-                "error_type": e.__class__.__name__,
-                "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
+            task.error_info = {"error": str(e), "error_type": e.__class__.__name__, "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")}
+
             lfm.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
             logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
             raise TaskExecutionError(f"Failed to submit Flink CDC pipeline: {str(e)}")
@@ -140,14 +133,14 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
     async def cancel(self, task: FlinkCdcPipelineTask, force: bool = False) -> FlinkCdcPipelineTask:
         """
         Cancels a running Flink CDC pipeline job.
-        
+
         Args:
             task: The task instance
             force: Whether to force cancel the job
-            
+
         Returns:
             The updated task instance
-        
+
         Raises:
             TaskExecutionError: If cancellation fails
         """
@@ -346,7 +339,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
 
         Returns:
             An updated task instance with the latest status
-            
+
         Raises:
             TaskExecutionError: If status fetching fails
         """
@@ -388,11 +381,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                             task.status = TaskStatus.COMPLETED
                             task.result.update(job_details)
                             # Update result_summary with successful results
-                            task.result_summary = {
-                                "success": True, 
-                                "job_id": flink_job_id,
-                                "details": job_details
-                            }
+                            task.result_summary = {"success": True, "job_id": flink_job_id, "details": job_details}
                         elif flink_status in ["FAILED", "FAILING"]:
                             task.status = TaskStatus.FAILED
                             error_message = job_details.get("failure-cause", {}).get("stack-trace", "Unknown error")
@@ -403,7 +392,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                                 "error_type": "FlinkJobError",
                                 "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
                                 "job_id": flink_job_id,
-                                "job_details": job_details
+                                "job_details": job_details,
                             }
                         elif flink_status in ["CANCELED", "CANCELLING"]:
                             task.status = TaskStatus.CANCELLED
@@ -420,11 +409,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             if exit_code == 0:
                 task.status = TaskStatus.COMPLETED
                 # Update result_summary for successful completion
-                task.result_summary = {
-                    "success": True,
-                    "exit_code": exit_code,
-                    "job_id": task.result.get("flink_job_id")
-                }
+                task.result_summary = {"success": True, "exit_code": exit_code, "job_id": task.result.get("flink_job_id")}
             else:
                 task.status = TaskStatus.FAILED
                 error_message = f"Process exited with code {exit_code}"
@@ -434,7 +419,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                     "error": error_message,
                     "error_type": "ProcessExitError",
                     "exit_code": exit_code,
-                    "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+                    "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
                 }
 
         return task

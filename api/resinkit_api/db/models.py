@@ -26,6 +26,8 @@ from resinkit_api.core.logging import get_logger
 Base = declarative_base()
 
 logger = get_logger(__name__)
+
+
 class TaskStatus(enum.Enum):
     PENDING = "PENDING"
     SUBMITTED = "SUBMITTED"
@@ -73,6 +75,7 @@ class JSONString(TypeDecorator):
 
 class Variable(Base):
     """Model for storing encrypted variables"""
+
     __tablename__ = "variables"
 
     name = Column(String, primary_key=True)
@@ -93,9 +96,7 @@ class Variable(Base):
     created_by = Column(String, nullable=False)
 
     # Define indexes
-    __table_args__ = (
-        Index("idx_variables_name", "name"),
-    )
+    __table_args__ = (Index("idx_variables_name", "name"),)
 
 
 class Task(Base):

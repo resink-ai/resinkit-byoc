@@ -156,9 +156,7 @@ class FlinkSession:
         session_handle: str,
         operation_handle: str,
     ) -> Optional[str]:
-        response: OperationStatusResponseBody = get_operation_status.sync(
-            session_handle=session_handle, operation_handle=operation_handle, client=client
-        )
+        response: OperationStatusResponseBody = get_operation_status.sync(session_handle=session_handle, operation_handle=operation_handle, client=client)
         return response.status
 
 

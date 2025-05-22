@@ -5,6 +5,7 @@ from typing import List
 from resinkit_api.services.agent.data_models import LogEntry
 from resinkit_api.utils.file_utils import tail
 
+
 class LogFileManager:
     LEVEL_INFO = "INFO"
     LEVEL_WARNING = "WARNING"
@@ -24,7 +25,7 @@ class LogFileManager:
         try:
             with open(self.file_path, "r") as f:
                 lines = f.readlines()
-            for line in lines[-self.limit:]:
+            for line in lines[-self.limit :]:
                 entry = self._parse_log_line(line)
                 if entry:
                     self._buffer.append(entry)
@@ -38,7 +39,7 @@ class LogFileManager:
         with self._lock:
             self._buffer.append(entry)
             if len(self._buffer) > self.limit:
-                self._buffer = self._buffer[-self.limit:]
+                self._buffer = self._buffer[-self.limit :]
             with open(self.file_path, "a") as f:
                 f.write(log_line)
 
@@ -69,6 +70,7 @@ class LogFileManager:
     @staticmethod
     def _parse_log_line(line: str):
         import re
+
         # match f"[{timestamp}] [{level}] {message}\n"
         log_pattern = r"\[(\d+)\] \[(INFO|WARNING|ERROR|CRITICAL)\] (.*)"
         match = re.search(log_pattern, line)

@@ -1,9 +1,9 @@
 from datetime import datetime, UTC
 from typing import Any, Dict
-
 from shortuuid import ShortUUID
 
 from resinkit_api.db.models import Task, TaskStatus
+from resinkit_api.utils.misc_utils import render_with_string_template
 
 
 class TaskBase:
@@ -38,19 +38,8 @@ class TaskBase:
         self.progress_details = progress_details or {}
 
     @classmethod
-    def from_dao(cls, task_dao: Task) -> "TaskBase":
-        return cls(
-            task_type=task_dao.task_type,
-            name=task_dao.task_name,
-            description=task_dao.description,
-            task_timeout_seconds=task_dao.task_timeout_seconds,
-            task_id=task_dao.task_id,
-            created_at=task_dao.created_at,
-            error_info=task_dao.error_info,
-            result_summary=task_dao.result_summary,
-            execution_details=task_dao.execution_details,
-            progress_details=task_dao.progress_details,
-        )
+    def from_dao(cls, task_dao: Task, variables: Dict[str, Any] | None = None) -> "TaskBase":
+        raise NotImplementedError
 
     def expired(self) -> bool:
         return (datetime.now(UTC) - self.created_at).total_seconds() > self.task_timeout_seconds
@@ -63,7 +52,7 @@ class TaskBase:
         # At base level, only task_type is required
         if not task_config["task_type"]:
             raise ValueError("task_type is required")
-    
+
     def get_job_id(self) -> str | None:
         if not hasattr(self, "result") or not self.result:
             return None
@@ -71,5 +60,4 @@ class TaskBase:
 
     @classmethod
     def render_with_variables(cls, submitted_configs: dict, variables: dict) -> Dict[str, Any]:
-        # TODO: Implement this
-        return submitted_configs
+        return render_with_string_template(submitted_configs, variables)

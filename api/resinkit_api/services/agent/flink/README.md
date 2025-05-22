@@ -16,8 +16,5 @@ resources:                       # Standardized resources section, contains keye
       source: string             # "download", "upload", "reference"
       location: string           # URL or file reference
       
-environment:                     # Flink environment settings, contains key value pairs
-  parallelism: integer           # Default parallelism
-  checkpoint_interval: string    # e.g., "3s"
-  restart_strategy: string       # e.g., "fixed-delay"
+
 ```

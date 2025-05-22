@@ -19,6 +19,7 @@ from resinkit_api.services.agent.data_models import (
     TaskResult,
     TaskExecutionError,
 )
+from resinkit_api.db.variables_crud import get_all_variables_decrypted
 
 logger = get_logger(__name__)
 
@@ -272,31 +273,31 @@ class TaskManager:
             try:
                 task_obj = runner.from_dao(db_task)
                 updated_task = await runner.cancel(task_obj, force=force)
-                
+
                 # Update task status to CANCELLED based on the returned task
                 logger.info("Updating task status to %s: task_id=%s", updated_task.status.value, task_id)
                 tasks_crud.update_task_status(
-                    db=db, 
-                    task_id=task_id, 
-                    new_status=updated_task.status, 
+                    db=db,
+                    task_id=task_id,
+                    new_status=updated_task.status,
                     actor="user",
                     error_info=updated_task.error_info,
                     result_summary=updated_task.result_summary,
                     execution_details=updated_task.execution_details,
-                    progress_details=updated_task.progress_details
+                    progress_details=updated_task.progress_details,
                 )
-                
+
                 return {"task_id": task_id, "success": True, "message": f"Task {updated_task.status.value.lower()} successfully"}
             except TaskExecutionError as e:
                 logger.error(f"Failed to cancel task {task_id}: {str(e)}", exc_info=True)
-                
+
                 # Update with error info
                 error_info = {"error": f"Failed to cancel: {str(e)}", "error_type": e.__class__.__name__, "timestamp": datetime.now(UTC).isoformat()}
-                
+
                 # Update task status to FAILED
                 logger.info("Updating task status to FAILED after cancel error: task_id=%s", task_id)
                 tasks_crud.update_task_status(db=db, task_id=task_id, new_status=TaskStatus.FAILED, actor="system", error_info=error_info)
-                
+
                 raise UnprocessableTaskError(f"Failed to cancel task: {str(e)}")
 
         except TaskExecutionError as e:
@@ -436,12 +437,17 @@ class TaskManager:
                 # Submit the task to the runner
                 logger.info("Submitting task to runner: task_id=%s", task_id)
                 try:
-                    task_base = await runner.submit_task(runner.from_dao(db_task))
+                    # Get all variables from the database for variable substitution
+                    logger.debug("Fetching variables for substitution: task_id=%s", task_id)
+                    variables_dict = await get_all_variables_decrypted(db)
+
+                    # Create task with variable substitution
+                    task_base = await runner.submit_task(runner.from_dao(db_task, variables=variables_dict))
                     logger.debug("Task submitted to runner: task_id=%s", task_id)
                     # if task_base.status is already at end state, save the status and exit
                     if task_base.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
                         logger.info("Task already in end state, saving status and exiting: task_id=%s, status=%s", task_id, task_base.status.value)
-                        
+
                         # Prepare update parameters based on task status
                         result_summary = None
                         error_info = None
@@ -449,18 +455,18 @@ class TaskManager:
                             result_summary = task_base.result_summary
                         elif task_base.status == TaskStatus.FAILED:
                             error_info = task_base.error_info
-                            
+
                         tasks_crud.update_task_status(
-                            db=db, 
-                            task_id=task_id, 
-                            new_status=task_base.status, 
+                            db=db,
+                            task_id=task_id,
+                            new_status=task_base.status,
                             actor="system",
                             result_summary=result_summary,
                             error_info=error_info,
-                            execution_details=task_base.execution_details
+                            execution_details=task_base.execution_details,
                         )
                         return
-                    
+
                     # Update task status to RUNNING and include execution details
                     execution_details = task_base.execution_details or {"log_file": task_base.log_file}
 
@@ -475,7 +481,7 @@ class TaskManager:
                     # Handle runner-specific execution errors
                     logger.error(f"Task execution error: {str(e)}", exc_info=True)
                     error_info = {"error": str(e), "error_type": e.__class__.__name__, "timestamp": datetime.now(UTC).isoformat()}
-                    
+
                     logger.info("Updating task status to FAILED due to execution error: task_id=%s", task_id)
                     tasks_crud.update_task_status(db=db, task_id=task_id, new_status=TaskStatus.FAILED, actor="system", error_info=error_info)
 
@@ -534,7 +540,7 @@ class TaskManager:
         task_id = task.id
         logger.info("Starting task monitor loop: task_id=%s", task_id)
         db = next(get_db())
-        
+
         poll_interval = 0.2  # 200ms
         poll_interval_multiplier = 2
         max_poll_interval = 30  # 30 seconds
@@ -542,7 +548,7 @@ class TaskManager:
         try:
             while poll_interval < max_poll_interval:
                 logger.debug("Polling task status: task_id=%s", task_id)
-                
+
                 # Fetch the latest task status from the runner
                 try:
                     updated_task = await runner.fetch_task_status(task)
@@ -558,7 +564,7 @@ class TaskManager:
                 # Update status if changed
                 if updated_task.status and updated_task.status != db_task.status:
                     logger.info("Updating status: task_id=%s, old=%s, new=%s", task_id, db_task.status.value, updated_task.status.value)
-                    
+
                     result_summary = None
                     error_info = None
                     execution_details = {}
@@ -575,8 +581,11 @@ class TaskManager:
                             result_summary = updated_task.result_summary or {"success": True, "result": updated_task.result}
                         else:
                             # Use the task's error_info if available, otherwise create one
-                            error_info = updated_task.error_info or {"error": updated_task.result.get("error", "Task failed"), "timestamp": datetime.now(UTC).isoformat()}
-                        
+                            error_info = updated_task.error_info or {
+                                "error": updated_task.result.get("error", "Task failed"),
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
+
                         # Include detailed execution information if available
                         execution_details = updated_task.execution_details or {"log_summary": [x.model_dump() for x in log_summary]}
 
@@ -675,9 +684,9 @@ class TaskManager:
                         "error_type": "TaskTimeoutError",
                         "timestamp": datetime.now(UTC).isoformat(),
                     }
-                    
+
                     tasks_crud.update_task_status(db=db, task_id=task_id, new_status=TaskStatus.FAILED, actor="system", error_info=error_info)
-                    
+
                     try:
                         await runner.cancel(task_base, force=True)
                     except Exception as cancel_e:
@@ -694,6 +703,7 @@ class TaskManager:
         """
         from resinkit_api.db.models import TaskStatus
         from resinkit_api.db.tasks_crud import get_task, delete_task_events
+
         task = get_task(db, task_id)
         if not task:
             raise TaskNotFoundError(f"Task with ID {task_id} not found")
@@ -703,6 +713,7 @@ class TaskManager:
         is_expired = False
         if task.expires_at:
             from datetime import datetime
+
             is_expired = datetime.now(UTC).timestamp() > task.expires_at.timestamp()
         if task.status not in end_states and not is_expired:
             raise TaskConflictError(f"Task is not in an end state (COMPLETED, FAILED, CANCELLED, or expired). Current status: {task.status.value}")

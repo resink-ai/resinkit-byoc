@@ -81,3 +81,9 @@ See the [flink_job_with_variables.yaml](./flink_job_with_variables.yaml) file fo
 - The encryption key is derived from a secret key that should be set as an environment variable (`VARIABLE_ENCRYPTION_KEY`)
 - In production, use a secure random value for the encryption key
 - Access to the variables API should be restricted to authenticated users only
+
+## System Variables
+
+- `__NOW_TS10__`: current timestamp in seconds (10 digit timestamp)
+- `__RANDOM_16BIT__`: random number between `0 <= value < 32767`
+- `__SUUID_9__`: short UUID, 9 characters.

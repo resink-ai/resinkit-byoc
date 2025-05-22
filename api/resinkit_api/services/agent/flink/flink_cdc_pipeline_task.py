@@ -43,8 +43,12 @@ class FlinkCdcPipelineTask(TaskBase):
         self.resources = resources or {}
 
     @classmethod
-    def from_dao(cls, task_dao: Task) -> "FlinkCdcPipelineTask":
+    def from_dao(cls, task_dao: Task, variables: Dict[str, Any] | None = None) -> "FlinkCdcPipelineTask":
+        # Get submitted configs and apply variable substitution if needed
         config = task_dao.submitted_configs or {}
+        if variables and config:
+            config = TaskBase.render_with_variables(config, variables)
+
         return cls(
             task_id=task_dao.task_id,
             name=task_dao.task_name,

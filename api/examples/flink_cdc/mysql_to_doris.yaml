@@ -3,19 +3,19 @@ name: MySQL to Doris Sync Pipeline
 description: Synchronization of all MySQL tables to Doris
 task_timeout_seconds: 300
 
-pipeline:
+job:
   ################################################################################
   # Description: Sync MySQL all tables to Doris
   ################################################################################
   source:
-  type: mysql
-  hostname: localhost
-  port: 3306
-  username: root
-  password: 123456
-  tables: app_db.\.*
-  server-id: 5400-5404
-  server-time-zone: UTC
+    type: mysql
+    hostname: localhost
+    port: 3306
+    username: root
+    password: 123456
+    tables: app_db.\.*
+    server-id: 5400-5404
+    server-time-zone: UTC
 
   sink:
     type: doris

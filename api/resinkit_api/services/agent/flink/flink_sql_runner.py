@@ -29,9 +29,10 @@ DEFAULT_POLLING_OPTIONS = ResultsFetchOpts(
 def _df_to_json(df: pd.DataFrame) -> Dict[str, Any]:
     return json.loads(df.to_json(orient="records", date_format="iso"))
 
+
 class FlinkSQLRunner(TaskRunnerBase):
     """Runner for executing Flink SQL jobs via the SQL Gateway."""
-    
+
     def __init__(self, job_manager: FlinkJobManager, sql_gateway_client: FlinkSqlGatewayClient, runtime_env: dict | None = None):
         """
         Initialize the Flink SQL Runner.
@@ -154,11 +155,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             task.result["session_id"] = session.session_handle
 
             # Update execution_details with important execution information
-            task.execution_details = {
-                "log_file": task.log_file,
-                "session_name": session_name,
-                "session_id": session.session_handle
-            }
+            task.execution_details = {"log_file": task.log_file, "session_name": session_name, "session_id": session.session_handle}
 
             # Store the session name
             self.task_id_to_session_id[task_id] = session.session_handle
@@ -168,11 +165,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
             # Store error information in error_info
-            task.error_info = {
-                "error": str(e),
-                "error_type": e.__class__.__name__,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+            task.error_info = {"error": str(e), "error_type": e.__class__.__name__, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             lfm.error(f"Failed to submit Flink SQL job: {str(e)}")
             logger.error(f"Failed to submit Flink SQL job: {str(e)}", exc_info=True)
             # No need to raise an exception here, task reaches end state, TaskManager will catch this and update the task status
@@ -234,10 +227,10 @@ class FlinkSQLRunner(TaskRunnerBase):
         Args:
             task: The task instance
             force: Whether to force cancel the job
-            
+
         Returns:
             The updated task instance
-            
+
         Raises:
             TaskExecutionError: If cancellation fails
         """
@@ -357,7 +350,7 @@ class FlinkSQLRunner(TaskRunnerBase):
 
         Returns:
             An updated task instance with the latest status
-            
+
         Raises:
             TaskExecutionError: If fetching status fails
         """
@@ -397,17 +390,9 @@ class FlinkSQLRunner(TaskRunnerBase):
                 task.result_summary = task.result_summary or {}
                 task.result_summary["error"] = error_message
                 # Update error_info with the error message
-                task.error_info = {
-                    "error": error_message,
-                    "error_type": "TaskStatusError",
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
+                task.error_info = {"error": error_message, "error_type": "TaskStatusError", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             elif new_status == TaskStatus.COMPLETED:
                 # Update result_summary with successful results
-                task.result_summary = {
-                    "success": True,
-                    "results": task.result.get("results", []),
-                    "job_id": task.result.get("job_id")
-                }
+                task.result_summary = {"success": True, "results": task.result.get("results", []), "job_id": task.result.get("job_id")}
 
         return task

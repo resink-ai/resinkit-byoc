@@ -1,4 +1,4 @@
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 
 from resinkit_api.db.models import Task
 from resinkit_api.services.agent.task_base import TaskBase
@@ -13,7 +13,7 @@ class TaskRunnerBase:
     def validate_config(cls, task_config: dict) -> None:
         raise NotImplementedError
 
-    def from_dao(self, dao: Task) -> TaskBase:
+    def from_dao(self, dao: Task, variables: Dict[str, Any] | None = None) -> TaskBase:
         raise NotImplementedError
 
     async def submit_task(self, task: TaskBase) -> TaskBase:

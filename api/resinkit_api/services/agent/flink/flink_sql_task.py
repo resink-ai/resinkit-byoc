@@ -51,12 +51,17 @@ class FlinkSQLTask(TaskBase):
         self.log_file = os.path.join(tempfile.gettempdir(), f"{self.task_id}.log")
 
     @classmethod
-    def from_dao(cls, task_dao: Task) -> "FlinkSQLTask":
+    def from_dao(cls, task_dao: Task, variables: Dict[str, Any] | None = None) -> "FlinkSQLTask":
+        # Get submitted configs and apply variable substitution if needed
         config = task_dao.submitted_configs or {}
+        if variables and config:
+            config = TaskBase.render_with_variables(config, variables)
+
         job_config = config.get("job", {})
         # recalculate task timeout seconds based on expires_at
         task_timeout_seconds = (task_dao.expires_at - task_dao.created_at).total_seconds() if task_dao.expires_at else 3600
         pipeline_config = job_config.get("pipeline", {})
+
         return cls(
             task_id=task_dao.task_id,
             name=task_dao.task_name,

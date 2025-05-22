@@ -108,7 +108,7 @@ class OperationFetch:
         ):
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
-            if job_id is None and hasattr(res_data, 'job_id'):
+            if job_id is None and hasattr(res_data, "job_id"):
                 job_id = res_data.job_id
             all_rows.extend(res_data.data)
         return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id
@@ -127,7 +127,7 @@ class OperationFetch:
             res_data: FetchResultData
             if columns is None and res_data.columns is not None:
                 columns = res_data.columns
-            if job_id is None and hasattr(res_data, 'job_id'):
+            if job_id is None and hasattr(res_data, "job_id"):
                 job_id = res_data.job_id
             all_rows.extend(res_data.data)
         return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id

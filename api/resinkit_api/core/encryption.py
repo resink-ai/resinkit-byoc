@@ -12,9 +12,9 @@ def get_encryption_key():
     # Use a system environment variable or setting for the secret key
     # In a real system, this would be a securely stored secret
     secret_key = settings.VARIABLE_ENCRYPTION_KEY
-    
+
     # Derive a key using PBKDF2
-    salt = b'resinkit-salt'  # In production, use a secure, randomly-generated salt
+    salt = b"resinkit-salt"  # In production, use a secure, randomly-generated salt
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -29,7 +29,7 @@ def get_encryption_key():
 def encrypt_value(value: str) -> str:
     if not value:
         return ""
-    
+
     key = get_encryption_key()
     f = Fernet(key)
     encrypted_data = f.encrypt(value.encode())
@@ -40,7 +40,7 @@ def encrypt_value(value: str) -> str:
 def decrypt_value(encrypted_value: str) -> str:
     if not encrypted_value:
         return ""
-    
+
     key = get_encryption_key()
     f = Fernet(key)
     try:
@@ -51,4 +51,4 @@ def decrypt_value(encrypted_value: str) -> str:
     except Exception as e:
         # Log the error but don't expose details
         print(f"Error decrypting value: {str(e)}")
-        return "" 
+        return ""
