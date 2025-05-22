@@ -51,32 +51,6 @@ class FlinkSQLTask(TaskBase):
         self.log_file = os.path.join(tempfile.gettempdir(), f"{self.task_id}.log")
 
     @classmethod
-    def from_config(cls, task_config: Dict[str, Any]) -> "FlinkSQLTask":
-        cls.validate(task_config)
-        task_id = task_config.get("task_id")
-        name = task_config.get("name") or task_id or task_config.get("task_type")
-        description = task_config.get("description", "")
-        task_timeout_seconds = task_config.get("task_timeout_seconds", 3600)
-        created_at = task_config.get("created_at")
-        job_config = task_config.get("job", {})
-        sql_statements = cls._parse_sql_statements(job_config.get("sql", ""))
-        pipeline_config = job_config.get("pipeline", {})
-        pipeline_name = pipeline_config.get("name", name)
-        parallelism = pipeline_config.get("parallelism", 1)
-        resources = task_config.get("resources", {})
-        return cls(
-            task_id=task_id,
-            name=name,
-            description=description,
-            task_timeout_seconds=task_timeout_seconds,
-            created_at=created_at,
-            sql_statements=sql_statements,
-            pipeline_name=pipeline_name,
-            parallelism=parallelism,
-            resources=resources,
-        )
-
-    @classmethod
     def from_dao(cls, task_dao: Task) -> "FlinkSQLTask":
         config = task_dao.submitted_configs or {}
         job_config = config.get("job", {})

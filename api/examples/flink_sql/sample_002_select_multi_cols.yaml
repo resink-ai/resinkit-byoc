@@ -4,7 +4,7 @@ description: select from constants
 task_timeout_seconds: 30
 
 job:
-  sql: >
+  sql: |
     SELECT 
       42 AS user_id,
       'John Doe' AS full_name,

@@ -4,7 +4,7 @@ description: select multiple rows
 task_timeout_seconds: 30
 
 job:
-  sql: >
+  sql: |
     SELECT * FROM (
     VALUES
         (23, 'Alice Liddell', CAST('2024-12-29 10:30:00' AS TIMESTAMP)),

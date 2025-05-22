@@ -43,20 +43,6 @@ class FlinkCdcPipelineTask(TaskBase):
         self.resources = resources or {}
 
     @classmethod
-    def from_config(cls, task_config: dict) -> "FlinkCdcPipelineTask":
-        cls.validate(task_config)
-        return cls(
-            task_id=task_config.get("task_id"),
-            name=task_config.get("name", f"flink_cdc_pipeline_{uuid.uuid4()}"),
-            description=task_config.get("description", ""),
-            task_timeout_seconds=task_config.get("task_timeout_seconds", 3600),
-            created_at=task_config.get("created_at"),
-            job=task_config.get("job", {}),
-            runtime=task_config.get("runtime", {}),
-            resources=task_config.get("resources", {}),
-        )
-
-    @classmethod
     def from_dao(cls, task_dao: Task) -> "FlinkCdcPipelineTask":
         config = task_dao.submitted_configs or {}
         return cls(

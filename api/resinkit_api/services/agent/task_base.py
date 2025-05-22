@@ -1,4 +1,5 @@
 from datetime import datetime, UTC
+from typing import Any, Dict
 
 from shortuuid import ShortUUID
 
@@ -37,18 +38,6 @@ class TaskBase:
         self.progress_details = progress_details or {}
 
     @classmethod
-    def from_config(cls, task_config: dict) -> "TaskBase":
-        cls.validate(task_config)
-        return cls(
-            task_type=task_config["task_type"],
-            name=task_config["name"],
-            description=task_config.get("description", ""),
-            task_timeout_seconds=task_config.get("task_timeout_seconds", 3600),
-            task_id=task_config.get("task_id"),
-            created_at=task_config.get("created_at"),
-        )
-
-    @classmethod
     def from_dao(cls, task_dao: Task) -> "TaskBase":
         return cls(
             task_type=task_dao.task_type,
@@ -79,3 +68,8 @@ class TaskBase:
         if not hasattr(self, "result") or not self.result:
             return None
         return self.result.get("job_id")
+
+    @classmethod
+    def render_with_variables(cls, submitted_configs: dict, variables: dict) -> Dict[str, Any]:
+        # TODO: Implement this
+        return submitted_configs
