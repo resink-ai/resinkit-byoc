@@ -14,6 +14,8 @@ from resinkit_api.services.agent.task_base import TaskBase
 from resinkit_api.services.agent.task_runner_base import TaskRunnerBase, LogEntry
 from resinkit_api.services.agent.data_models import TaskExecutionError
 from resinkit_api.services.agent.common.log_file_manager import LogFileManager
+import pandas as pd
+import json
 
 logger = get_logger(__name__)
 
@@ -23,6 +25,9 @@ DEFAULT_POLLING_OPTIONS = ResultsFetchOpts(
     n_row_limit=20,
 )
 
+
+def _df_to_json(df: pd.DataFrame) -> Dict[str, Any]:
+    return json.loads(df.to_json(orient="records", date_format="iso"))
 
 class FlinkSQLRunner(TaskRunnerBase):
     """Runner for executing Flink SQL jobs via the SQL Gateway."""
@@ -96,8 +101,8 @@ class FlinkSQLRunner(TaskRunnerBase):
         try:
             # Update task status
             task.status = TaskStatus.RUNNING
-            if not task.result.get("results"):
-                task.result["results"] = []
+            if not task.result_summary.get("results"):
+                task.result_summary["results"] = []
             lfm.info(f"Starting Flink SQL job: {task.name}")
 
             # Create session properties
@@ -125,13 +130,13 @@ class FlinkSQLRunner(TaskRunnerBase):
                     if sql.strip().upper().startswith("SELECT"):
                         result_df, job_id = await operation.fetch(polling_opts=DEFAULT_POLLING_OPTIONS).asyncio()
                         lfm.info(f"Results: {result_df.to_string()}")
-                        task.result["results"].append(result_df.to_json(orient="records", date_format="iso"))
-                        task.result["job_id"] = job_id
+                        task.result_summary["results"].append(_df_to_json(result_df))
+                        task.result_summary["job_id"] = job_id
                     else:
                         result_df, job_id = await operation.fetch_once().asyncio()
                         lfm.info(f"Results: {result_df.to_string()}")
-                        task.result["results"].append(result_df.to_json(orient="records", date_format="iso"))
-                        task.result["job_id"] = job_id
+                        task.result_summary["results"].append(_df_to_json(result_df))
+                        task.result_summary["job_id"] = job_id
                     # Get the operation status
                     status = await operation.status().asyncio()
                     lfm.info(f"Operation status: {status.status}")
@@ -148,6 +153,13 @@ class FlinkSQLRunner(TaskRunnerBase):
             task.result["session_name"] = session_name
             task.result["session_id"] = session.session_handle
 
+            # Update execution_details with important execution information
+            task.execution_details = {
+                "log_file": task.log_file,
+                "session_name": session_name,
+                "session_id": session.session_handle
+            }
+
             # Store the session name
             self.task_id_to_session_id[task_id] = session.session_handle
             self.task_id_to_operation_ids[task_id] = operation_handles
@@ -155,6 +167,12 @@ class FlinkSQLRunner(TaskRunnerBase):
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
+            # Store error information in error_info
+            task.error_info = {
+                "error": str(e),
+                "error_type": e.__class__.__name__,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
             lfm.error(f"Failed to submit Flink SQL job: {str(e)}")
             logger.error(f"Failed to submit Flink SQL job: {str(e)}", exc_info=True)
             # No need to raise an exception here, task reaches end state, TaskManager will catch this and update the task status
@@ -376,7 +394,20 @@ class FlinkSQLRunner(TaskRunnerBase):
         if new_status != task.status:
             task.status = new_status
             if new_status == TaskStatus.FAILED and error_message:
-                task.result = task.result or {}
-                task.result["error"] = error_message
+                task.result_summary = task.result_summary or {}
+                task.result_summary["error"] = error_message
+                # Update error_info with the error message
+                task.error_info = {
+                    "error": error_message,
+                    "error_type": "TaskStatusError",
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+            elif new_status == TaskStatus.COMPLETED:
+                # Update result_summary with successful results
+                task.result_summary = {
+                    "success": True,
+                    "results": task.result.get("results", []),
+                    "job_id": task.result.get("job_id")
+                }
 
         return task

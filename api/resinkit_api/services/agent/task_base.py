@@ -19,6 +19,10 @@ class TaskBase:
         task_timeout_seconds: int = 3600,
         task_id: str = None,
         created_at: datetime = None,
+        error_info: dict = None,
+        result_summary: dict = None,
+        execution_details: dict = None,
+        progress_details: dict = None,
     ):
         self.task_type = task_type
         self.name = name
@@ -27,6 +31,10 @@ class TaskBase:
         self.created_at = created_at or datetime.now(UTC)
         self.task_id = task_id or self.generate_task_id(self.task_type)
         self.status = TaskStatus.PENDING
+        self.error_info = error_info or {}
+        self.result_summary = result_summary or {}
+        self.execution_details = execution_details or {}
+        self.progress_details = progress_details or {}
 
     @classmethod
     def from_config(cls, task_config: dict) -> "TaskBase":
@@ -49,6 +57,10 @@ class TaskBase:
             task_timeout_seconds=task_dao.task_timeout_seconds,
             task_id=task_dao.task_id,
             created_at=task_dao.created_at,
+            error_info=task_dao.error_info,
+            result_summary=task_dao.result_summary,
+            execution_details=task_dao.execution_details,
+            progress_details=task_dao.progress_details,
         )
 
     def expired(self) -> bool:

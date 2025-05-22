@@ -275,7 +275,16 @@ class TaskManager:
                 
                 # Update task status to CANCELLED based on the returned task
                 logger.info("Updating task status to %s: task_id=%s", updated_task.status.value, task_id)
-                tasks_crud.update_task_status(db=db, task_id=task_id, new_status=updated_task.status, actor="user")
+                tasks_crud.update_task_status(
+                    db=db, 
+                    task_id=task_id, 
+                    new_status=updated_task.status, 
+                    actor="user",
+                    error_info=updated_task.error_info,
+                    result_summary=updated_task.result_summary,
+                    execution_details=updated_task.execution_details,
+                    progress_details=updated_task.progress_details
+                )
                 
                 return {"task_id": task_id, "success": True, "message": f"Task {updated_task.status.value.lower()} successfully"}
             except TaskExecutionError as e:
@@ -432,10 +441,28 @@ class TaskManager:
                     # if task_base.status is already at end state, save the status and exit
                     if task_base.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
                         logger.info("Task already in end state, saving status and exiting: task_id=%s, status=%s", task_id, task_base.status.value)
-                        tasks_crud.update_task_status(db=db, task_id=task_id, new_status=task_base.status, actor="system")
+                        
+                        # Prepare update parameters based on task status
+                        result_summary = None
+                        error_info = None
+                        if task_base.status == TaskStatus.COMPLETED:
+                            result_summary = task_base.result_summary
+                        elif task_base.status == TaskStatus.FAILED:
+                            error_info = task_base.error_info
+                            
+                        tasks_crud.update_task_status(
+                            db=db, 
+                            task_id=task_id, 
+                            new_status=task_base.status, 
+                            actor="system",
+                            result_summary=result_summary,
+                            error_info=error_info,
+                            execution_details=task_base.execution_details
+                        )
                         return
+                    
                     # Update task status to RUNNING and include execution details
-                    execution_details = {"log_file": task_base.log_file}
+                    execution_details = task_base.execution_details or {"log_file": task_base.log_file}
 
                     logger.info("Updating task status to RUNNING: task_id=%s", task_id)
                     db_task = tasks_crud.update_task_status(
@@ -535,16 +562,23 @@ class TaskManager:
                     result_summary = None
                     error_info = None
                     execution_details = {}
+                    progress_details = {}
+
+                    # Get log summary for progress details, regardless of status
+                    log_summary = runner.get_log_summary(task)
+                    progress_details = {"log_summary": [x.model_dump() for x in log_summary]}
 
                     # Handle completed or failed tasks
                     if updated_task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
                         if updated_task.status == TaskStatus.COMPLETED:
-                            result_summary = {"success": True, "result": updated_task.result}
+                            # Use the task's result_summary if available, otherwise create one
+                            result_summary = updated_task.result_summary or {"success": True, "result": updated_task.result}
                         else:
-                            error_info = {"error": updated_task.result.get("error", "Task failed"), "timestamp": datetime.now(UTC).isoformat()}
+                            # Use the task's error_info if available, otherwise create one
+                            error_info = updated_task.error_info or {"error": updated_task.result.get("error", "Task failed"), "timestamp": datetime.now(UTC).isoformat()}
                         
-                        log_summary = runner.get_log_summary(task)
-                        execution_details = {"log_summary": [x.model_dump() for x in log_summary]}
+                        # Include detailed execution information if available
+                        execution_details = updated_task.execution_details or {"log_summary": [x.model_dump() for x in log_summary]}
 
                     # Update the database
                     tasks_crud.update_task_status(
@@ -555,6 +589,7 @@ class TaskManager:
                         result_summary=result_summary,
                         error_info=error_info,
                         execution_details=execution_details,
+                        progress_details=progress_details,
                     )
 
                     # Stop monitoring if terminal state reached

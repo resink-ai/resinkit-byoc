@@ -4,7 +4,7 @@ import os
 import tempfile
 import yaml
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import UTC, datetime
 
 from resinkit_api.clients.job_manager.flink_job_manager_client import FlinkJobManager
 from resinkit_api.clients.sql_gateway.flink_sql_gateway_client import FlinkSqlGatewayClient
@@ -88,11 +88,26 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             # Run the Flink command
             process = await asyncio.create_subprocess_exec(*cmd, stdout=open(task.log_file, "a"), stderr=open(task.log_file, "a"), env=env_vars)
             task.process = process
+            
+            # Update execution_details with command and log file information
+            task.execution_details = {
+                "log_file": task.log_file,
+                "command": " ".join(cmd)
+            }
+            
             lfm.info(f"Started Flink CDC pipeline process for task: {task.name}")
             return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
+            
+            # Update error_info with exception details
+            task.error_info = {
+                "error": str(e),
+                "error_type": e.__class__.__name__,
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
             lfm.error(f"Failed to submit Flink CDC pipeline: {str(e)}")
             logger.error(f"Failed to submit Flink CDC pipeline: {str(e)}", exc_info=True)
             raise TaskExecutionError(f"Failed to submit Flink CDC pipeline: {str(e)}")
@@ -372,9 +387,24 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                         elif flink_status in ["FINISHED", "COMPLETED"]:
                             task.status = TaskStatus.COMPLETED
                             task.result.update(job_details)
+                            # Update result_summary with successful results
+                            task.result_summary = {
+                                "success": True, 
+                                "job_id": flink_job_id,
+                                "details": job_details
+                            }
                         elif flink_status in ["FAILED", "FAILING"]:
                             task.status = TaskStatus.FAILED
-                            task.result["error"] = job_details.get("failure-cause", {}).get("stack-trace", "Unknown error")
+                            error_message = job_details.get("failure-cause", {}).get("stack-trace", "Unknown error")
+                            task.result["error"] = error_message
+                            # Update error_info with error details
+                            task.error_info = {
+                                "error": error_message,
+                                "error_type": "FlinkJobError",
+                                "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                                "job_id": flink_job_id,
+                                "job_details": job_details
+                            }
                         elif flink_status in ["CANCELED", "CANCELLING"]:
                             task.status = TaskStatus.CANCELLED
                     except Exception as e:
@@ -389,10 +419,23 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
 
             if exit_code == 0:
                 task.status = TaskStatus.COMPLETED
+                # Update result_summary for successful completion
+                task.result_summary = {
+                    "success": True,
+                    "exit_code": exit_code,
+                    "job_id": task.result.get("flink_job_id")
+                }
             else:
                 task.status = TaskStatus.FAILED
                 error_message = f"Process exited with code {exit_code}"
                 task.result["error"] = error_message
+                # Update error_info for process failure
+                task.error_info = {
+                    "error": error_message,
+                    "error_type": "ProcessExitError",
+                    "exit_code": exit_code,
+                    "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+                }
 
         return task
 

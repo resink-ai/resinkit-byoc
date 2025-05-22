@@ -25,6 +25,10 @@ class FlinkSQLTask(TaskBase):
         pipeline_name: str = None,
         parallelism: int = 1,
         resources: Dict[str, Any] = None,
+        error_info: Dict[str, Any] = None,
+        result_summary: Dict[str, Any] = None,
+        execution_details: Dict[str, Any] = None,
+        progress_details: Dict[str, Any] = None,
     ):
         super().__init__(
             task_type="flink_sql",
@@ -33,6 +37,10 @@ class FlinkSQLTask(TaskBase):
             task_timeout_seconds=task_timeout_seconds,
             task_id=task_id,
             created_at=created_at,
+            error_info=error_info,
+            result_summary=result_summary,
+            execution_details=execution_details,
+            progress_details=progress_details,
         )
         self.sql_statements = sql_statements or []
         self.pipeline_name = pipeline_name or name
@@ -73,7 +81,7 @@ class FlinkSQLTask(TaskBase):
         config = task_dao.submitted_configs or {}
         job_config = config.get("job", {})
         # recalculate task timeout seconds based on expires_at
-        task_timeout_seconds = (task_dao.expires_at - task_dao.created_at).total_seconds()
+        task_timeout_seconds = (task_dao.expires_at - task_dao.created_at).total_seconds() if task_dao.expires_at else 3600
         pipeline_config = job_config.get("pipeline", {})
         return cls(
             task_id=task_dao.task_id,
@@ -85,6 +93,10 @@ class FlinkSQLTask(TaskBase):
             pipeline_name=pipeline_config.get("name", task_dao.task_name),
             parallelism=pipeline_config.get("parallelism", 1),
             resources=config.get("resources", {}),
+            error_info=task_dao.error_info,
+            result_summary=task_dao.result_summary,
+            execution_details=task_dao.execution_details,
+            progress_details=task_dao.progress_details,
         )
 
     @staticmethod

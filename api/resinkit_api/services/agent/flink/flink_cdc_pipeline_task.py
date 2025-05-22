@@ -18,6 +18,10 @@ class FlinkCdcPipelineTask(TaskBase):
         job: Dict[str, Any] = None,
         runtime: Dict[str, Any] = None,
         resources: Dict[str, Any] = None,
+        error_info: Dict[str, Any] = None,
+        result_summary: Dict[str, Any] = None,
+        execution_details: Dict[str, Any] = None,
+        progress_details: Dict[str, Any] = None,
     ):
         super().__init__(
             task_type="FLINK_CDC_PIPELINE",
@@ -26,11 +30,14 @@ class FlinkCdcPipelineTask(TaskBase):
             task_timeout_seconds=task_timeout_seconds,
             task_id=task_id,
             created_at=created_at,
+            error_info=error_info,
+            result_summary=result_summary,
+            execution_details=execution_details,
+            progress_details=progress_details,
         )
         self.process: Optional[asyncio.subprocess.Process] = None
         self.log_file = f"/tmp/flink_cdc_{self.task_id}.log"
-        self.result = None
-        self.execution_details: Dict[str, Any] = {}
+        self.result = {}
         self.job = job or {}
         self.runtime = runtime or {}
         self.resources = resources or {}
@@ -61,6 +68,10 @@ class FlinkCdcPipelineTask(TaskBase):
             job=config.get("job", {}),
             runtime=config.get("runtime", {}),
             resources=config.get("resources", {}),
+            error_info=task_dao.error_info,
+            result_summary=task_dao.result_summary,
+            execution_details=task_dao.execution_details,
+            progress_details=task_dao.progress_details,
         )
 
     @classmethod
