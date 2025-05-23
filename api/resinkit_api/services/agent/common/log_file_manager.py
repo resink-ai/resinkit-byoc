@@ -2,6 +2,10 @@ import os
 import threading
 from datetime import datetime
 from typing import List
+
+from structlog import BoundLogger
+
+from resinkit_api.core.logging import get_logger
 from resinkit_api.services.agent.data_models import LogEntry
 from resinkit_api.utils.file_utils import tail
 
@@ -12,12 +16,13 @@ class LogFileManager:
     LEVEL_ERROR = "ERROR"
     LEVEL_CRITICAL = "CRITICAL"
 
-    def __init__(self, file_path: str, limit: int = 1000):
+    def __init__(self, file_path: str, limit: int = 1000, logger: BoundLogger | None = None):
         self.file_path = file_path
         self.limit = limit
         self._lock = threading.Lock()
         self._buffer: List[LogEntry] = []
         self._load_existing()
+        self.logger = logger or get_logger(__name__)
 
     def _load_existing(self):
         if not os.path.exists(self.file_path):
@@ -44,15 +49,19 @@ class LogFileManager:
                 f.write(log_line)
 
     def info(self, message: str):
+        self.logger.info(message)
         self._write(self.LEVEL_INFO, message)
 
     def warning(self, message: str):
+        self.logger.warning(message)
         self._write(self.LEVEL_WARNING, message)
 
     def error(self, message: str):
+        self.logger.error(message)
         self._write(self.LEVEL_ERROR, message)
 
     def critical(self, message: str):
+        self.logger.critical(message)
         self._write(self.LEVEL_CRITICAL, message)
 
     def get_entries(self, level: str = None) -> List[LogEntry]:

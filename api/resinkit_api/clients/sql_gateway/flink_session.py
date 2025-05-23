@@ -39,6 +39,8 @@ class FlinkSession:
         with session.execute(sql_t0).sync() as operation:
             df = operation.fetch().sync()
     ```
+
+    # TODO: support open session with TTL
     """
 
     def __init__(self, client: Client, properties: Dict[str, str] = None, session_name: str = None, create_if_not_exist: bool = True):

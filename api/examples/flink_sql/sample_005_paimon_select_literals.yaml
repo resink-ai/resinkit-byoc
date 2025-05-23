@@ -1,6 +1,6 @@
 task_type: flink_sql
-name: Select from datagen
-description: Create dummy table and then select first 10
+name: Paimon SQL Sample
+description: Create catalog; create table; insert data and then select all.
 task_timeout_seconds: 300
 
 # TODO: allow internal dynamic variables like ${__NOW_TS10__}

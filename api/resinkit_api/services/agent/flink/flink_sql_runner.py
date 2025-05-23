@@ -20,9 +20,9 @@ import json
 logger = get_logger(__name__)
 
 DEFAULT_POLLING_OPTIONS = ResultsFetchOpts(
-    max_poll_secs=3,
-    poll_interval_secs=0.3,
-    n_row_limit=20,
+    max_poll_secs=30,
+    poll_interval_secs=0.5,
+    n_row_limit=100,
 )
 
 
@@ -66,7 +66,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         except Exception as e:
             raise ValueError(f"Invalid Flink SQL configuration: {str(e)}")
 
-    def from_dao(self, dao: Task) -> FlinkSQLTask:
+    def from_dao(self, dao: Task, variables: Dict[str, Any] | None = None) -> FlinkSQLTask:
         """
         Create a FlinkSQLRunner instance from a Task DAO.
 
@@ -76,7 +76,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         Returns:
             The FlinkSQLRunner instance
         """
-        return FlinkSQLTask.from_dao(dao)
+        return FlinkSQLTask.from_dao(dao, variables)
 
     async def submit_task(self, task: FlinkSQLTask) -> FlinkSQLTask:
         """
@@ -97,13 +97,17 @@ class FlinkSQLRunner(TaskRunnerBase):
         # Process resources
         resources = await self.resource_manager.process_resources(task.resources)
 
-        lfm = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
 
         try:
             # Update task status
             task.status = TaskStatus.RUNNING
-            if not task.result_summary.get("results"):
+            if task.result_summary.get("results") is None:
                 task.result_summary["results"] = []
+            if task.result_summary.get("job_ids") is None:
+                task.result_summary["job_ids"] = []
+            if task.result_summary.get("is_query") is None:
+                task.result_summary["is_query"] = []
             lfm.info(f"Starting Flink SQL job: {task.name}")
 
             # Create session properties
@@ -127,17 +131,18 @@ class FlinkSQLRunner(TaskRunnerBase):
                 async with session.execute(sql).asyncio() as operation:
                     # Store the operation handle for later status checks
                     operation_handles.append(operation.operation_handle)
-                    # For SELECT statements, fetch and display results
-                    if sql.strip().upper().startswith("SELECT"):
-                        result_df, job_id = await operation.fetch(polling_opts=DEFAULT_POLLING_OPTIONS).asyncio()
-                        lfm.info(f"Results: {result_df.to_string()}")
-                        task.result_summary["results"].append(_df_to_json(result_df))
-                        task.result_summary["job_id"] = job_id
-                    else:
-                        result_df, job_id = await operation.fetch_once().asyncio()
-                        lfm.info(f"Results: {result_df.to_string()}")
-                        task.result_summary["results"].append(_df_to_json(result_df))
-                        task.result_summary["job_id"] = job_id
+                    result_df, res_data = await operation.fetch(
+                        polling_opts=ResultsFetchOpts(
+                            max_poll_secs=task.connection_timeout_seconds,
+                            poll_interval_secs=0.5,
+                            n_row_limit=100,
+                        )
+                    ).asyncio()
+                    lfm.info(f"Results: {result_df.to_string()}")
+                    task.result_summary["results"].append(_df_to_json(result_df))
+                    task.result_summary["job_ids"].append(res_data.job_id)
+                    task.result_summary["is_query"].append(res_data.is_query_result)
+
                     # Get the operation status
                     status = await operation.status().asyncio()
                     lfm.info(f"Operation status: {status.status}")
@@ -160,7 +165,6 @@ class FlinkSQLRunner(TaskRunnerBase):
             # Store the session name
             self.task_id_to_session_id[task_id] = session.session_handle
             self.task_id_to_operation_ids[task_id] = operation_handles
-            return task
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = {"error": str(e)}
@@ -169,6 +173,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             lfm.error(f"Failed to submit Flink SQL job: {str(e)}")
             logger.error(f"Failed to submit Flink SQL job: {str(e)}", exc_info=True)
             # No need to raise an exception here, task reaches end state, TaskManager will catch this and update the task status
+        return task
 
     def get_status(self, task: TaskBase) -> str:
         """
@@ -213,7 +218,7 @@ class FlinkSQLRunner(TaskRunnerBase):
             return []
 
         try:
-            lfm = LogFileManager(task.log_file, limit=1000)
+            lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
             entries = lfm.get_entries(level=level)
             return entries
         except Exception as e:
@@ -238,9 +243,8 @@ class FlinkSQLRunner(TaskRunnerBase):
             logger.warning(f"Task {task.task_id} not found")
             return task
 
-        lfm = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
         if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
-            logger.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             lfm.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             return task
 
@@ -250,14 +254,12 @@ class FlinkSQLRunner(TaskRunnerBase):
             # Get session name
             session_name = task.result.get("session_name")
             if not session_name:
-                logger.warning(f"No session name found for task {task.task_id}")
                 lfm.warning(f"No session name found for task {task.task_id}")
                 return task
 
             # Get session
             with self.sql_gateway_client.get_session(session_name=session_name, create_if_not_exist=False) as session:
                 if not session.was_alive:
-                    logger.warning(f"Session {session_name} was not alive when cancelling task {task.task_id}, consider task completed")
                     lfm.warning(f"Session {session_name} was not alive when cancelling task {task.task_id}, consider task completed")
                     task.status = TaskStatus.COMPLETED
                     return task
@@ -267,17 +269,13 @@ class FlinkSQLRunner(TaskRunnerBase):
                     try:
                         async with FlinkOperation(session, op_handle) as operation:
                             response = await operation.cancel().asyncio()
-                            logger.info(f"Cancelled operation {op_handle} for task {task.task_id}, response: {response}")
                             lfm.info(f"Cancelled operation {op_handle} for task {task.task_id}, response: {response}")
                     except Exception as e:
-                        logger.error(f"Failed to cancel operation {op_handle}: {str(e)}")
                         lfm.error(f"Failed to cancel operation {op_handle}: {str(e)}")
                 task.status = TaskStatus.CANCELLED
-                logger.info(f"Successfully cancelled task {task.task_id}")
                 lfm.info(f"Successfully cancelled task {task.task_id}")
                 return task
         except Exception as e:
-            logger.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             lfm.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             task.status = TaskStatus.FAILED
             task.result["error"] = f"Cancel failed: {str(e)}"
@@ -291,14 +289,13 @@ class FlinkSQLRunner(TaskRunnerBase):
         running_tasks = [task_id for task_id, task in self.tasks.items() if task.status in [TaskStatus.RUNNING, TaskStatus.PENDING]]
 
         for task_id in running_tasks:
-            lfm = LogFileManager(self.tasks[task_id].log_file, limit=1000)
+            lfm = LogFileManager(self.tasks[task_id].log_file, limit=1000, logger=logger)
             try:
                 logger.info(f"Cancelling task {task_id} during shutdown")
                 updated_task = await self.cancel(self.tasks[task_id], force=True)
                 # Update our local tasks dict with the updated task
                 self.tasks[task_id] = updated_task
             except Exception as e:
-                logger.error(f"Error cancelling task {task_id} during shutdown: {str(e)}")
                 lfm.error(f"Error cancelling task {task_id} during shutdown: {str(e)}")
         # Clean up resources
         try:
@@ -362,7 +359,7 @@ class FlinkSQLRunner(TaskRunnerBase):
         session_id = self.task_id_to_session_id[task_id]
         operation_id = self.task_id_to_operation_ids[task_id][-1]
 
-        lfm = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
 
         # Initialize status as the current task status
         new_status = task.status
@@ -378,7 +375,6 @@ class FlinkSQLRunner(TaskRunnerBase):
                 error_message = "Failed to fetch status for task, task failed too fast, likely invalid SQL"
         else:
             # Mark as failed if no session or operation ID found
-            logger.warning(f"No session or operation ID found for task {task.task_id}")
             lfm.warning(f"No session or operation ID found for task {task.task_id}")
             new_status = TaskStatus.FAILED
             error_message = "No session or operation ID found"

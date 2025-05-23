@@ -97,6 +97,7 @@ class FetchResultData:
     eos: bool
     next_url: str | None = None
     job_id: str | None = None
+    is_query_result: bool | None = None
 
     @staticmethod
     def result_ok():
@@ -123,7 +124,40 @@ def get_fetch_result_data(response: FetchResultsResponseBody | None) -> FetchRes
     """
     Extract columns and data from the result
     Args:
-        response: FetchResultsResponseBody object
+        response: FetchResultsResponseBody object.
+        Example:
+        {'nextResultUri': '/v2/sessions/75066e3a-9720-4f33-8763-f840c20a44ae/operations/236d8658-714c-4ad7-802b-ade363060a05/result/0?rowFormat=JSON', 'resultType': 'NOT_READY'}
+        {
+            'isQueryResult': False,
+            'nextResultUri': '/v2/sessions/75066e3a-9720-4f33-8763-f840c20a44ae/operations/236d8658-714c-4ad7-802b-ade363060a05/result/1?rowFormat=JSON',
+            'resultKind': 'SUCCESS',
+            'resultType': 'PAYLOAD',
+            'results': {
+                'columns': [{'name': 'result', 'logicalType': {'type': 'VARCHAR', 'nullable': True, 'length': 2147483647}, 'comment': None}],
+                'columnInfos': [],
+                'data': [{'kind': 'INSERT', 'fields': ['OK']}],
+                'fieldGetters': [],
+                'rowFormat': 'JSON',
+            },
+        }
+        {
+            'isQueryResult': True,
+            'jobID': '08c4b4cf65b01c41470cd1d8445de410',
+            'resultKind': 'SUCCESS_WITH_CONTENT',
+            'resultType': 'EOS',
+            'results': {
+                'columns': [
+                    {'name': 'user_id', 'logicalType': {'type': 'BIGINT', 'nullable': False}, 'comment': None},
+                    {'name': 'item_id', 'logicalType': {'type': 'BIGINT', 'nullable': True}, 'comment': None},
+                    {'name': 'behavior', 'logicalType': {'type': 'VARCHAR', 'nullable': True, 'length': 2147483647}, 'comment': None},
+                    {'name': 'dt', 'logicalType': {'type': 'VARCHAR', 'nullable': False, 'length': 2147483647}, 'comment': None},
+                ],
+                'columnInfos': [],
+                'data': [],
+                'fieldGetters': [],
+                'rowFormat': 'JSON',
+            },
+        }
     Returns: FetchResultData object
     """
     if not response:
@@ -131,6 +165,9 @@ def get_fetch_result_data(response: FetchResultsResponseBody | None) -> FetchRes
     eos = response.result_type == ResultType.EOS
     next_url = None
     job_id = None
+    is_query_result = None
+    if response.additional_properties:
+        is_query_result = response.additional_properties.get("isQueryResult")
     if response.next_result_uri is not UNSET:
         next_url = response.next_result_uri
     if response.job_id is not UNSET:
@@ -144,7 +181,7 @@ def get_fetch_result_data(response: FetchResultsResponseBody | None) -> FetchRes
     for row in res_results.get("data", []):
         if row["kind"] == RowKind.INSERT:
             data.append(row.get("fields", []))
-    return FetchResultData(columns=cols, data=data, eos=eos, next_url=next_url, job_id=job_id)
+    return FetchResultData(columns=cols, data=data, eos=eos, next_url=next_url, job_id=job_id, is_query_result=is_query_result)
 
 
 def get_execute_statement_request(

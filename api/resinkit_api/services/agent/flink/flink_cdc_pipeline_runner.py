@@ -48,7 +48,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         except Exception as e:
             raise ValueError(f"Invalid Flink CDC pipeline configuration: {str(e)}")
 
-    def from_dao(self, dao: Task) -> FlinkCdcPipelineTask:
+    def from_dao(self, dao: Task, variables: Dict[str, Any] | None = None) -> FlinkCdcPipelineTask:
         """
         Create a FlinkCdcPipelineRunner instance from a Task DAO.
 
@@ -58,7 +58,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         Returns:
             The FlinkCdcPipelineRunner instance
         """
-        return FlinkCdcPipelineTask.from_dao(dao)
+        return FlinkCdcPipelineTask.from_dao(dao, variables)
 
     async def submit_task(self, task: TaskBase) -> TaskBase:
         """
@@ -78,7 +78,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
         # Prepare the command to run
         cmd = await self._build_flink_command(task, config_files)
 
-        lfm = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
 
         # Execute the command
         logger.info(f"Starting Flink CDC Pipeline: {task.name}")
@@ -123,7 +123,7 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             return []
 
         try:
-            log_manager = LogFileManager(task.log_file, limit=1000)
+            log_manager = LogFileManager(task.log_file, limit=1000, logger=logger)
             entries = log_manager.get_entries(level=level)
             return entries[-100:]
         except Exception as e:
@@ -148,10 +148,9 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             logger.warning(f"Task {task.task_id} not found")
             return task
 
-        lfm = LogFileManager(task.log_file, limit=1000)
+        lfm = LogFileManager(task.log_file, limit=1000, logger=logger)
 
         if task.status not in [TaskStatus.RUNNING, TaskStatus.PENDING]:
-            logger.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             lfm.info(f"Task {task.task_id} is not running, current status: {task.status.value}")
             return task
 
@@ -169,7 +168,6 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
                 try:
                     await asyncio.wait_for(task.process.wait(), timeout=30.0)
                 except asyncio.TimeoutError:
-                    logger.warning(f"Timeout waiting for task {task.task_id} to terminate, forcing kill")
                     lfm.warning(f"Timeout waiting for task {task.task_id} to terminate, forcing kill")
                     task.process.kill()
 
@@ -178,16 +176,13 @@ class FlinkCdcPipelineRunner(TaskRunnerBase):
             if flink_job_id and self.job_manager:
                 # Cancel the job in Flink (this would require additional implementation
                 # for the actual Flink job cancellation API call)
-                logger.info(f"Cancelling Flink job {flink_job_id}")
                 lfm.info(f"Cancelling Flink job {flink_job_id}")
                 # TODO: Implement actual Flink job cancellation via API
 
             task.status = TaskStatus.CANCELLED
-            logger.info(f"Successfully cancelled task {task.task_id}")
             lfm.info(f"Successfully cancelled task {task.task_id}")
             return task
         except Exception as e:
-            logger.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             lfm.error(f"Failed to cancel task {task.task_id}: {str(e)}")
             task.status = TaskStatus.FAILED
             task.result = {"error": f"Cancel failed: {str(e)}"}

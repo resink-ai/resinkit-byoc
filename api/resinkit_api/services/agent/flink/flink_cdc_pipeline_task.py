@@ -13,6 +13,7 @@ class FlinkCdcPipelineTask(TaskBase):
         task_id: str,
         name: str,
         description: str = "",
+        connection_timeout_seconds: int = 30,
         task_timeout_seconds: int = 3600,
         created_at: datetime = None,
         job: Dict[str, Any] = None,
@@ -27,6 +28,7 @@ class FlinkCdcPipelineTask(TaskBase):
             task_type="FLINK_CDC_PIPELINE",
             name=name,
             description=description,
+            connection_timeout_seconds=connection_timeout_seconds,
             task_timeout_seconds=task_timeout_seconds,
             task_id=task_id,
             created_at=created_at,
@@ -49,10 +51,12 @@ class FlinkCdcPipelineTask(TaskBase):
         if variables and config:
             config = TaskBase.render_with_variables(config, variables)
 
+        connection_timeout_seconds = config.get("connection_timeout_seconds", 30)
         return cls(
             task_id=task_dao.task_id,
             name=task_dao.task_name,
             description=task_dao.description,
+            connection_timeout_seconds=connection_timeout_seconds,
             task_timeout_seconds=task_dao.task_timeout_seconds,
             created_at=task_dao.created_at,
             job=config.get("job", {}),

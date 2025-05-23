@@ -19,6 +19,7 @@ class FlinkSQLTask(TaskBase):
         task_id: str,
         name: str,
         description: str = "",
+        connection_timeout_seconds: int = 30,
         task_timeout_seconds: int = 3600,
         created_at: datetime = None,
         sql_statements: List[str] = None,
@@ -34,6 +35,7 @@ class FlinkSQLTask(TaskBase):
             task_type="flink_sql",
             name=name,
             description=description,
+            connection_timeout_seconds=connection_timeout_seconds,
             task_timeout_seconds=task_timeout_seconds,
             task_id=task_id,
             created_at=created_at,
@@ -58,6 +60,7 @@ class FlinkSQLTask(TaskBase):
             config = TaskBase.render_with_variables(config, variables)
 
         job_config = config.get("job", {})
+        connection_timeout_seconds = config.get("connection_timeout_seconds", 30)
         # recalculate task timeout seconds based on expires_at
         task_timeout_seconds = (task_dao.expires_at - task_dao.created_at).total_seconds() if task_dao.expires_at else 3600
         pipeline_config = job_config.get("pipeline", {})
@@ -66,6 +69,7 @@ class FlinkSQLTask(TaskBase):
             task_id=task_dao.task_id,
             name=task_dao.task_name,
             description=task_dao.description,
+            connection_timeout_seconds=connection_timeout_seconds,
             task_timeout_seconds=task_timeout_seconds,
             created_at=task_dao.created_at,
             sql_statements=cls._parse_sql_statements(job_config.get("sql", "")),

@@ -94,7 +94,7 @@ class OperationFetch:
         self._fetch_opts = fetch_opts
         self._token = "0"  # Initial token, might need to be configurable
 
-    def sync(self) -> tuple[pd.DataFrame, str]:
+    def sync(self) -> tuple[pd.DataFrame, FetchResultData]:
         all_rows = []
         columns = None
         job_id = None
@@ -111,9 +111,9 @@ class OperationFetch:
             if job_id is None and hasattr(res_data, "job_id"):
                 job_id = res_data.job_id
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), res_data
 
-    async def asyncio(self) -> tuple[pd.DataFrame, str]:
+    async def asyncio(self) -> tuple[pd.DataFrame, FetchResultData]:
         columns, all_rows = None, []
         job_id = None
         async for res_data in fetch_results_async_gen(
@@ -130,7 +130,7 @@ class OperationFetch:
             if job_id is None and hasattr(res_data, "job_id"):
                 job_id = res_data.job_id
             all_rows.extend(res_data.data)
-        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), job_id
+        return create_dataframe(all_rows[: self._fetch_opts.n_row_limit], columns), res_data
 
 
 class OperationClose:

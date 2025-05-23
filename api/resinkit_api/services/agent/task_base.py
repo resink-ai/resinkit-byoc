@@ -17,6 +17,7 @@ class TaskBase:
         task_type: str,
         name: str,
         description: str = "",
+        connection_timeout_seconds: int = 30,
         task_timeout_seconds: int = 3600,
         task_id: str = None,
         created_at: datetime = None,
@@ -28,6 +29,7 @@ class TaskBase:
         self.task_type = task_type
         self.name = name
         self.description = description
+        self.connection_timeout_seconds = connection_timeout_seconds
         self.task_timeout_seconds = task_timeout_seconds
         self.created_at = created_at or datetime.now(UTC)
         self.task_id = task_id or self.generate_task_id(self.task_type)
