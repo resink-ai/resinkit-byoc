@@ -9,6 +9,46 @@
 source "$ROOT_DIR/resources/setup_vars.sh"
 source "$ROOT_DIR/resources/setup_common.sh"
 
+function debian_mariadb_change_root_password() {
+    if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+        echo "[RESINKIT] Error: MYSQL_ROOT_PASSWORD is not set"
+        return 1
+    fi
+
+    # Use mysql to set the root password
+    mysql -u root <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
+DELETE FROM mysql.user WHERE User='';
+DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+FLUSH PRIVILEGES;
+EOF
+
+    # Create .my.cnf for root user to avoid password prompts
+    cat >/root/.my.cnf <<EOF
+[client]
+user=root
+password=$MYSQL_ROOT_PASSWORD
+EOF
+    chmod 600 /root/.my.cnf
+
+    # Create /etc/mysql/debian.cnf for Debian maintenance scripts
+    cat >/etc/mysql/debian.cnf <<EOF
+[client]
+host     = localhost
+user     = root
+password = $MYSQL_ROOT_PASSWORD
+[mysql_upgrade]
+host     = localhost
+user     = root
+password = $MYSQL_ROOT_PASSWORD
+EOF
+    chmod 600 /etc/mysql/debian.cnf
+
+    echo "[RESINKIT] ✅ MariaDB root password has been set"
+}
+
 function debian_install_mariadb() {
     # Check if MariaDB is already installed
     if [ -d "/var/lib/mysql" ] && [ -f "/opt/setup/.mariadb_installed" ]; then
@@ -93,44 +133,7 @@ EOF
 
     # Set root password if MYSQL_ROOT_PASSWORD is provided
     if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
-        echo "[RESINKIT] Setting MariaDB root password..."
-
-        # Use mysql to set the root password
-        mysql -u root <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-DELETE FROM mysql.user WHERE User='';
-DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-DROP DATABASE IF EXISTS test;
-DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-FLUSH PRIVILEGES;
-EOF
-
-        echo "[RESINKIT] MariaDB root password has been set"
-
-        # Create .my.cnf for root user to avoid password prompts
-        cat >/root/.my.cnf <<EOF
-[client]
-user=root
-password=$MYSQL_ROOT_PASSWORD
-EOF
-        chmod 600 /root/.my.cnf
-
-        # Create /etc/mysql/debian.cnf for Debian maintenance scripts
-        cat >/etc/mysql/debian.cnf <<EOF
-[client]
-host     = localhost
-user     = root
-password = $MYSQL_ROOT_PASSWORD
-[mysql_upgrade]
-host     = localhost
-user     = root
-password = $MYSQL_ROOT_PASSWORD
-EOF
-        chmod 600 /etc/mysql/debian.cnf
-
-    else
-        echo "[RESINKIT] Warning: MYSQL_ROOT_PASSWORD not set, MariaDB root password not configured"
-        echo "[RESINKIT] You may want to run mysql_secure_installation manually"
+        debian_mariadb_change_root_password
     fi
 
     # Verify MariaDB installation and binlog status
