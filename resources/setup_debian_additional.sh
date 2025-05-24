@@ -169,7 +169,7 @@ function debian_install_minio() {
 
     # Set default MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
-    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-cnk8_}
+    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
     export MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT:-9001}
@@ -335,7 +335,7 @@ USER="minio"
 DAEMON="minio"
 ROOT_DIR="/opt/minio"
 DAEMON_FILE="$ROOT_DIR/bin/$DAEMON"
-LOCK_FILE="/var/lock/subsys/minio"
+LOCK_FILE="/var/run/minio.pid"
 
 start() {
     if [ -f $LOCK_FILE ] ; then
@@ -346,21 +346,33 @@ start() {
     # Source environment
     [ -r /etc/default/minio ] && . /etc/default/minio
 
-    echo -n $"Starting $DAEMON: "
-    daemon --user "$USER" --pidfile="$LOCK_FILE" \
-        $DAEMON_FILE server $MINIO_OPTS $MINIO_VOLUMES
+    echo -n "Starting $DAEMON: "
+    start-stop-daemon --start --quiet --background \
+        --pidfile="$LOCK_FILE" --make-pidfile \
+        --chuid "$USER" --exec "$DAEMON_FILE" -- \
+        server $MINIO_OPTS $MINIO_VOLUMES
     RETVAL=$?
-    echo
-    [ $RETVAL -eq 0 ] && touch $LOCK_FILE
+    if [ $RETVAL -eq 0 ]; then
+        echo "OK"
+        touch $LOCK_FILE
+    else
+        echo "FAILED"
+    fi
     return $RETVAL
 }
 
 stop() {
-    echo -n $"Shutting down $DAEMON: "
-    pid=`ps -aefw | grep "$DAEMON" | grep -v " grep " | awk '{print $2}'`
-    kill -9 $pid > /dev/null 2>&1
-    [ $? -eq 0 ] && echo "OK" || echo "Failed"
-    rm -f $LOCK_FILE
+    echo -n "Shutting down $DAEMON: "
+    start-stop-daemon --stop --quiet --pidfile="$LOCK_FILE" \
+        --exec "$DAEMON_FILE" --retry=TERM/30/KILL/5
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ]; then
+        echo "OK"
+        rm -f $LOCK_FILE
+    else
+        echo "FAILED"
+    fi
+    return $RETVAL
 }
 
 case "$1" in
@@ -372,7 +384,12 @@ case "$1" in
         ;;
     status)
         if [ -f $LOCK_FILE ]; then
-            echo "$DAEMON is running."
+            if start-stop-daemon --status --pidfile="$LOCK_FILE" --exec "$DAEMON_FILE"; then
+                echo "$DAEMON is running."
+            else
+                echo "$DAEMON is not running but pid file exists."
+                rm -f $LOCK_FILE
+            fi
         else
             echo "$DAEMON is stopped."
         fi

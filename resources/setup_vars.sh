@@ -44,7 +44,7 @@ setup_vars() {
 
     # MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
-    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-cnk8_}
+    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
     export MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT:-9001}
