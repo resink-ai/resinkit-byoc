@@ -169,7 +169,7 @@ function debian_install_minio() {
 
     # Set default MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
-    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
+    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-cnk8_}
     export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
     export MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT:-9001}
@@ -191,58 +191,62 @@ function debian_install_minio() {
     mkdir -p "$MINIO_CONFIG_DIR"
     mkdir -p /var/log/minio
 
-    # Download MinIO binary
-    echo "[RESINKIT] Downloading MinIO binary..."
-    MINIO_BINARY_URL="https://dl.min.io/server/minio/release/linux-${ARCH}/minio"
+    # Download MinIO binary if not already installed
+    if [ ! -f "/opt/minio/bin/minio" ]; then
+        ARCH=$(dpkg --print-architecture)
+        MINIO_BINARY_URL="https://dl.min.io/server/minio/release/linux-${ARCH}/minio"
+        echo "[RESINKIT] Downloading MinIO binary from $MINIO_BINARY_URL..."
+        # Download with retry logic
+        for attempt in 1 2 3; do
+            if wget -q --show-progress "$MINIO_BINARY_URL" -O /opt/minio/bin/minio; then
+                echo "[RESINKIT] MinIO binary downloaded successfully"
+                break
+            else
+                echo "[RESINKIT] Attempt $attempt failed, retrying..."
+                sleep 5
+            fi
+            if [ $attempt -eq 3 ]; then
+                echo "[RESINKIT] Error: Failed to download MinIO binary after 3 attempts"
+                return 1
+            fi
+        done
 
-    # Download with retry logic
-    for attempt in 1 2 3; do
-        if wget -q --show-progress "$MINIO_BINARY_URL" -O /opt/minio/bin/minio; then
-            echo "[RESINKIT] MinIO binary downloaded successfully"
-            break
-        else
-            echo "[RESINKIT] Attempt $attempt failed, retrying..."
-            sleep 5
-        fi
-        if [ $attempt -eq 3 ]; then
-            echo "[RESINKIT] Error: Failed to download MinIO binary after 3 attempts"
+        # Make binary executable
+        chmod +x /opt/minio/bin/minio
+
+        # Verify binary
+        if ! /opt/minio/bin/minio --version >/dev/null 2>&1; then
+            echo "[RESINKIT] Error: MinIO binary verification failed"
             return 1
         fi
-    done
 
-    # Make binary executable
-    chmod +x /opt/minio/bin/minio
-
-    # Verify binary
-    if ! /opt/minio/bin/minio --version >/dev/null 2>&1; then
-        echo "[RESINKIT] Error: MinIO binary verification failed"
-        return 1
+        echo "[RESINKIT] MinIO binary installed and verified"
     fi
 
-    echo "[RESINKIT] MinIO binary installed and verified"
+    # Download MinIO Client (mc) for administration if not already installed
+    if [ ! -f "/opt/minio/bin/mc" ]; then
+        echo "[RESINKIT] Downloading MinIO Client (mc)..."
+        MC_BINARY_URL="https://dl.min.io/client/mc/release/linux-${ARCH}/mc"
 
-    # Download MinIO Client (mc) for administration
-    echo "[RESINKIT] Downloading MinIO Client (mc)..."
-    MC_BINARY_URL="https://dl.min.io/client/mc/release/linux-${ARCH}/mc"
+        for attempt in 1 2 3; do
+            if wget -q --show-progress "$MC_BINARY_URL" -O /opt/minio/bin/mc; then
+                echo "[RESINKIT] MinIO Client downloaded successfully"
+                break
+            else
+                echo "[RESINKIT] Attempt $attempt failed, retrying..."
+                sleep 5
+            fi
+            if [ $attempt -eq 3 ]; then
+                echo "[RESINKIT] Warning: Failed to download MinIO Client after 3 attempts"
+                # Continue without mc as it's not critical
+                break
+            fi
+        done
 
-    for attempt in 1 2 3; do
-        if wget -q --show-progress "$MC_BINARY_URL" -O /opt/minio/bin/mc; then
-            echo "[RESINKIT] MinIO Client downloaded successfully"
-            break
-        else
-            echo "[RESINKIT] Attempt $attempt failed, retrying..."
-            sleep 5
+        if [ -f /opt/minio/bin/mc ]; then
+            chmod +x /opt/minio/bin/mc
+            echo "[RESINKIT] MinIO Client installed"
         fi
-        if [ $attempt -eq 3 ]; then
-            echo "[RESINKIT] Warning: Failed to download MinIO Client after 3 attempts"
-            # Continue without mc as it's not critical
-            break
-        fi
-    done
-
-    if [ -f /opt/minio/bin/mc ]; then
-        chmod +x /opt/minio/bin/mc
-        echo "[RESINKIT] MinIO Client installed"
     fi
 
     # Set ownership
