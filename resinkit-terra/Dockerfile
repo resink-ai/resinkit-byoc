@@ -3,8 +3,7 @@ FROM ubuntu:latest
 
 # Install dependencies (assuming this part is okay)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
 RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
 
