@@ -26,7 +26,7 @@ function debian_install_mariadb() {
     apt-get install -y mariadb-server mariadb-client
 
     # Start MariaDB service - check for available service management tools
-    if command -v systemctl >/dev/null 2>&1; then
+    if ls -la /run/systemd/system/ >/dev/null 2>&1; then
         echo "[RESINKIT] Using systemctl to manage MariaDB service..."
         systemctl start mariadb
         systemctl enable mariadb
@@ -76,7 +76,7 @@ sync_binlog=1
 EOF
 
     # Restart MariaDB to apply configuration
-    if command -v systemctl >/dev/null 2>&1; then
+    if ls -la /run/systemd/system/ >/dev/null 2>&1; then
         echo "[RESINKIT] Restarting MariaDB using systemctl..."
         systemctl restart mariadb
     elif command -v service >/dev/null 2>&1; then
@@ -143,7 +143,7 @@ EOF
     fi
 
     # Show MariaDB status
-    if command -v systemctl >/dev/null 2>&1; then
+    if ls -la /run/systemd/system/ >/dev/null 2>&1; then
         systemctl status mariadb --no-pager
     elif command -v service >/dev/null 2>&1; then
         service mariadb status
@@ -264,7 +264,7 @@ MINIO_OPTS="--console-address :$MINIO_CONSOLE_PORT --address :$MINIO_API_PORT"
 EOF
 
     # Create systemd service file
-    if command -v systemctl >/dev/null 2>&1; then
+    if ls -la /run/systemd/system/ >/dev/null 2>&1; then
         echo "[RESINKIT] Creating MinIO systemd service..."
         cat >/etc/systemd/system/minio.service <<EOF
 [Unit]
