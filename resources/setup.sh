@@ -60,6 +60,9 @@ else
 fi
 
 # Parse command and execute corresponding function
+echo "================================================"
+echo "Running command: $cmd"
+echo "================================================"
 case $cmd in
 "debian_install_common_packages")
     debian_install_common_packages

@@ -4,8 +4,7 @@
 # - intsall git vim curl wget
 # - install zsh oh-my-zsh
 
-apt-get update
-apt-get install -y git vim curl wget zsh
+apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git vim curl wget zsh ca-certificates
 
 # install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"

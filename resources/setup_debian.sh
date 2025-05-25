@@ -190,15 +190,16 @@ function debian_install_kafka() {
 
 function debian_install_flink_jars() {
     # Check if Flink jars are already installed
-    if [ -d "/opt/flink-cdc-3.2.1" ] && [ -f "/opt/setup/.flink_jars_installed" ]; then
+    if [ -d "$FLINK_CDC_HOME" ] && [ -f "/opt/setup/.flink_jars_installed" ]; then
         echo "[RESINKIT] Flink jars already installed, skipping"
         return 0
     fi
 
     # Download and extract Flink CDC if not already done
-    if [ ! -d "/opt/flink-cdc-3.2.1" ]; then
+    if [ ! -d "$FLINK_CDC_HOME" ]; then
         wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz &&
             tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ &&
+            mv /opt/flink-cdc-3.2.1 "$FLINK_CDC_HOME" &&
             rm /tmp/flink-cdc-3.2.1-bin.tar.gz
     else
         echo "[RESINKIT] Flink CDC directory already exists, skipping extraction"
@@ -211,10 +212,10 @@ function debian_install_flink_jars() {
     )
 
     # Copy all required JAR files for Flink CDC connectors
-    mkdir -p /opt/flink-cdc-3.2.1/lib/ /opt/flink/lib/ /opt/flink/cdc/
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar" /opt/flink-cdc-3.2.1/lib/
+    mkdir -p "$FLINK_CDC_HOME/lib/" /opt/flink/lib/ /opt/flink/cdc/
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
+    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
     cp -v "$ROOT_DIR/resources/flink/lib/mysql-connector-java-8.0.27.jar" /opt/flink/lib/
     cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-1.19-0.9.0.jar" /opt/flink/lib/
     cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar" /opt/flink/lib/
@@ -239,16 +240,8 @@ function debian_install_resinkit() {
     fi
 
     if [ -d "$RESINKIT_API_PATH" ]; then
-        echo "[RESINKIT] Resinkit API directory ($RESINKIT_API_PATH) already exists, skipping"
-        return 0
-    fi
-
-    echo "[RESINKIT] Installing resinkit..."
-
-    # Verify that the api directory exists in the repo
-    if [ ! -d "$ROOT_DIR/api" ]; then
-        echo "[RESINKIT] Error: API directory not found at $ROOT_DIR/api"
-        return 1
+        echo "[RESINKIT] Resinkit API directory ($RESINKIT_API_PATH) already, first remove it"
+        rm -rf "$RESINKIT_API_PATH"
     fi
 
     # Create virtual environment if it doesn't exist
@@ -258,7 +251,11 @@ function debian_install_resinkit() {
     fi
 
     # Install dependencies
+    echo "[RESINKIT] Installing resinkit..."
     $RESINKIT_API_VENV_DIR/bin/pip install uvicorn resinkit-api-python -U
+
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_VENV_DIR"
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_PATH"
 
     # Create marker file
     mkdir -p /opt/setup

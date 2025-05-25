@@ -17,6 +17,7 @@ fi
 # if venv exists, start the service
 if [ -f "${RESINKIT_API_VENV_DIR}/bin/activate" ]; then
     echo "[RESINKIT] Resinkit API venv found at ${RESINKIT_API_VENV_DIR}, starting service..."
+    mkdir -p "$(dirname "$RESINKIT_API_LOG_FILE")"
     source "${RESINKIT_API_VENV_DIR}/bin/activate"
     nohup uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 else
