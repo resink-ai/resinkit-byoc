@@ -27,7 +27,7 @@ setup_vars() {
     # Set default paths if not already set
     export FLINK_HOME=${FLINK_HOME:-/opt/flink}
     export RESINKIT_API_PATH=${RESINKIT_API_PATH:-/opt/resinkit/api}
-    export RESINKIT_ENTRYPOINT_SH=${RESINKIT_ENTRYPOINT_SH:-/opt/resinkit/entrypoint.sh}
+    export RESINKIT_ENTRYPOINT_SH=${RESINKIT_ENTRYPOINT_SH:-/opt/resinkit/resources/entrypoint.sh}
     export RESINKIT_API_VENV_DIR=${RESINKIT_API_VENV_DIR:-/opt/resinkit/api/.venv}
     export RESINKIT_API_LOG_FILE=${RESINKIT_API_LOG_FILE:-/opt/resinkit/logs/resinkit_api.log}
     export RESINKIT_API_SERVICE_PORT=${RESINKIT_API_SERVICE_PORT:-8602}
