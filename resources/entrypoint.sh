@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 # Ensure required environment variables are set
-if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_API_PATH}" ]; then
+if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_API_VENV_DIR}" ]; then
     # shellcheck disable=SC1091
     . /etc/environment
 fi
@@ -14,9 +14,15 @@ fi
 "${FLINK_HOME}/bin/start-cluster.sh"
 "${FLINK_HOME}/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
 
-# Start Resinkit API, using gunicorn
-echo "starting resinkit at: ${RESINKIT_API_PATH}"
-cd "$RESINKIT_API_PATH" && ./scripts/install.sh
+# if venv exists, start the service
+if [ -f "${RESINKIT_API_VENV_DIR}/bin/activate" ]; then
+    echo "[RESINKIT] Resinkit API venv found at ${RESINKIT_API_VENV_DIR}, starting service..."
+    source "${RESINKIT_API_VENV_DIR}/bin/activate"
+    nohup uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+else
+    echo "[RESINKIT] Resinkit API venv not found at ${RESINKIT_API_VENV_DIR}, starting service..."
+    exit 1
+fi
 
 echo "----------------------------------------"
 echo "Resinkit API started"

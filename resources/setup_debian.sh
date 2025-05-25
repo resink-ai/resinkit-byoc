@@ -188,7 +188,6 @@ function debian_install_kafka() {
     touch /opt/setup/.kafka_installed
 }
 
-
 function debian_install_flink_jars() {
     # Check if Flink jars are already installed
     if [ -d "/opt/flink-cdc-3.2.1" ] && [ -f "/opt/setup/.flink_jars_installed" ]; then
@@ -252,11 +251,14 @@ function debian_install_resinkit() {
         return 1
     fi
 
-    # Copy api/ to resinkit api path
-    mkdir -p "$(dirname "$RESINKIT_API_PATH")"
-    rm -rf "$RESINKIT_API_PATH"
-    cp -rv "$ROOT_DIR/api" "$RESINKIT_API_PATH"
-    echo "[RESINKIT] Resinkit API copied"
+    # Create virtual environment if it doesn't exist
+    if [[ ! -f "$RESINKIT_API_VENV_DIR/bin/activate" ]]; then
+        echo "[RESINKIT] Creating virtual environment..."
+        python3 -m venv "$RESINKIT_API_VENV_DIR"
+    fi
+
+    # Install dependencies
+    $RESINKIT_API_VENV_DIR/bin/pip install uvicorn resinkit-api-python -U
 
     # Create marker file
     mkdir -p /opt/setup
