@@ -244,17 +244,10 @@ function debian_install_resinkit() {
         rm -rf "$RESINKIT_API_PATH"
     fi
 
-    # Create virtual environment if it doesn't exist
-    if [[ ! -f "$RESINKIT_API_VENV_DIR/bin/activate" ]]; then
-        echo "[RESINKIT] Creating virtual environment..."
-        python3 -m venv "$RESINKIT_API_VENV_DIR"
-    fi
-
-    # Install dependencies
-    echo "[RESINKIT] Installing resinkit..."
-    $RESINKIT_API_VENV_DIR/bin/pip install uvicorn resinkit-api-python -U
-
-    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_VENV_DIR"
+    # copy resinkit-api to RESINKIT_API_PATH
+    cp -rv "$ROOT_DIR/resources/resinkit-api" "$RESINKIT_API_PATH"
+    echo "[RESINKIT] Resinkit API copied to $RESINKIT_API_PATH"
+    
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_PATH"
 
     # Create marker file
