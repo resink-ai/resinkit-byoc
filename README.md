@@ -33,3 +33,12 @@ cd resinkit-byoc
 make install
 make run_byoc
 ```
+
+## Developement Guide
+
+### Publish new docker image
+
+```shell
+release_tag=release-1.19.alpha20250504
+git tag $release_tag && git push origin $release_tag -f
+```

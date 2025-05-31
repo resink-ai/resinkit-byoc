@@ -41,6 +41,9 @@ setup_vars() {
     # Kafka home path
     export KAFKA_HOME=${KAFKA_HOME:-/opt/kafka}
 
+    # MariaDB(MySQL) variables
+    export MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-resinkit123}
+
     # MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
     export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
@@ -83,6 +86,7 @@ setup_vars() {
             echo "MINIO_CONFIG_DIR=$MINIO_CONFIG_DIR"
             echo "MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT"
             echo "MINIO_API_PORT=$MINIO_API_PORT"
+            echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"
     fi

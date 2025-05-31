@@ -94,6 +94,7 @@ FLINK_SQL_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.19/flink-sql-connector-kafka-3.3.0-1.19.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-mongodb/1.2.0-1.19/flink-sql-connector-mongodb-1.2.0-1.19.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-opensearch/1.2.0-1.19/flink-sql-connector-opensearch-1.2.0-1.19.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-hadoop/1.19.2/flink-s3-fs-hadoop-1.19.2.jar
 )
 
 # https://github.com/apache/flink-cdc/releases/tag/release-3.2.1

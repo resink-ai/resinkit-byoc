@@ -19,6 +19,7 @@ SCRIPT_DIR=$ROOT_DIR/resources
 source "${SCRIPT_DIR}/setup_vars.sh"
 source "${SCRIPT_DIR}/setup_common.sh"
 source "${SCRIPT_DIR}/setup_debian.sh"
+source "${SCRIPT_DIR}/setup_debian_additional.sh"
 
 # Initialize variables
 setup_vars
@@ -91,8 +92,18 @@ case $cmd in
 "debian_install_admin_tools")
     debian_install_admin_tools
     ;;
+"debian_install_mariadb")
+    debian_install_mariadb
+    ;;
+"debian_install_minio")
+    debian_install_minio
+    ;;
 "debian_install_all")
     debian_install_all
+    ;;
+"debian_install_additional")
+    debian_install_mariadb
+    debian_install_minio
     ;;
 "run_entrypoint")
     run_entrypoint
