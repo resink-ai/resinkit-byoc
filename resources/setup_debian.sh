@@ -211,15 +211,10 @@ function debian_install_flink_jars() {
         bash download.sh
     )
 
-    # Copy all required JAR files for Flink CDC connectors
-    mkdir -p "$FLINK_CDC_HOME/lib/" /opt/flink/lib/ /opt/flink/cdc/
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-mysql-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-kafka-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-cdc-pipeline-connector-doris-3.2.1.jar" "$FLINK_CDC_HOME/lib/"
-    cp -v "$ROOT_DIR/resources/flink/lib/mysql-connector-java-8.0.27.jar" /opt/flink/lib/
-    cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-1.19-0.9.0.jar" /opt/flink/lib/
-    cp -v "$ROOT_DIR/resources/flink/lib/paimon-flink-action-0.9.0.jar" /opt/flink/lib/
-    cp -v "$ROOT_DIR/resources/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar" /opt/flink/lib/
+    # Flink CDC JARs
+    cp -v $ROOT_DIR/resources/flink/lib/cdc/*.jar "$FLINK_CDC_HOME/lib/" || true
+    # Flink JARs
+    cp -v $ROOT_DIR/resources/flink/lib/*.jar "$FLINK_HOME/lib/" || true
 
     # Copy configuration files
     mkdir -p /opt/flink/conf/ /opt/flink/cdc/
@@ -247,7 +242,7 @@ function debian_install_resinkit() {
     # copy resinkit-api to RESINKIT_API_PATH
     cp -rv "$ROOT_DIR/resources/resinkit-api" "$RESINKIT_API_PATH"
     echo "[RESINKIT] Resinkit API copied to $RESINKIT_API_PATH"
-    
+
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_PATH"
 
     # Create marker file

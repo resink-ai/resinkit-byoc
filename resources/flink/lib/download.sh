@@ -54,6 +54,9 @@ download_and_extract() {
         echo "Failed to extract $filename"
         return 1
     fi
+
+    # Return the full path of the extracted file
+    echo "$(readlink -f "$filename")"
 }
 
 # See: https://flink.apache.org/downloads/
@@ -154,16 +157,6 @@ function download_all {
         download_and_extract "$url"
     done
 
-    echo "Downloading flink pipeline connectors"
-    for url in "${FLINK_CDC_PIPELINE_CONNECTOR_3_2_1[@]}"; do
-        download_and_extract "$url"
-    done
-
-    echo "Downloading flink-cdc connectors"
-    for url in "${FLINK_SQL_CONNECTOR_CDC_3_2_1[@]}"; do
-        download_and_extract "$url"
-    done
-
     echo "Downloading misc drivers"
     for url in "${FLINK_JDBC_SQL_CONNECTORS[@]}"; do
         download_and_extract "$url"
@@ -173,6 +166,20 @@ function download_all {
     for url in "${PAIMON_JARS[@]}"; do
         download_and_extract "$url"
     done
+
+    mkdir -p cdc
+    (
+        cd cdc
+        echo "Downloading flink pipeline connectors"
+        for url in "${FLINK_CDC_PIPELINE_CONNECTOR_3_2_1[@]}"; do
+            download_and_extract "$url"
+        done
+
+        echo "Downloading flink-cdc connectors"
+        for url in "${FLINK_SQL_CONNECTOR_CDC_3_2_1[@]}"; do
+            download_and_extract "$url"
+        done
+    )
 
     echo "All downloads and extractions completed"
 }
