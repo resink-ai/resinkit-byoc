@@ -16,13 +16,13 @@ EOF
     kcat -C -b localhost:9092 -t topic_test_transactions -p 0 -e
     echo "================================================"
     echo " Inspecting kafka topics"
-    kafka-topics --bootstrap-server localhost:9092 --list
+    kcat -L -b localhost:9092
     echo "================================================"
     echo " Inspecting kafka topic topic_test_transactions"
-    kafka-topics --bootstrap-server localhost:9092 --describe --topic topic_test_transactions
+    kafka-topics.sh --bootstrap-server localhost:9092 --describe
     echo "================================================"
-    echo " Inspecting kafka topic topic_test_transactions"
-    kafka-topics --bootstrap-server localhost:9092 --describe --topic topic_test_transactions
+    echo " Inspecting kafka consumer groups"
+    kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
 }
 
 function inspect_flink() {

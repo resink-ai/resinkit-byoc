@@ -9,44 +9,54 @@
 source "$ROOT_DIR/resources/setup_vars.sh"
 source "$ROOT_DIR/resources/setup_common.sh"
 
-function debian_mariadb_change_root_password() {
-    if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
-        echo "[RESINKIT] Error: MYSQL_ROOT_PASSWORD is not set"
+function debian_mariadb_add_user_resinkit() {
+    if [ -z "$MYSQL_RESINKIT_PASSWORD" ]; then
+        echo "[RESINKIT] Error: MYSQL_RESINKIT_PASSWORD is not set"
         return 1
     fi
 
-    # Use mysql to set the root password
+    # Use mysql to create the resinkit user
     mysql -u root <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
-DELETE FROM mysql.user WHERE User='';
-DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-DROP DATABASE IF EXISTS test;
-DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+CREATE USER IF NOT EXISTS 'resinkit'@'localhost' IDENTIFIED BY '$MYSQL_RESINKIT_PASSWORD';
+CREATE USER IF NOT EXISTS 'resinkit'@'%' IDENTIFIED BY '$MYSQL_RESINKIT_PASSWORD';
+GRANT ALL PRIVILEGES ON *.* TO 'resinkit'@'localhost' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON *.* TO 'resinkit'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-    # Create .my.cnf for root user to avoid password prompts
-    cat >/root/.my.cnf <<EOF
-[client]
-user=root
-password=$MYSQL_ROOT_PASSWORD
-EOF
-    chmod 600 /root/.my.cnf
+    echo "[RESINKIT] ✅ MariaDB user 'resinkit' has been created"
+}
 
-    # Create /etc/mysql/debian.cnf for Debian maintenance scripts
-    cat >/etc/mysql/debian.cnf <<EOF
-[client]
-host     = localhost
-user     = root
-password = $MYSQL_ROOT_PASSWORD
-[mysql_upgrade]
-host     = localhost
-user     = root
-password = $MYSQL_ROOT_PASSWORD
-EOF
-    chmod 600 /etc/mysql/debian.cnf
+function debian_mariadb_create_flink_database() {
+    if [ -z "$MYSQL_RESINKIT_PASSWORD" ]; then
+        echo "[RESINKIT] Error: MYSQL_RESINKIT_PASSWORD is not set"
+        return 1
+    fi
 
-    echo "[RESINKIT] ✅ MariaDB root password has been set"
+    # Use mysql to create the flink database
+    mysql -u root <<EOF
+CREATE DATABASE IF NOT EXISTS flink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON flink.* TO 'resinkit'@'localhost';
+GRANT ALL PRIVILEGES ON flink.* TO 'resinkit'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+    # Create .my.cnf for resinkit user with flink as default database
+    if [ ! -d "/home/resinkit" ]; then
+        mkdir -p /home/resinkit
+        chown resinkit:resinkit /home/resinkit 2>/dev/null || true
+    fi
+
+    cat >/home/resinkit/.my.cnf <<EOF
+[client]
+user=resinkit
+password=$MYSQL_RESINKIT_PASSWORD
+database=flink
+EOF
+    chmod 600 /home/resinkit/.my.cnf
+    chown resinkit:resinkit /home/resinkit/.my.cnf 2>/dev/null || true
+
+    echo "[RESINKIT] ✅ MariaDB database 'flink' has been created and set as default for resinkit user"
 }
 
 function debian_install_mariadb() {
@@ -131,9 +141,10 @@ EOF
     echo "[RESINKIT] Waiting for MariaDB to restart with new configuration..."
     sleep 5
 
-    # Set root password if MYSQL_ROOT_PASSWORD is provided
-    if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
-        debian_mariadb_change_root_password
+    # Set root password if MYSQL_RESINKIT_PASSWORD is provided
+    if [ -n "$MYSQL_RESINKIT_PASSWORD" ]; then
+        debian_mariadb_add_user_resinkit
+        debian_mariadb_create_flink_database
     fi
 
     # Verify MariaDB installation and binlog status
