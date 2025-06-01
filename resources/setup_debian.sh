@@ -91,7 +91,9 @@ function debian_install_flink() {
     export FLINK_ASC_URL=https://downloads.apache.org/flink/flink-1.19.1/flink-1.19.1-bin-scala_2.12.tgz.asc
     export GPG_KEY=6378E37EB3AAEA188B9CB0D396C2914BB78A5EA1
     export CHECK_GPG=true
-    export FLINK_HOME=/opt/flink
+    export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
+    export RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME:-/home/resinkit}
+    export FLINK_HOME=${FLINK_HOME:-/opt/flink}
     export PATH=$FLINK_HOME/bin:$PATH
     mkdir -p $FLINK_HOME
 
@@ -100,7 +102,7 @@ function debian_install_flink() {
     fi
 
     if ! getent passwd $RESINKIT_ROLE >/dev/null; then
-        useradd --system --home-dir "$FLINK_HOME" --uid=9999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
+        useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=9999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
     fi
     cd "$FLINK_HOME" || exit 1
 

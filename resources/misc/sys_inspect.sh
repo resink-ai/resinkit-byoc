@@ -39,13 +39,13 @@ function inspect_flink() {
 }
 
 function inspect_minio() {
-    MINIO_MC_BIN="/opt/minio/bin/mc"
-    MINIO_ENDPOINT="http://127.0.0.1:9000"
-    MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-admin}"
-    MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minio123}"
+    export MINIO_MC_BIN=${MINIO_MC_BIN:-/opt/minio/bin/mc}
+    export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:9000}
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     echo "================================================"
     echo "Minio:"
-    "$MINIO_MC_BIN" alias set localminio "$MINIO_ENDPOINT" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+    "$MINIO_MC_BIN" alias set localminio "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
     echo "================================================"
     echo "Minio Buckets:"
     "$MINIO_MC_BIN" ls localminio

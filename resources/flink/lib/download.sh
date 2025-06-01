@@ -134,10 +134,14 @@ FLINK_SQL_CONNECTOR_CDC_3_2_1=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-vitess-cdc/3.2.1/flink-sql-connector-vitess-cdc-3.2.1.jar
 )
 
+# PAIMON 1.1.1
 PAIMON_JARS=(
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-1.19/0.9.0/paimon-flink-1.19-0.9.0.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/0.9.0/paimon-flink-action-0.9.0.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-1.19/1.1.1/paimon-flink-1.19-1.1.1.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/1.1.1/paimon-flink-action-1.1.1.jar
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
+    https://repository.apache.org/content/groups/snapshots/org/apache/paimon/paimon-s3/1.1-SNAPSHOT/paimon-s3-1.1-20250414.003033-115.jar
+    https://repository.apache.org/content/groups/snapshots/org/apache/paimon/paimon-azure/1.1-SNAPSHOT/paimon-azure-1.1-20250413.005414-11.jar
+    https://repository.apache.org/content/groups/snapshots/org/apache/paimon/paimon-gs/1.1-SNAPSHOT/paimon-gs-1.1-20250414.003033-17.jar
 )
 
 # https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/connectors/table/jdbc/#dependencies

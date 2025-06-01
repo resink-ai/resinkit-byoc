@@ -2,7 +2,7 @@
 FROM ubuntu:latest
 
 # Install dependencies (assuming this part is okay)
-RUN apt-get update && \
+RUN apt-get update &&
     apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
 RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
@@ -10,6 +10,8 @@ RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.g
 # Change working directory
 WORKDIR /root/resinkit-byoc
 RUN make install
+
+# TODO: allow customizing the variables
 
 # Expose necessary ports
 # ResinKit
@@ -21,13 +23,12 @@ EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
 
-
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
 ENTRYPOINT [ "/root/resinkit-byoc/resources/setup.sh" ]
 CMD [ "run_entrypoint", "-f" ]
 
-# docker stop resinkit 
+# docker stop resinkit
 # docker rm resinkit
 # docker buildx build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile .
 ## docker build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile --build-arg RESINKIT_JAR=app/target/resinkit-0.0.1-SNAPSHOT.jar .

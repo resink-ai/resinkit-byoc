@@ -42,19 +42,19 @@ FLUSH PRIVILEGES;
 EOF
 
     # Create .my.cnf for resinkit user with flink as default database
-    if [ ! -d "/home/resinkit" ]; then
-        mkdir -p /home/resinkit
-        chown resinkit:resinkit /home/resinkit 2>/dev/null || true
+    if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
+        mkdir -p "$RESINKIT_ROLE_HOME"
+        chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME" 2>/dev/null || true
     fi
 
-    cat >/home/resinkit/.my.cnf <<EOF
+    cat >"$RESINKIT_ROLE_HOME/.my.cnf" <<EOF
 [client]
 user=resinkit
 password=$MYSQL_RESINKIT_PASSWORD
 database=flink
 EOF
-    chmod 600 /home/resinkit/.my.cnf
-    chown resinkit:resinkit /home/resinkit/.my.cnf 2>/dev/null || true
+    chmod 600 "$RESINKIT_ROLE_HOME/.my.cnf" # RESINKIT_ROLE_HOME=/home/resinkit
+    chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME/.my.cnf" 2>/dev/null || true
 
     echo "[RESINKIT] ✅ MariaDB database 'flink' has been created and set as default for resinkit user"
 }
@@ -170,6 +170,77 @@ EOF
     touch /opt/setup/.mariadb_installed
 
     echo "[RESINKIT] ✅ MariaDB installation completed successfully"
+}
+
+function debian_setup_resinkit_minio_buckets() {
+    echo "[RESINKIT] Setting up MinIO bucket structure for resinkit..."
+
+    # Set MinIO configuration from environment or defaults
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
+    export MINIO_API_PORT=${MINIO_API_PORT:-9000}
+    export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:$MINIO_API_PORT}
+
+    MINIO_MC_BIN="/opt/minio/bin/mc"
+
+    # Check if MinIO client is available
+    if [ ! -f "$MINIO_MC_BIN" ]; then
+        echo "[RESINKIT] Error: MinIO client not found at $MINIO_MC_BIN"
+        return 1
+    fi
+
+    # Wait for MinIO to be ready
+    echo "[RESINKIT] Waiting for MinIO to be ready..."
+    for i in {1..30}; do
+        if curl -s "$MINIO_ENDPOINT/minio/health/ready" >/dev/null 2>&1; then
+            echo "[RESINKIT] MinIO is ready"
+            break
+        fi
+        echo "[RESINKIT] Waiting for MinIO... ($i/30)"
+        sleep 2
+    done
+
+    # Configure MinIO client alias for resinkit setup
+    echo "[RESINKIT] Configuring MinIO client alias..."
+    sudo -u minio "$MINIO_MC_BIN" alias set resinkit-setup "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null || {
+        echo "[RESINKIT] Error: Failed to configure MinIO client alias"
+        return 1
+    }
+
+    # Create resinkit bucket
+    echo "[RESINKIT] Creating bucket 'resinkit'..."
+    if sudo -u minio "$MINIO_MC_BIN" mb resinkit-setup/resinkit 2>/dev/null; then
+        echo "[RESINKIT] ✅ Bucket 'resinkit' created successfully"
+    elif sudo -u minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit >/dev/null 2>&1; then
+        echo "[RESINKIT] ✅ Bucket 'resinkit' already exists"
+    else
+        echo "[RESINKIT] ❌ Failed to create bucket 'resinkit'"
+        return 1
+    fi
+
+    # Create flink folder structure by creating a .keep file
+    echo "[RESINKIT] Creating folder 'flink' in bucket 'resinkit'..."
+    if echo "" | sudo -u minio "$MINIO_MC_BIN" pipe resinkit-setup/resinkit/flink/.keep 2>/dev/null; then
+        echo "[RESINKIT] ✅ Folder 'flink' created successfully"
+    else
+        echo "[RESINKIT] ❌ Failed to create folder 'flink'"
+        return 1
+    fi
+
+    # Verify the structure
+    echo "[RESINKIT] Verifying bucket structure..."
+    if sudo -u minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit 2>/dev/null | grep -q "flink/"; then
+        echo "[RESINKIT] ✅ Bucket structure verified successfully"
+        echo "[RESINKIT] ✅ Path s3a://resinkit/flink is now accessible"
+    else
+        echo "[RESINKIT] ❌ Failed to verify bucket structure"
+        return 1
+    fi
+
+    # Clean up the temporary alias
+    sudo -u minio "$MINIO_MC_BIN" alias remove resinkit-setup 2>/dev/null || true
+
+    echo "[RESINKIT] ✅ MinIO bucket structure setup completed successfully"
 }
 
 function debian_install_minio() {
@@ -464,6 +535,9 @@ EOF
     echo "[RESINKIT] Root User: $MINIO_ROOT_USER"
     echo "[RESINKIT] Root Password: $MINIO_ROOT_PASSWORD"
     echo "[RESINKIT] Data Directory: $MINIO_DATA_DIR"
+
+    # Set up resinkit bucket structure
+    debian_setup_resinkit_minio_buckets
 
     # Create marker file
     mkdir -p /opt/setup

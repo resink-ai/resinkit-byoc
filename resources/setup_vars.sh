@@ -23,6 +23,7 @@ setup_vars() {
 
     # Set default paths if not already set
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
+    export RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME:-/home/resinkit}
     export FLINK_HOME=${FLINK_HOME:-/opt/flink}
     export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}
     export RESINKIT_API_PATH=${RESINKIT_API_PATH:-/opt/resinkit/api}
@@ -42,7 +43,7 @@ setup_vars() {
     export KAFKA_HOME=${KAFKA_HOME:-/opt/kafka}
 
     # MariaDB(MySQL) variables
-    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-resinkit123}
+    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-inspect_mariadb}
 
     # MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
@@ -69,6 +70,7 @@ setup_vars() {
         {
             echo ""
             echo "RESINKIT_ROLE=$RESINKIT_ROLE"
+            echo "RESINKIT_ROLE_HOME=$RESINKIT_ROLE_HOME"
             echo "ARCH=$ARCH"
             echo "FLINK_HOME=$FLINK_HOME"
             echo "JAVA_HOME=$JAVA_HOME"
