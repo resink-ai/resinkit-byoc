@@ -2,8 +2,7 @@
 FROM ubuntu:latest
 
 # Install dependencies (assuming this part is okay)
-RUN apt-get update &&
-    apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
 RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
 
@@ -22,6 +21,10 @@ EXPOSE 9092
 EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
+# MinIO
+EXPOSE 9000
+# MariaDB
+EXPOSE 3306
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]

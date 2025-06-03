@@ -1,7 +1,16 @@
 #!/bin/bash
-# shellcheck disable=SC1091
+# shellcheck disable=SC1091,SC2046
 
-set -eox pipefail
+set -eo pipefail
+
+# --- Start of logging setup ---
+# Get current date in YYYY-MM-DD format
+CURRENT_DATE=$(date +%F)
+LOG_FILE="/var/log/setup_${CURRENT_DATE}.log"
+mkdir -p $(dirname "$LOG_FILE")
+exec > >(tee -a "$LOG_FILE")
+exec 2>&1
+# --- End of logging setup ---
 
 # Find the root directory
 if git rev-parse --show-toplevel >/dev/null 2>&1; then

@@ -52,6 +52,7 @@ setup_vars() {
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
     export MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT:-9001}
     export MINIO_API_PORT=${MINIO_API_PORT:-9000}
+    export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:$MINIO_API_PORT}
 
     # setup .env.byoc in RESINKIT_API_PATH
     if [ -f "$RESINKIT_API_PATH/.env.byoc" ]; then
@@ -88,6 +89,7 @@ setup_vars() {
             echo "MINIO_CONFIG_DIR=$MINIO_CONFIG_DIR"
             echo "MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT"
             echo "MINIO_API_PORT=$MINIO_API_PORT"
+            echo "MINIO_ENDPOINT=$MINIO_ENDPOINT"
             echo "MYSQL_RESINKIT_PASSWORD=$MYSQL_RESINKIT_PASSWORD"
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"

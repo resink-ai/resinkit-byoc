@@ -101,7 +101,12 @@ function debian_install_flink() {
         groupadd --system --gid=9999 "$RESINKIT_ROLE"
     fi
 
+    echo "[RESINKIT] Creating user $RESINKIT_ROLE with home directory $RESINKIT_ROLE_HOME"
     if ! getent passwd $RESINKIT_ROLE >/dev/null; then
+        if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
+            mkdir -p "$RESINKIT_ROLE_HOME"
+            chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME" 2>/dev/null || true
+        fi
         useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=9999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
     fi
     cd "$FLINK_HOME" || exit 1

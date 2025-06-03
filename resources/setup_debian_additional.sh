@@ -193,7 +193,7 @@ function debian_setup_resinkit_minio_buckets() {
     echo "[RESINKIT] Waiting for MinIO to be ready..."
     for i in {1..30}; do
         if curl -s "$MINIO_ENDPOINT/minio/health/ready" >/dev/null 2>&1; then
-            echo "[RESINKIT] MinIO is ready"
+            echo "[RESINKIT] ✅ MinIO is ready"
             break
         fi
         echo "[RESINKIT] Waiting for MinIO... ($i/30)"
@@ -202,16 +202,16 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Configure MinIO client alias for resinkit setup
     echo "[RESINKIT] Configuring MinIO client alias..."
-    sudo -u minio "$MINIO_MC_BIN" alias set resinkit-setup "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null || {
+    gosu minio "$MINIO_MC_BIN" alias set resinkit-setup "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null || {
         echo "[RESINKIT] Error: Failed to configure MinIO client alias"
         return 1
     }
 
     # Create resinkit bucket
     echo "[RESINKIT] Creating bucket 'resinkit'..."
-    if sudo -u minio "$MINIO_MC_BIN" mb resinkit-setup/resinkit 2>/dev/null; then
+    if gosu minio "$MINIO_MC_BIN" mb resinkit-setup/resinkit 2>/dev/null; then
         echo "[RESINKIT] ✅ Bucket 'resinkit' created successfully"
-    elif sudo -u minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit >/dev/null 2>&1; then
+    elif gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit >/dev/null 2>&1; then
         echo "[RESINKIT] ✅ Bucket 'resinkit' already exists"
     else
         echo "[RESINKIT] ❌ Failed to create bucket 'resinkit'"
@@ -220,7 +220,7 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Create flink folder structure by creating a .keep file
     echo "[RESINKIT] Creating folder 'flink' in bucket 'resinkit'..."
-    if echo "" | sudo -u minio "$MINIO_MC_BIN" pipe resinkit-setup/resinkit/flink/.keep 2>/dev/null; then
+    if echo "" | gosu minio "$MINIO_MC_BIN" pipe resinkit-setup/resinkit/flink/.keep 2>/dev/null; then
         echo "[RESINKIT] ✅ Folder 'flink' created successfully"
     else
         echo "[RESINKIT] ❌ Failed to create folder 'flink'"
@@ -229,7 +229,7 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Verify the structure
     echo "[RESINKIT] Verifying bucket structure..."
-    if sudo -u minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit 2>/dev/null | grep -q "flink/"; then
+    if gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit 2>/dev/null | grep -q "flink/"; then
         echo "[RESINKIT] ✅ Bucket structure verified successfully"
         echo "[RESINKIT] ✅ Path s3a://resinkit/flink is now accessible"
     else
@@ -238,7 +238,7 @@ function debian_setup_resinkit_minio_buckets() {
     fi
 
     # Clean up the temporary alias
-    sudo -u minio "$MINIO_MC_BIN" alias remove resinkit-setup 2>/dev/null || true
+    gosu minio "$MINIO_MC_BIN" alias remove resinkit-setup 2>/dev/null || true
 
     echo "[RESINKIT] ✅ MinIO bucket structure setup completed successfully"
 }
@@ -263,7 +263,7 @@ function debian_install_minio() {
     # Create MinIO user
     echo "[RESINKIT] Creating MinIO user..."
     if ! id -u minio >/dev/null 2>&1; then
-        useradd --system --no-create-home --shell /bin/false minio
+        useradd --system minio
         echo "[RESINKIT] MinIO user created"
     else
         echo "[RESINKIT] MinIO user already exists"
@@ -508,7 +508,7 @@ EOF
     else
         echo "[RESINKIT] Warning: Neither systemctl nor service command available"
         echo "[RESINKIT] MinIO installed but service not configured"
-        echo "[RESINKIT] You can start MinIO manually with: sudo -u minio /opt/minio/bin/minio server $MINIO_DATA_DIR"
+        echo "[RESINKIT] You can start MinIO manually with: gosu minio /opt/minio/bin/minio server $MINIO_DATA_DIR"
     fi
 
     # Configure MinIO client if available
@@ -518,7 +518,7 @@ EOF
         sleep 5
 
         # Configure mc as minio user
-        sudo -u minio /opt/minio/bin/mc alias set local http://localhost:$MINIO_API_PORT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD 2>/dev/null || true
+        gosu minio /opt/minio/bin/mc alias set local http://localhost:$MINIO_API_PORT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD 2>/dev/null || true
         echo "[RESINKIT] MinIO client configured"
     fi
 
@@ -542,4 +542,73 @@ EOF
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.minio_installed
+}
+
+function debian_remove_minio() {
+    echo "[RESINKIT] Removing MinIO server and configurations..."
+
+    # Stop MinIO service if running
+    if ls -la /run/systemd/system/ >/dev/null 2>&1; then
+        if systemctl is-active --quiet minio 2>/dev/null; then
+            echo "[RESINKIT] Stopping MinIO service..."
+            systemctl stop minio
+        fi
+        if systemctl is-enabled --quiet minio 2>/dev/null; then
+            echo "[RESINKIT] Disabling MinIO service..."
+            systemctl disable minio
+        fi
+        # Remove systemd service file
+        if [ -f "/etc/systemd/system/minio.service" ]; then
+            echo "[RESINKIT] Removing MinIO systemd service file..."
+            rm -f /etc/systemd/system/minio.service
+            systemctl daemon-reload
+        fi
+    elif command -v service >/dev/null 2>&1; then
+        if service minio status >/dev/null 2>&1; then
+            echo "[RESINKIT] Stopping MinIO service..."
+            service minio stop
+        fi
+        # Remove init script
+        if [ -f "/etc/init.d/minio" ]; then
+            echo "[RESINKIT] Removing MinIO init script..."
+            if command -v update-rc.d >/dev/null 2>&1; then
+                update-rc.d -f minio remove
+            elif command -v chkconfig >/dev/null 2>&1; then
+                chkconfig --del minio
+            fi
+            rm -f /etc/init.d/minio
+        fi
+    fi
+
+    # Remove MinIO directories and data
+    echo "[RESINKIT] Removing MinIO directories..."
+    rm -rf /opt/minio
+    rm -rf /var/log/minio
+
+    # Remove environment configuration
+    if [ -f "/etc/default/minio" ]; then
+        echo "[RESINKIT] Removing MinIO environment configuration..."
+        rm -f /etc/default/minio
+    fi
+
+    # Remove MinIO binaries from PATH in /etc/environment
+    if [ -f "/etc/environment" ] && grep -q "/opt/minio/bin" /etc/environment; then
+        echo "[RESINKIT] Removing MinIO binaries from PATH..."
+        sed -i '\|/opt/minio/bin|d' /etc/environment
+    fi
+
+    # Remove MinIO user
+    if id -u minio >/dev/null 2>&1; then
+        echo "[RESINKIT] Removing MinIO user..."
+        userdel minio 2>/dev/null || true
+    fi
+
+    # Remove marker file
+    if [ -f "/opt/setup/.minio_installed" ]; then
+        echo "[RESINKIT] Removing MinIO installation marker..."
+        rm -f /opt/setup/.minio_installed
+    fi
+
+    echo "[RESINKIT] ✅ MinIO has been completely removed"
+    echo "[RESINKIT] Note: If you had data in MinIO, you may want to backup before removal"
 }
