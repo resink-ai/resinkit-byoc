@@ -1,6 +1,9 @@
 CREATE DATABASE IF NOT EXISTS mydatabase;
 USE mydatabase;
 
+GRANT ALL PRIVILEGES ON mydatabase.* TO 'resinkit'@'%';
+FLUSH PRIVILEGES;
+
 -- MySQL doesn't support ENUM types as PostgreSQL does, so we'll define the ENUM directly in the tables
 
 -- CreateTable

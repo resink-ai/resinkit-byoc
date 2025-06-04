@@ -15,9 +15,9 @@ fake = Faker()
 # Database configuration
 DB_CONFIG = {
     "host": "localhost",
-    "user": "root",
-    "password": "rootpassword",
-    "database": "mydatabase",
+    "user": os.environ.get("MYSQL_RESINKIT_USER", "resinkit"),
+    "password": os.environ.get("MYSQL_RESINKIT_PASSWORD", "inspect_mariadb"),
+    "database": os.environ.get("MYSQL_RESINKIT_DATABASE", "mydatabase"),
     "port": int(os.environ.get("MYSQL_TCP_PORT", 3306)),
 }
 

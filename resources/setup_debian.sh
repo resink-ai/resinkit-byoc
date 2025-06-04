@@ -105,9 +105,17 @@ function debian_install_flink() {
     if ! getent passwd $RESINKIT_ROLE >/dev/null; then
         if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
             mkdir -p "$RESINKIT_ROLE_HOME"
-            chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME" 2>/dev/null || true
         fi
         useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=9999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
+        # Ensure proper ownership and permissions after user creation
+        chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME"
+        chmod 755 "$RESINKIT_ROLE_HOME"
+    else
+        # User exists, but ensure home directory has proper permissions
+        if [ -d "$RESINKIT_ROLE_HOME" ]; then
+            chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME"
+            chmod 755 "$RESINKIT_ROLE_HOME"
+        fi
     fi
     cd "$FLINK_HOME" || exit 1
 
@@ -244,6 +252,24 @@ function debian_install_resinkit() {
     if [ -d "$RESINKIT_API_PATH" ]; then
         echo "[RESINKIT] Resinkit API directory ($RESINKIT_API_PATH) already, first remove it"
         rm -rf "$RESINKIT_API_PATH"
+    fi
+
+    # Ensure resinkit user home directory exists and has proper permissions
+    if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
+        echo "[RESINKIT] Creating home directory for $RESINKIT_ROLE user"
+        mkdir -p "$RESINKIT_ROLE_HOME"
+    fi
+
+    # Ensure proper ownership and permissions for home directory
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME"
+    chmod 755 "$RESINKIT_ROLE_HOME"
+
+    # Ensure .local directory exists with proper permissions
+    if [ ! -d "$RESINKIT_ROLE_HOME/.local" ]; then
+        echo "[RESINKIT] Creating .local directory for $RESINKIT_ROLE user"
+        mkdir -p "$RESINKIT_ROLE_HOME/.local/bin"
+        chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME/.local"
+        chmod -R 755 "$RESINKIT_ROLE_HOME/.local"
     fi
 
     # copy resinkit-api to RESINKIT_API_PATH

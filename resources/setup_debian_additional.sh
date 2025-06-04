@@ -112,6 +112,7 @@ server-id=1
 binlog-format=ROW
 expire-logs-days=7
 max-binlog-size=100M
+default-time-zone = '+00:00'
 
 # Other useful settings
 bind-address=0.0.0.0
