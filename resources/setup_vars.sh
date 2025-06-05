@@ -43,7 +43,7 @@ setup_vars() {
     export KAFKA_HOME=${KAFKA_HOME:-/opt/kafka}
 
     # MariaDB(MySQL) variables
-    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-inspect_mariadb}
+    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-resinkit_inspect_password}
 
     # MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}

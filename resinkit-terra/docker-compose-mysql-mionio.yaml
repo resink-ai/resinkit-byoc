@@ -1,8 +1,15 @@
 services:
+  doris:
+    image: yagagagaga/doris-standalone
+    privileged: true
+    ports:
+      - "8030:8030"
+      - "8040:8040"
+      - "9030:9030"
   mysql:
     build:
-      context: .
-      dockerfile: Dockerfile.testmysql
+      context: ..
+      dockerfile: resinkit-shared/Dockerfile.testmysql
     environment:
       MYSQL_DATABASE: mydatabase
       MYSQL_RESINKIT_PASSWORD: resinkit_inspect_password
@@ -15,10 +22,10 @@ services:
 
   flink:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: resinkit-terra/Dockerfile
       args:
-        JAR_FILE: app/target/resinkit-0.0.1-SNAPSHOT.jar
+        RESINKIT_JAR: "N/A"
     ports:
       - "8000:8000"
       - "9092:9092"
