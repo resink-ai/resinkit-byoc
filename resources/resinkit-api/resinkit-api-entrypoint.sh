@@ -81,14 +81,14 @@ start_service() {
     # Start the service
     echo "[QQQ] Starting resinkit_api service..."
     mkdir -p "$(dirname "$RESINKIT_API_LOG_FILE")"
-    
+
     nohup uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 
     # Get the PID and save it
     local pid=$!
     echo "[QQQ] Resinkit API service started with PID: $pid"
     echo "[QQQ] Logs are being written to: $RESINKIT_API_LOG_FILE"
-    
+
 }
 
 # Function to stop the service

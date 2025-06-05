@@ -177,7 +177,7 @@ function debian_setup_resinkit_minio_buckets() {
     echo "[RESINKIT] Setting up MinIO bucket structure for resinkit..."
 
     # Set MinIO configuration from environment or defaults
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
     export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     export MINIO_API_PORT=${MINIO_API_PORT:-9000}
     export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:$MINIO_API_PORT}
@@ -203,16 +203,17 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Configure MinIO client alias for resinkit setup
     echo "[RESINKIT] Configuring MinIO client alias..."
-    gosu minio "$MINIO_MC_BIN" alias set resinkit-setup "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null || {
+    # Set MC_CONFIG_DIR environment variable to point to a directory the minio user can write to
+    MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" alias set resinkit-setup "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" 2>/dev/null || {
         echo "[RESINKIT] Error: Failed to configure MinIO client alias"
         return 1
     }
 
     # Create resinkit bucket
     echo "[RESINKIT] Creating bucket 'resinkit'..."
-    if gosu minio "$MINIO_MC_BIN" mb resinkit-setup/resinkit 2>/dev/null; then
+    if MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" mb resinkit-setup/resinkit 2>/dev/null; then
         echo "[RESINKIT] ✅ Bucket 'resinkit' created successfully"
-    elif gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit >/dev/null 2>&1; then
+    elif MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit >/dev/null 2>&1; then
         echo "[RESINKIT] ✅ Bucket 'resinkit' already exists"
     else
         echo "[RESINKIT] ❌ Failed to create bucket 'resinkit'"
@@ -221,7 +222,7 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Create flink folder structure by creating a .keep file
     echo "[RESINKIT] Creating folder 'flink' in bucket 'resinkit'..."
-    if echo "" | gosu minio "$MINIO_MC_BIN" pipe resinkit-setup/resinkit/flink/.keep 2>/dev/null; then
+    if echo "" | MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" pipe resinkit-setup/resinkit/flink/.keep 2>/dev/null; then
         echo "[RESINKIT] ✅ Folder 'flink' created successfully"
     else
         echo "[RESINKIT] ❌ Failed to create folder 'flink'"
@@ -230,7 +231,7 @@ function debian_setup_resinkit_minio_buckets() {
 
     # Verify the structure
     echo "[RESINKIT] Verifying bucket structure..."
-    if gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit 2>/dev/null | grep -q "flink/"; then
+    if MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" ls resinkit-setup/resinkit 2>/dev/null | grep -q "flink/"; then
         echo "[RESINKIT] ✅ Bucket structure verified successfully"
         echo "[RESINKIT] ✅ Path s3a://resinkit/flink is now accessible"
     else
@@ -239,7 +240,7 @@ function debian_setup_resinkit_minio_buckets() {
     fi
 
     # Clean up the temporary alias
-    gosu minio "$MINIO_MC_BIN" alias remove resinkit-setup 2>/dev/null || true
+    MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio "$MINIO_MC_BIN" alias remove resinkit-setup 2>/dev/null || true
 
     echo "[RESINKIT] ✅ MinIO bucket structure setup completed successfully"
 }
@@ -254,7 +255,7 @@ function debian_install_minio() {
     echo "[RESINKIT] Installing MinIO server..."
 
     # Set default MinIO configuration
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
     export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
@@ -264,11 +265,20 @@ function debian_install_minio() {
     # Create MinIO user
     echo "[RESINKIT] Creating MinIO user..."
     if ! id -u minio >/dev/null 2>&1; then
-        useradd --system minio
-        echo "[RESINKIT] MinIO user created"
+        useradd --system --create-home --home-dir /home/minio --shell /bin/bash minio
+        echo "[RESINKIT] MinIO user created with home directory"
     else
         echo "[RESINKIT] MinIO user already exists"
+        # Ensure home directory exists for existing user
+        if [ ! -d "/home/minio" ]; then
+            echo "[RESINKIT] Creating home directory for existing minio user..."
+            mkdir -p /home/minio
+        fi
     fi
+
+    # Set proper ownership and permissions on minio home directory
+    chown minio:minio /home/minio
+    chmod 755 /home/minio
 
     # Create MinIO directories
     echo "[RESINKIT] Creating MinIO directories..."
@@ -276,6 +286,7 @@ function debian_install_minio() {
     mkdir -p "$MINIO_DATA_DIR"
     mkdir -p "$MINIO_CONFIG_DIR"
     mkdir -p /var/log/minio
+    mkdir -p /opt/minio/mc-config # MinIO client configuration directory
 
     # Download MinIO binary if not already installed
     if [ ! -f "/opt/minio/bin/minio" ]; then
@@ -503,6 +514,7 @@ EOF
             chkconfig minio on
         fi
 
+        echo "[RESINKIT] Starting MinIO service, current status: $(service minio status)"
         service minio start
         echo "[RESINKIT] MinIO service started"
 
@@ -519,7 +531,7 @@ EOF
         sleep 5
 
         # Configure mc as minio user
-        gosu minio /opt/minio/bin/mc alias set local http://localhost:$MINIO_API_PORT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD 2>/dev/null || true
+        MC_CONFIG_DIR="/opt/minio/mc-config" gosu minio /opt/minio/bin/mc alias set local http://localhost:$MINIO_API_PORT $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD 2>/dev/null || true
         echo "[RESINKIT] MinIO client configured"
     fi
 
@@ -598,10 +610,14 @@ function debian_remove_minio() {
         sed -i '\|/opt/minio/bin|d' /etc/environment
     fi
 
-    # Remove MinIO user
+    # Remove MinIO user and home directory
     if id -u minio >/dev/null 2>&1; then
-        echo "[RESINKIT] Removing MinIO user..."
-        userdel minio 2>/dev/null || true
+        echo "[RESINKIT] Removing MinIO user and home directory..."
+        userdel --remove minio 2>/dev/null || true
+        # Ensure home directory is removed if userdel didn't remove it
+        if [ -d "/home/minio" ]; then
+            rm -rf /home/minio
+        fi
     fi
 
     # Remove marker file

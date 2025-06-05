@@ -41,7 +41,7 @@ function inspect_flink() {
 function inspect_minio() {
     export MINIO_MC_BIN=${MINIO_MC_BIN:-/opt/minio/bin/mc}
     export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:9000}
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
     export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     echo "================================================"
     echo "Minio:"

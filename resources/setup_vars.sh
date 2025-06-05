@@ -46,7 +46,7 @@ setup_vars() {
     export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-inspect_mariadb}
 
     # MinIO configuration
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
     export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
     export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
     export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
