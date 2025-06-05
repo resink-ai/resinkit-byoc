@@ -43,8 +43,6 @@ RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.g
 WORKDIR /root/resinkit-byoc
 RUN make install
 
-# TODO: allow customizing the variables
-
 # Expose necessary ports
 # ResinKit
 EXPOSE 8080

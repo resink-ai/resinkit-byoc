@@ -1,6 +1,8 @@
 CREATE DATABASE IF NOT EXISTS mydatabase;
 USE mydatabase;
 
+-- Create the resinkit user first, then grant privileges
+CREATE USER IF NOT EXISTS 'resinkit'@'%' IDENTIFIED BY 'resinkit_inspect_password';
 GRANT ALL PRIVILEGES ON mydatabase.* TO 'resinkit'@'%';
 FLUSH PRIVILEGES;
 

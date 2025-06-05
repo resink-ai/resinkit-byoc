@@ -2,62 +2,37 @@
 # FROM mysql:latest
 FROM mysql:8.0.40
 
-
 # Switch to root to install packages
 USER root
 
 # Install necessary tools
-RUN microdnf update && microdnf install -y \
-    vim \
-    cronie \
-    python3 \
-    python3-pip \
-    && microdnf clean all
-
-# Install Python MySQL connector and Faker
-RUN pip3 install mysql-connector-python faker
+RUN microdnf update && microdnf install -y vim
 
 # Copy MySQL configuration file
 COPY ../resources/test-mysql/my.cnf /etc/mysql/conf.d/my.cnf
 
-# # Copy initialization SQL file
+## Copy initialization SQL file
 COPY ../resources/test-mysql/create_tables.sql /docker-entrypoint-initdb.d/
-##[TEST]## COPY ../resources/test-mysql/create_tables.sql /opt/create_tables.sql
-
-# Copy data generation script
-COPY ../resources/test-mysql/generate_data.py /usr/local/bin/generate_data.py
-
-# Make the script executable
-RUN chmod +x /usr/local/bin/generate_data.py
-
-# Set up cron job, every minute
-RUN echo "* * * * * root python3 /usr/local/bin/generate_data.py" > /etc/cron.d/data-generator
-
-# Give execution rights on the cron job
-RUN chmod 0644 /etc/cron.d/data-generator
-
-# Create the log file to be able to run tail
-RUN touch /var/log/cron.log
 
 # Set environment variables
 ENV MYSQL_DATABASE=mydatabase
 ENV MYSQL_RESINKIT_PASSWORD=resinkit_inspect_password
-ENV MYSQL_TCP_PORT=3307
-ENV MYSQLX_TCP_PORT=33070
+ENV MYSQL_TCP_PORT=3306
+ENV MYSQLX_TCP_PORT=33060
 
 # Ensure MySQL has proper permissions on the data directory
 RUN chown -R mysql:mysql /var/lib/mysql
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-EXPOSE 3307 33070
+EXPOSE 3306 33060
 CMD ["mysqld"]
 
 ## Docker commands:
-# docker stop resinkit-testmysql 
+# docker stop resinkit-testmysql
 # docker rm resinkit-testmysql
 # docker build -t ai.resink.kit.testmysql -f Dockerfile.testmysql .
-# docker run -d --name resinkit-testmysql -p 3307:3307 ai.resink.kit.testmysql
+# docker run -d --name resinkit-testmysql -p 3306:3306 ai.resink.kit.testmysql
 # MYSQL_PWD=rootpassword mysql -u root $MYSQL_DATABASE -e 'select 1'
 
 ## Log into the container
