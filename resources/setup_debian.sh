@@ -87,8 +87,9 @@ function debian_install_flink() {
     apt-get -y install gpg libsnappy1v5 gettext-base libjemalloc-dev
     rm -rf /var/lib/apt/lists/*
     # skip install gosu
-    export FLINK_TGZ_URL=https://dlcdn.apache.org/flink/flink-1.19.1/flink-1.19.1-bin-scala_2.12.tgz
-    export FLINK_ASC_URL=https://downloads.apache.org/flink/flink-1.19.1/flink-1.19.1-bin-scala_2.12.tgz.asc
+    FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
+    export FLINK_TGZ_URL=https://dlcdn.apache.org/flink/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}-bin-scala_2.12.tgz
+    export FLINK_ASC_URL=https://downloads.apache.org/flink/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}-bin-scala_2.12.tgz.asc
     export GPG_KEY=6378E37EB3AAEA188B9CB0D396C2914BB78A5EA1
     export CHECK_GPG=true
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
@@ -130,6 +131,10 @@ function debian_install_flink() {
     rm flink.tgz
 
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE $FLINK_HOME
+
+    # Copy rs_flink.sh to FLINK_HOME/bin/rs_flink.sh
+    cp -v "$ROOT_DIR/resources/flink/bin/rs_flink.sh" "$FLINK_HOME/bin/rs_flink.sh"
+    chmod +x "$FLINK_HOME/bin/rs_flink.sh"
 
     # Replace default REST/RPC endpoint bind address to use the container's network interface
     CONF_FILE="$FLINK_HOME/conf/flink-conf.yaml"

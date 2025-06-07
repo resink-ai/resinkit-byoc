@@ -23,13 +23,27 @@ check_env_vars() {
     done
 }
 
+export INSTALLER_NO_MODIFY_PATH=1
+
+export UV_CACHE_DIR="$RESINKIT_ROLE_HOME/.uv/cache"
+export UV_CONFIG_DIR="$RESINKIT_ROLE_HOME/.uv/config"
+export UV_DATA_DIR="$RESINKIT_ROLE_HOME/.uv/data"
+mkdir -p "$UV_CACHE_DIR" "$UV_CONFIG_DIR" "$UV_DATA_DIR"
+
 install_uv_venv_if_not_exists() {
     # Install uv if not already installed
     if ! command -v uv &>/dev/null; then
         echo "[QQQ] Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+        curl -LsSf https://astral.sh/uv/install.sh | sh || true
         # Add uv to PATH for current session
-        source "$HOME/.local/bin/env"
+        export PATH="$RESINKIT_ROLE_HOME/.local/bin:$PATH"
+        # source "$RESINKIT_ROLE_HOME/.local/bin/env"
+        echo "[QQQ] UV_HOME: $RESINKIT_ROLE_HOME/.local/bin"
+        echo "[QQQ] UV_CACHE_DIR: $UV_CACHE_DIR"
+        echo "[QQQ] UV_CONFIG_DIR: $UV_CONFIG_DIR"
+        echo "[QQQ] UV_DATA_DIR: $UV_DATA_DIR"
+        echo "[QQQ] PATH: $PATH"
+        echo "[QQQ] uv --version: $(uv --version)"
     fi
 
     # Create virtual environment using uv if it doesn't exist

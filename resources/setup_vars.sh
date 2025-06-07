@@ -24,8 +24,8 @@ setup_vars() {
     # Set default paths if not already set
     # Flink variables
     export FLINK_HOME=${FLINK_HOME:-/opt/flink}
-    export FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.19}
-    export FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.19.2}
+    export FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
+    export FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
     export FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
     export FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
     export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}

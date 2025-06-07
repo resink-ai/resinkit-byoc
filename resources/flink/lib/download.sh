@@ -63,8 +63,8 @@ download_and_extract() {
 ########################################################
 FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
 FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
-FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.19}
-FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.19.2}
+FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
+FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
 ########################################################
 
 # See: https://flink.apache.org/downloads/
