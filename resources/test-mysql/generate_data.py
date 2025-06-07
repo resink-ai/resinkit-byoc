@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
+"""
+Generates data for the MySQL database.
 
+> pip install mysql-connector-python faker
+> MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password MYSQL_RESINKIT_USER=resinkit MYSQL_RESINKIT_DATABASE=mydatabase MYSQL_TCP_PORT=3306 MYSQL_HOST=localhost python3 resources/test-mysql/generate_data.py
+
+"""
 from os import system
 import os
 import mysql.connector
@@ -14,9 +20,9 @@ fake = Faker()
 
 # Database configuration
 DB_CONFIG = {
-    "host": "localhost",
+    "host": os.environ.get("MYSQL_HOST", "localhost"),
     "user": os.environ.get("MYSQL_RESINKIT_USER", "resinkit"),
-    "password": os.environ.get("MYSQL_RESINKIT_PASSWORD", "resinkit_inspect_password"),
+    "password": os.environ.get("MYSQL_RESINKIT_PASSWORD", "resinkit_mysql_password"),
     "database": os.environ.get("MYSQL_RESINKIT_DATABASE", "mydatabase"),
     "port": int(os.environ.get("MYSQL_TCP_PORT", 3306)),
 }

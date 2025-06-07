@@ -16,7 +16,7 @@ COPY ../resources/test-mysql/create_tables.sql /docker-entrypoint-initdb.d/
 
 # Set environment variables
 ENV MYSQL_DATABASE=mydatabase
-ENV MYSQL_RESINKIT_PASSWORD=resinkit_inspect_password
+ENV MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
 ENV MYSQL_TCP_PORT=3306
 ENV MYSQLX_TCP_PORT=33060
 

@@ -41,7 +41,7 @@ RUN touch /var/log/cron.log
 
 # Set environment variables
 ENV MYSQL_DATABASE=mydatabase
-ENV MYSQL_RESINKIT_PASSWORD=resinkit_inspect_password
+ENV MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
 ENV MYSQL_TCP_PORT=3307
 ENV MYSQLX_TCP_PORT=33070
 

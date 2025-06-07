@@ -6,8 +6,8 @@ source:
   name: Sample MySQL Source
   hostname: mysql
   port: 3307
-  username: root
-  password: rootpassword
+  username: resinkit
+  password: resinkit_mysql_password
   tables: mydatabase.\.*
   server-id: 5401-5404
   server-time-zone: UTC

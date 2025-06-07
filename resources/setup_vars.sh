@@ -22,10 +22,16 @@ setup_vars() {
     fi
 
     # Set default paths if not already set
+    # Flink variables
+    export FLINK_HOME=${FLINK_HOME:-/opt/flink}
+    export FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.19}
+    export FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.19.2}
+    export FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
+    export FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
+    export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}
+    # ResInKit variables
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
     export RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME:-/home/resinkit}
-    export FLINK_HOME=${FLINK_HOME:-/opt/flink}
-    export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}
     export RESINKIT_API_PATH=${RESINKIT_API_PATH:-/opt/resinkit/api}
     export RESINKIT_ENTRYPOINT_SH=${RESINKIT_ENTRYPOINT_SH:-/opt/resinkit/resources/entrypoint.sh}
     export RESINKIT_API_VENV_DIR=${RESINKIT_API_VENV_DIR:-/opt/resinkit/api/.venv}
@@ -43,7 +49,7 @@ setup_vars() {
     export KAFKA_HOME=${KAFKA_HOME:-/opt/kafka}
 
     # MariaDB(MySQL) variables
-    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-resinkit_inspect_password}
+    export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-resinkit_mysql_password}
 
     # MinIO configuration
     export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
@@ -70,27 +76,31 @@ setup_vars() {
     else
         {
             echo ""
-            echo "RESINKIT_ROLE=$RESINKIT_ROLE"
-            echo "RESINKIT_ROLE_HOME=$RESINKIT_ROLE_HOME"
             echo "ARCH=$ARCH"
             echo "FLINK_HOME=$FLINK_HOME"
+            echo "FLINK_VER_MAJOR=$FLINK_VER_MAJOR"
+            echo "FLINK_VER_MINOR=$FLINK_VER_MINOR"
+            echo "FLINK_CDC_VER=$FLINK_CDC_VER"
+            echo "FLINK_PAIMON_VER=$FLINK_PAIMON_VER"
+            echo "FLINK_CDC_HOME=$FLINK_CDC_HOME"
             echo "JAVA_HOME=$JAVA_HOME"
             echo "KAFKA_HOME=$KAFKA_HOME"
-            echo "FLINK_CDC_HOME=$FLINK_CDC_HOME"
-            echo "RESINKIT_API_PATH=$RESINKIT_API_PATH"
-            echo "RESINKIT_ENTRYPOINT_SH=$RESINKIT_ENTRYPOINT_SH"
-            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:/opt/minio/bin:$PATH"
-            echo "RESINKIT_API_VENV_DIR=$RESINKIT_API_VENV_DIR"
-            echo "RESINKIT_API_LOG_FILE=$RESINKIT_API_LOG_FILE"
-            echo "RESINKIT_API_SERVICE_PORT=$RESINKIT_API_SERVICE_PORT"
-            echo "MINIO_ROOT_USER=$MINIO_ROOT_USER"
-            echo "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD"
-            echo "MINIO_DATA_DIR=$MINIO_DATA_DIR"
+            echo "MINIO_API_PORT=$MINIO_API_PORT"
             echo "MINIO_CONFIG_DIR=$MINIO_CONFIG_DIR"
             echo "MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT"
-            echo "MINIO_API_PORT=$MINIO_API_PORT"
+            echo "MINIO_DATA_DIR=$MINIO_DATA_DIR"
             echo "MINIO_ENDPOINT=$MINIO_ENDPOINT"
+            echo "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD"
+            echo "MINIO_ROOT_USER=$MINIO_ROOT_USER"
             echo "MYSQL_RESINKIT_PASSWORD=$MYSQL_RESINKIT_PASSWORD"
+            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:/opt/minio/bin:$PATH"
+            echo "RESINKIT_API_LOG_FILE=$RESINKIT_API_LOG_FILE"
+            echo "RESINKIT_API_PATH=$RESINKIT_API_PATH"
+            echo "RESINKIT_API_SERVICE_PORT=$RESINKIT_API_SERVICE_PORT"
+            echo "RESINKIT_API_VENV_DIR=$RESINKIT_API_VENV_DIR"
+            echo "RESINKIT_ENTRYPOINT_SH=$RESINKIT_ENTRYPOINT_SH"
+            echo "RESINKIT_ROLE_HOME=$RESINKIT_ROLE_HOME"
+            echo "RESINKIT_ROLE=$RESINKIT_ROLE"
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"
     fi

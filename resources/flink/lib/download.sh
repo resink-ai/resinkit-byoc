@@ -61,10 +61,10 @@ download_and_extract() {
 }
 
 ########################################################
-FLINK_CDC_VER=3.4.0
-PAIMON_VER=1.1.1
-FLINK_VER_MAJOR=1.19
-FLINK_VER_MINOR=1.19.2
+FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
+FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
+FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.19}
+FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.19.2}
 ########################################################
 
 # See: https://flink.apache.org/downloads/
@@ -143,11 +143,11 @@ FLINK_SQL_CONNECTOR_CDC_3_2_1=(
 
 # PAIMON $PAIMON_VER
 PAIMON_JARS=(
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-$FLINK_VER_MAJOR/$PAIMON_VER/paimon-flink-$FLINK_VER_MAJOR-$PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/$PAIMON_VER/paimon-flink-action-$PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-s3/$PAIMON_VER/paimon-s3-$PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-azure/$PAIMON_VER/paimon-azure-$PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-gs/$PAIMON_VER/paimon-gs-$PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-$FLINK_VER_MAJOR/$FLINK_PAIMON_VER/paimon-flink-$FLINK_VER_MAJOR-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/$FLINK_PAIMON_VER/paimon-flink-action-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-s3/$FLINK_PAIMON_VER/paimon-s3-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-azure/$FLINK_PAIMON_VER/paimon-azure-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-gs/$FLINK_PAIMON_VER/paimon-gs-$FLINK_PAIMON_VER.jar
 )
 
 # https://nightlies.apache.org/flink/flink-docs-release-$FLINK_VER_MAJOR/docs/connectors/table/jdbc/#dependencies

@@ -40,7 +40,7 @@ make resinkit-terra-test
    2. using CLI:
 
       ```shell
-      docker exec -it resinkit-terra-mysql2doris-doris-1 mysql -h 127.0.0.1 -uroot -P9030 -e 'create database if not exists mydatabase;'
+      docker exec -it resinkit-terra-mysql2doris-doris-1 mysql -h 127.0.0.1 -uresinkit -P9030 -e 'create database if not exists mydatabase;'
       ```
 
 3. `make resinkit-terra-test-mysql2doris`

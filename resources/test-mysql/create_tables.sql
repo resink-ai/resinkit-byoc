@@ -2,8 +2,8 @@ CREATE DATABASE IF NOT EXISTS mydatabase;
 USE mydatabase;
 
 -- Create the resinkit user first, then grant privileges
-CREATE USER IF NOT EXISTS 'resinkit'@'%' IDENTIFIED BY 'resinkit_inspect_password';
-GRANT ALL PRIVILEGES ON mydatabase.* TO 'resinkit'@'%';
+CREATE USER IF NOT EXISTS 'resinkit'@'%' IDENTIFIED BY 'resinkit_mysql_password';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'resinkit'@'%';
 FLUSH PRIVILEGES;
 
 -- MySQL doesn't support ENUM types as PostgreSQL does, so we'll define the ENUM directly in the tables
@@ -40,7 +40,9 @@ CREATE TABLE IF NOT EXISTS `Session` (
 CREATE TABLE IF NOT EXISTS `VerificationToken` (
     `identifier` VARCHAR(255) NOT NULL,
     `token` VARCHAR(255) NOT NULL,
-    `expires` DATETIME(3) NOT NULL
+    `expires` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- CreateTable

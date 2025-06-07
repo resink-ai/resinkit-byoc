@@ -9,56 +9,6 @@
 source "$ROOT_DIR/resources/setup_vars.sh"
 source "$ROOT_DIR/resources/setup_common.sh"
 
-function debian_mariadb_add_user_resinkit() {
-    if [ -z "$MYSQL_RESINKIT_PASSWORD" ]; then
-        echo "[RESINKIT] Error: MYSQL_RESINKIT_PASSWORD is not set"
-        return 1
-    fi
-
-    # Use mysql to create the resinkit user
-    mysql -u root <<EOF
-CREATE USER IF NOT EXISTS 'resinkit'@'localhost' IDENTIFIED BY '$MYSQL_RESINKIT_PASSWORD';
-CREATE USER IF NOT EXISTS 'resinkit'@'%' IDENTIFIED BY '$MYSQL_RESINKIT_PASSWORD';
-GRANT ALL PRIVILEGES ON *.* TO 'resinkit'@'localhost' WITH GRANT OPTION;
-GRANT ALL PRIVILEGES ON *.* TO 'resinkit'@'%' WITH GRANT OPTION;
-FLUSH PRIVILEGES;
-EOF
-
-    echo "[RESINKIT] ✅ MariaDB user 'resinkit' has been created"
-}
-
-function debian_mariadb_create_flink_database() {
-    if [ -z "$MYSQL_RESINKIT_PASSWORD" ]; then
-        echo "[RESINKIT] Error: MYSQL_RESINKIT_PASSWORD is not set"
-        return 1
-    fi
-
-    # Use mysql to create the flink database
-    mysql -u root <<EOF
-CREATE DATABASE IF NOT EXISTS flink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON flink.* TO 'resinkit'@'localhost';
-GRANT ALL PRIVILEGES ON flink.* TO 'resinkit'@'%';
-FLUSH PRIVILEGES;
-EOF
-
-    # Create .my.cnf for resinkit user with flink as default database
-    if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
-        mkdir -p "$RESINKIT_ROLE_HOME"
-        chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME" 2>/dev/null || true
-    fi
-
-    cat >"$RESINKIT_ROLE_HOME/.my.cnf" <<EOF
-[client]
-user=resinkit
-password=$MYSQL_RESINKIT_PASSWORD
-database=flink
-EOF
-    chmod 600 "$RESINKIT_ROLE_HOME/.my.cnf" # RESINKIT_ROLE_HOME=/home/resinkit
-    chown $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME/.my.cnf" 2>/dev/null || true
-
-    echo "[RESINKIT] ✅ MariaDB database 'flink' has been created and set as default for resinkit user"
-}
-
 function debian_install_mariadb() {
     # Check if MariaDB is already installed
     if [ -d "/var/lib/mysql" ] && [ -f "/opt/setup/.mariadb_installed" ]; then
@@ -142,10 +92,17 @@ EOF
     echo "[RESINKIT] Waiting for MariaDB to restart with new configuration..."
     sleep 5
 
-    # Set root password if MYSQL_RESINKIT_PASSWORD is provided
+    # Execute create_tables.sql if MYSQL_RESINKIT_PASSWORD is provided
     if [ -n "$MYSQL_RESINKIT_PASSWORD" ]; then
-        debian_mariadb_add_user_resinkit
-        debian_mariadb_create_flink_database
+        echo "[RESINKIT] Executing create_tables.sql with root privileges..."
+        if [ -f "$ROOT_DIR/resources/test-mysql/create_tables.sql" ]; then
+            # Replace the password placeholder in the SQL file and execute
+            sed "s/resinkit_mysql_password/$MYSQL_RESINKIT_PASSWORD/g" "$ROOT_DIR/resources/test-mysql/create_tables.sql" | mysql -u root
+            echo "[RESINKIT] ✅ Database setup completed using create_tables.sql"
+        else
+            echo "[RESINKIT] Error: create_tables.sql not found at $ROOT_DIR/resources/test-mysql/create_tables.sql"
+            return 1
+        fi
     fi
 
     # Verify MariaDB installation and binlog status

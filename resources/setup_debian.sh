@@ -210,12 +210,13 @@ function debian_install_flink_jars() {
         return 0
     fi
 
+    FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
     # Download and extract Flink CDC if not already done
     if [ ! -d "$FLINK_CDC_HOME" ]; then
-        wget https://dlcdn.apache.org/flink/flink-cdc-3.2.1/flink-cdc-3.2.1-bin.tar.gz -O /tmp/flink-cdc-3.2.1-bin.tar.gz &&
-            tar -xzf /tmp/flink-cdc-3.2.1-bin.tar.gz -C /opt/ &&
-            mv /opt/flink-cdc-3.2.1 "$FLINK_CDC_HOME" &&
-            rm /tmp/flink-cdc-3.2.1-bin.tar.gz
+        wget https://dlcdn.apache.org/flink/flink-cdc-${FLINK_CDC_VER}/flink-cdc-${FLINK_CDC_VER}-bin.tar.gz -O /tmp/flink-cdc-${FLINK_CDC_VER}-bin.tar.gz &&
+            tar -xzf /tmp/flink-cdc-${FLINK_CDC_VER}-bin.tar.gz -C /opt/ &&
+            mv /opt/flink-cdc-${FLINK_CDC_VER} "$FLINK_CDC_HOME" &&
+            rm /tmp/flink-cdc-${FLINK_CDC_VER}-bin.tar.gz
     else
         echo "[RESINKIT] Flink CDC directory already exists, skipping extraction"
     fi
