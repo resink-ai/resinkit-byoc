@@ -24,7 +24,6 @@ check_env_vars() {
 }
 
 export INSTALLER_NO_MODIFY_PATH=1
-
 export UV_CACHE_DIR="$RESINKIT_ROLE_HOME/.uv/cache"
 export UV_CONFIG_DIR="$RESINKIT_ROLE_HOME/.uv/config"
 export UV_DATA_DIR="$RESINKIT_ROLE_HOME/.uv/data"

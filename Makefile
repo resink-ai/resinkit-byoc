@@ -13,6 +13,10 @@ resinkit-terra:
 	docker buildx build -t ai.resink.it.terra -f resinkit-terra/Dockerfile .
 	docker run -d --name resinkit.terra -p 8080:8080 -p 9092:9092 -p 8083:8083 -p 8081:8081 ai.resink.it.terra
 
+resinkit-terra-mysql-mionio:
+	-docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio down
+	docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
+
 install:
 	bash resources/setup.sh debian_install_all
 

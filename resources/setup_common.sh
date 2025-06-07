@@ -123,7 +123,11 @@ run_entrypoint() {
         echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
     fi
 
-    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
+    # /opt/flink, /opt/kafka, /opt/flink-cdc, /opt/resinkit
+    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$FLINK_HOME"
+    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$KAFKA_HOME"
+    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$FLINK_CDC_HOME"
+    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$(dirname "$RESINKIT_API_PATH")"
     exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
 

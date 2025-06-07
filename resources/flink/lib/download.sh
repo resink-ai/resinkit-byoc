@@ -80,9 +80,9 @@ FLINK_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-cassandra_2.12/3.2.0-$FLINK_VER_MAJOR/flink-connector-cassandra_2.12-3.2.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-gcp-pubsub/3.1.0-$FLINK_VER_MAJOR/flink-connector-gcp-pubsub-3.1.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-hbase-base/4.0.0-$FLINK_VER_MAJOR/flink-connector-hbase-base-4.0.0-$FLINK_VER_MAJOR.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.2.0-$FLINK_VER_MAJOR/flink-connector-jdbc-3.2.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.3.0-$FLINK_VER_MAJOR/flink-connector-jdbc-3.3.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-kafka/3.3.0-$FLINK_VER_MAJOR/flink-connector-kafka-3.3.0-$FLINK_VER_MAJOR.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-connector-mongodb/1.2.0-$FLINK_VER_MAJOR/flink-connector-mongodb-1.2.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-connector-mongodb/2.0.0-$FLINK_VER_MAJOR/flink-connector-mongodb-2.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-opensearch2/2.0.0-$FLINK_VER_MAJOR/flink-connector-opensearch2-2.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-prometheus/1.0.0-$FLINK_VER_MAJOR/flink-connector-prometheus-1.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-connector-pulsar/4.1.0-1.18/flink-connector-pulsar-4.1.0-1.18.jar
@@ -98,13 +98,13 @@ FLINK_SQL_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-dynamodb/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-dynamodb-5.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-aws-kinesis-firehose/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-aws-kinesis-firehose-5.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-aws-kinesis-streams/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-aws-kinesis-streams-5.0.0-$FLINK_VER_MAJOR.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kinesis/4.3.0-$FLINK_VER_MAJOR/flink-sql-connector-kinesis-4.3.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kinesis/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-kinesis-5.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-elasticsearch6_2.12/1.9.1/flink-sql-connector-elasticsearch6_2.12-1.9.1.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hbase-2.2/4.0.0-$FLINK_VER_MAJOR/flink-sql-connector-hbase-2.2-4.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hive-3.1.3_2.12/$FLINK_VER_MINOR/flink-sql-connector-hive-3.1.3_2.12-$FLINK_VER_MINOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-$FLINK_VER_MAJOR/flink-sql-connector-kafka-3.3.0-$FLINK_VER_MAJOR.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-mongodb/1.2.0-$FLINK_VER_MAJOR/flink-sql-connector-mongodb-1.2.0-$FLINK_VER_MAJOR.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-opensearch/1.2.0-$FLINK_VER_MAJOR/flink-sql-connector-opensearch-1.2.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-mongodb/2.0.0-$FLINK_VER_MAJOR/flink-sql-connector-mongodb-2.0.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-opensearch/1.2.0-1.19/flink-sql-connector-opensearch-1.2.0-1.19.jar
 )
 
 # https://github.com/apache/flink-cdc/releases/tag/release-$FLINK_CDC_VER
@@ -153,7 +153,7 @@ PAIMON_JARS=(
 # https://nightlies.apache.org/flink/flink-docs-release-$FLINK_VER_MAJOR/docs/connectors/table/jdbc/#dependencies
 FLINK_JDBC_SQL_CONNECTORS=(
     https://jdbc.postgresql.org/download/postgresql-42.7.5.jar
-    https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-jdbc/3.2.0-$FLINK_VER_MAJOR/flink-connector-jdbc-3.2.0-$FLINK_VER_MAJOR.jar
+    https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-jdbc/3.3.0-$FLINK_VER_MAJOR/flink-connector-jdbc-3.3.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
     https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.4.1/kafka-clients-3.4.1.jar
 )

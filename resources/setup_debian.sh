@@ -87,11 +87,11 @@ function debian_install_flink() {
     apt-get -y install gpg libsnappy1v5 gettext-base libjemalloc-dev
     rm -rf /var/lib/apt/lists/*
     # skip install gosu
+    echo "[QQQ] FLINK_VER_MINOR: $FLINK_VER_MINOR"
     FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
-    export FLINK_TGZ_URL=https://dlcdn.apache.org/flink/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}-bin-scala_2.12.tgz
-    export FLINK_ASC_URL=https://downloads.apache.org/flink/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}/flink-${FLINK_VER_MAJOR}.${FLINK_VER_MINOR}-bin-scala_2.12.tgz.asc
-    export GPG_KEY=6378E37EB3AAEA188B9CB0D396C2914BB78A5EA1
-    export CHECK_GPG=true
+    echo "[QQQ] FLINK_VER_MINOR: $FLINK_VER_MINOR"
+    # https://dlcdn.apache.org/flink/flink-1.20.1/flink-1.20.1-bin-scala_2.12.tgz
+    export FLINK_TGZ_URL=https://dlcdn.apache.org/flink/flink-${FLINK_VER_MINOR}/flink-${FLINK_VER_MINOR}-bin-scala_2.12.tgz
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
     export RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME:-/home/resinkit}
     export FLINK_HOME=${FLINK_HOME:-/opt/flink}
@@ -121,11 +121,6 @@ function debian_install_flink() {
     cd "$FLINK_HOME" || exit 1
 
     wget -nv -O flink.tgz "$FLINK_TGZ_URL"
-
-    if [ "$CHECK_GPG" = "true" ]; then
-        wget -nv -O flink.tgz.asc "$FLINK_ASC_URL"
-        verify_gpg_signature flink.tgz flink.tgz.asc $GPG_KEY
-    fi
 
     tar -xf flink.tgz --strip-components=1
     rm flink.tgz
@@ -233,9 +228,9 @@ function debian_install_flink_jars() {
     )
 
     # Flink CDC JARs
-    cp -v $ROOT_DIR/resources/flink/lib/cdc/*.jar "$FLINK_CDC_HOME/lib/" || true
+    cp -v $ROOT_DIR/resources/flink/lib/cdc/*.jar "$FLINK_CDC_HOME/lib/"
     # Flink JARs
-    cp -v $ROOT_DIR/resources/flink/lib/*.jar "$FLINK_HOME/lib/" || true
+    cp -v $ROOT_DIR/resources/flink/lib/*.jar "$FLINK_HOME/lib/"
 
     # Copy configuration files
     mkdir -p /opt/flink/conf/ /opt/flink/cdc/
@@ -298,11 +293,19 @@ function debian_install_nginx() {
 
     apt-get update && apt-get install --no-install-recommends -y nginx
 
-    # Copy the Nginx configuration file
-    rm -f /etc/nginx/sites-available/resinkit_nginx.conf
-    rm -f /etc/nginx/sites-enabled/resinkit_nginx.conf
-    cp -v "$ROOT_DIR/resources/nginx/resinkit_nginx.conf" /etc/nginx/sites-available/resinkit_nginx.conf
-    ln -sf /etc/nginx/sites-available/resinkit_nginx.conf /etc/nginx/sites-enabled/resinkit_nginx.conf
+    # Copy the Nginx configuration files
+    # Install the main default site configuration
+    cp -v "$ROOT_DIR/resources/nginx/default" /etc/nginx/sites-available/default
+
+    # Install the reusable locations configuration
+    cp -v "$ROOT_DIR/resources/nginx/resinkit_locations.conf" /etc/nginx/sites-available/resinkit_locations.conf
+
+    # Enable the default site (create symlink if it doesn't exist)
+    ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
+    # Clean up old configuration files if they exist
+    rm -vf /etc/nginx/sites-available/resinkit_nginx.conf || true
+    rm -vf /etc/nginx/sites-enabled/resinkit_nginx.conf || true
 
     # Test the Nginx configuration
     nginx -t
