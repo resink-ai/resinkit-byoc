@@ -65,6 +65,7 @@ FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
 FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
 FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
 FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
+FLINK_ICEBERG_VER=${FLINK_ICEBERG_VER:-1.9.1}
 ########################################################
 
 # See: https://flink.apache.org/downloads/
@@ -100,7 +101,7 @@ FLINK_SQL_CONNECTOR_URLS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-aws-kinesis-streams/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-aws-kinesis-streams-5.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kinesis/5.0.0-$FLINK_VER_MAJOR/flink-sql-connector-kinesis-5.0.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-elasticsearch6_2.12/1.9.1/flink-sql-connector-elasticsearch6_2.12-1.9.1.jar
-    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hbase-2.2/4.0.0-$FLINK_VER_MAJOR/flink-sql-connector-hbase-2.2-4.0.0-$FLINK_VER_MAJOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hbase-2.2/4.0.0-1.19/flink-sql-connector-hbase-2.2-4.0.0-1.19.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-hive-3.1.3_2.12/$FLINK_VER_MINOR/flink-sql-connector-hive-3.1.3_2.12-$FLINK_VER_MINOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-$FLINK_VER_MAJOR/flink-sql-connector-kafka-3.3.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-mongodb/2.0.0-$FLINK_VER_MAJOR/flink-sql-connector-mongodb-2.0.0-$FLINK_VER_MAJOR.jar
@@ -148,6 +149,7 @@ PAIMON_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-s3/$FLINK_PAIMON_VER/paimon-s3-$FLINK_PAIMON_VER.jar
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-azure/$FLINK_PAIMON_VER/paimon-azure-$FLINK_PAIMON_VER.jar
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-gs/$FLINK_PAIMON_VER/paimon-gs-$FLINK_PAIMON_VER.jar
+    https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-$FLINK_VER_MAJOR/$FLINK_ICEBERG_VER/iceberg-flink-runtime-$FLINK_VER_MAJOR-$FLINK_ICEBERG_VER.jar
 )
 
 # https://nightlies.apache.org/flink/flink-docs-release-$FLINK_VER_MAJOR/docs/connectors/table/jdbc/#dependencies
@@ -234,3 +236,8 @@ case "$1" in
     exit 1
     ;;
 esac
+
+# FIXME:
+# https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-hive-3.1.3_2.12/2.0.0/flink-sql-connector-hive-3.1.3_2.12-2.0.0.jar NOT FOUND
+# paimon-flink-1.20-1.1.1.jar not found
+# paimon-s3-1.1.1.jar not found

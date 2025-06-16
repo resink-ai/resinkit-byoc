@@ -6,6 +6,7 @@ Generates data for the MySQL database.
 > MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password MYSQL_RESINKIT_USER=resinkit MYSQL_RESINKIT_DATABASE=mydatabase MYSQL_TCP_PORT=3306 MYSQL_HOST=localhost python3 resources/test-mysql/generate_data.py
 
 """
+
 from os import system
 import os
 import mysql.connector
