@@ -70,24 +70,7 @@ services:
     volumes:
       - hive_metastore_data:/opt/hive/data
       - ~/.m2/repository/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar:/opt/hive/lib/mysql-connector-java.jar:ro
-    networks:
-      - resinkit-network
-
-  hiveserver2:
-    image: apache/hive:4.0.1
-    container_name: hiveserver2
-    environment:
-      - SERVICE_NAME=hiveserver2
-      - SERVICE_OPTS=-Dhive.metastore.uris=thrift://hive-metastore:9083
-      - HIVE_SITE_CONF_hive_metastore_uris=thrift://hive-metastore:9083
-    depends_on:
-      - hive-metastore
-    ports:
-      - "10000:10000"
-      - "10002:10002"
-    volumes:
-      - hive_metastore_data:/opt/hive/data
-      - ~/.m2/repository/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar:/opt/hive/lib/mysql-connector-java.jar:ro
+      - ~/.m2/repository/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar:/opt/hive/lib/hadoop-aws.jar:ro
     networks:
       - resinkit-network
 

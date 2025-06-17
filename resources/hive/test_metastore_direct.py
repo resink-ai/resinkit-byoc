@@ -10,12 +10,16 @@ from contextlib import contextmanager
 
 import os
 
-HOST_METASTORE = os.getenv("HOST_METASTORE", "localhost")
-HOST_HIVE_SERVER2 = os.getenv("HOST_HIVE_SERVER2", "localhost")
+HOST_METASTORE = os.getenv("HOST_METASTORE")
+HOST_HIVE_SERVER2 = os.getenv("HOST_HIVE_SERVER2")
 
 
 def test_basic_connection():
     """Test basic socket connection to metastore"""
+    if not HOST_METASTORE:
+        print("❓ HOST_METASTORE is not set, skipping test")
+        return False
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
@@ -35,6 +39,10 @@ def test_basic_connection():
 
 def test_with_pyhive():
     """Test using PyHive (requires HiveServer2)"""
+    if not HOST_HIVE_SERVER2:
+        print("❓ HOST_HIVE_SERVER2 is not set, skipping test")
+        return False
+
     try:
         from pyhive import hive
 
@@ -66,6 +74,10 @@ def test_with_pyhive():
 
 def test_with_manual_thrift():
     """Test basic Thrift connectivity without Hive-specific client"""
+    if not HOST_METASTORE:
+        print("❓ HOST_METASTORE is not set, skipping test")
+        return False
+
     try:
         from thrift.transport import TSocket, TTransport
         from thrift.protocol import TBinaryProtocol

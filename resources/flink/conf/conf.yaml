@@ -32,7 +32,7 @@ env:
 # RUN mkdir -p $CATALOG_STORE_PATH $CATALOG_PATH $DEFAULT_DB_PATH $CHECKPOINTS_PATH $SAVEPOINTS_PATH
 execution:
   checkpoints:
-    dir: file:///opt/flink/checkpoints
+    dir: file:///opt/flink/data/checkpoints
   serialization-config: |
     serializers:
       - class: "java.lang.invoke.SerializedLambda"
@@ -43,7 +43,7 @@ table:
   catalog-store:
     kind: file
     file:
-      path: file:///opt/flink/catalog-store
+      path: file:///opt/flink/data/catalog-store
 
 # Configure embedded scheduler
 workflow-scheduler:

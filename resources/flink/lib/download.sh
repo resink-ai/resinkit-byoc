@@ -9,14 +9,14 @@ download_and_extract() {
 
     # Check if file already exists
     if [ -f "$filename" ]; then
-        echo "File $filename already exists, skipping download"
+        echo "[RESINKIT] File $filename already exists, skipping download"
         return 0
     else
-        echo "Downloading from URL: $url"
+        echo "[RESINKIT] Downloading from URL: $url"
         # Download the file
         if ! wget -q "$url" -O "$filename"; then
-            echo "Error: Failed to download $url"
-            return 1
+            echo "[RESINKIT] Error: Failed to download $url"
+            return 0
         fi
     fi
 
@@ -62,7 +62,7 @@ download_and_extract() {
 
 ########################################################
 FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
-FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
+FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.0.1}
 FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
 FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
 FLINK_ICEBERG_VER=${FLINK_ICEBERG_VER:-1.9.1}
@@ -146,10 +146,11 @@ FLINK_SQL_CONNECTOR_CDC_3_2_1=(
 PAIMON_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-$FLINK_VER_MAJOR/$FLINK_PAIMON_VER/paimon-flink-$FLINK_VER_MAJOR-$FLINK_PAIMON_VER.jar
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-flink-action/$FLINK_PAIMON_VER/paimon-flink-action-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-bundle/$FLINK_PAIMON_VER/paimon-bundle-$FLINK_PAIMON_VER.jar
     https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-s3/$FLINK_PAIMON_VER/paimon-s3-$FLINK_PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-azure/$FLINK_PAIMON_VER/paimon-azure-$FLINK_PAIMON_VER.jar
-    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-gs/$FLINK_PAIMON_VER/paimon-gs-$FLINK_PAIMON_VER.jar
-    https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-$FLINK_VER_MAJOR/$FLINK_ICEBERG_VER/iceberg-flink-runtime-$FLINK_VER_MAJOR-$FLINK_ICEBERG_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-oss/$FLINK_PAIMON_VER/paimon-oss-$FLINK_PAIMON_VER.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-azure/1.1.1/paimon-azure-1.1.1.jar
+    https://repo.maven.apache.org/maven2/org/apache/paimon/paimon-gs/1.1.1/paimon-gs-1.1.1.jar
 )
 
 # https://nightlies.apache.org/flink/flink-docs-release-$FLINK_VER_MAJOR/docs/connectors/table/jdbc/#dependencies
@@ -163,32 +164,95 @@ FLINK_JDBC_SQL_CONNECTORS=(
 # Needed for access object storage
 FLINK_FILES_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
+    https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-$FLINK_VER_MAJOR/$FLINK_ICEBERG_VER/iceberg-flink-runtime-$FLINK_VER_MAJOR-$FLINK_ICEBERG_VER.jar
+)
+
+HIVE_JARS=(
+    https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/hadoop-aws-3.3.6.jar
+    https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.787/aws-java-sdk-bundle-1.12.787.jar
+)
+
+FLINK_PLUGINS_JARS_S3=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-hadoop/$FLINK_VER_MINOR/flink-s3-fs-hadoop-$FLINK_VER_MINOR.jar
+    https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-presto/$FLINK_VER_MINOR/flink-s3-fs-presto-$FLINK_VER_MINOR.jar
+)
+
+FLINK_PLUGINS_JARS_AZURE=(
+    https://repo1.maven.org/maven2/org/apache/flink/flink-azure-fs-hadoop/$FLINK_VER_MINOR/flink-azure-fs-hadoop-$FLINK_VER_MINOR.jar
+)
+
+FLINK_PLUGINS_JARS_GS=(
+    https://repo1.maven.org/maven2/org/apache/flink/flink-gs-fs-hadoop/$FLINK_VER_MINOR/flink-gs-fs-hadoop-$FLINK_VER_MINOR.jar
+)
+
+FLINK_PLUGINS_JARS_OSS=(
+    https://repo1.maven.org/maven2/org/apache/flink/flink-oss-fs-hadoop/$FLINK_VER_MINOR/flink-oss-fs-hadoop-$FLINK_VER_MINOR.jar
 )
 
 # Note:
 #   - sql connectors are needed for SQL Gateway which is started as flink sql gateway service
 #   - jar connectors can be added when running flink standalone application (aka we can download then on the fly)
 function download_all {
-    echo "Downloading flink and flink connectors"
-    for url in "${FLINK_SQL_CONNECTOR_URLS[@]}"; do
-        download_and_extract "$url"
-    done
 
-    echo "Downloading misc drivers"
-    for url in "${FLINK_JDBC_SQL_CONNECTORS[@]}"; do
-        download_and_extract "$url"
-    done
+    mkdir -p flink
+    (
+        cd flink
+        echo "Downloading flink and flink connectors"
+        for url in "${FLINK_SQL_CONNECTOR_URLS[@]}"; do
+            download_and_extract "$url"
+        done
 
-    echo "Downloading paimon jars"
-    for url in "${PAIMON_JARS[@]}"; do
-        download_and_extract "$url"
-    done
+        echo "Downloading misc drivers"
+        for url in "${FLINK_JDBC_SQL_CONNECTORS[@]}"; do
+            download_and_extract "$url"
+        done
 
-    echo "Downloading flink files jars"
-    for url in "${FLINK_FILES_JARS[@]}"; do
-        download_and_extract "$url"
-    done
+        echo "Downloading paimon jars"
+        for url in "${PAIMON_JARS[@]}"; do
+            download_and_extract "$url"
+        done
+
+        echo "Downloading flink files jars"
+        for url in "${FLINK_FILES_JARS[@]}"; do
+            download_and_extract "$url"
+        done
+    )
+
+    mkdir -p plugins/s3
+    (
+        cd plugins/s3
+        echo "Downloading flink plugins jars for s3"
+        for url in "${FLINK_PLUGINS_JARS_S3[@]}"; do
+            download_and_extract "$url"
+        done
+    )
+
+    mkdir -p plugins/azure
+    (
+        cd plugins/azure
+        echo "Downloading flink plugins jars for azure"
+        for url in "${FLINK_PLUGINS_JARS_AZURE[@]}"; do
+            download_and_extract "$url"
+        done
+    )
+
+    mkdir -p plugins/gs
+    (
+        cd plugins/gs
+        echo "Downloading flink plugins jars for gs"
+        for url in "${FLINK_PLUGINS_JARS_GS[@]}"; do
+            download_and_extract "$url"
+        done
+    )
+
+    mkdir -p plugins/oss
+    (
+        cd plugins/oss
+        echo "Downloading flink plugins jars for oss"
+        for url in "${FLINK_PLUGINS_JARS_OSS[@]}"; do
+            download_and_extract "$url"
+        done
+    )
 
     mkdir -p cdc
     (

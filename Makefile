@@ -18,6 +18,7 @@ resinkit-terra-mysql-mionio:
 	docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
 
 install:
+	cp -v resources/environment.seed /etc/environment.seed
 	bash resources/setup.sh debian_install_all
 
 install_additional:

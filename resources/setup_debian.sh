@@ -1,6 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2086
-
+# shellcheck disable=SC1091,SC2086,SC2046
 # Debian-specific installation functions for ResInKit
 
 [[ -z "$ROOT_DIR" ]] && echo "[RESINKIT] Error: ROOT_DIR is not set" && exit 1
@@ -79,7 +78,7 @@ function debian_install_java() {
 
 function debian_install_flink() {
     # Check if Flink is already installed
-    if [ -d "/opt/flink" ] && [ -f "/opt/setup/.flink_installed" ]; then
+    if [ -d "$FLINK_HOME" ] && [ -f "/opt/setup/.flink_installed" ]; then
         echo "[RESINKIT] Flink already installed, skipping"
         return 0
     fi
@@ -147,6 +146,21 @@ function debian_install_flink() {
         sed -i 's/jobmanager.bind-host: localhost/jobmanager.bind-host: 0.0.0.0/g' "$CONF_FILE"
         sed -i 's/taskmanager.bind-host: localhost/taskmanager.bind-host: 0.0.0.0/g' "$CONF_FILE"
         sed -i '/taskmanager.host: localhost/d' "$CONF_FILE"
+    fi
+
+    # Add S3 configuration if AWS credentials are present
+    if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+        echo "[RESINKIT] Adding S3 credentials to Flink configuration"
+        echo "" >>"$CONF_FILE"
+        echo "s3.access-key: $AWS_ACCESS_KEY_ID" >>"$CONF_FILE"
+        echo "s3.secret-key: $AWS_SECRET_ACCESS_KEY" >>"$CONF_FILE"
+    fi
+
+    # Add S3 endpoint if present and not empty
+    if [ -n "$S3_ENDPOINT" ]; then
+        echo "[RESINKIT] Adding S3 endpoint to Flink configuration"
+        echo "" >>"$CONF_FILE"
+        echo "s3.endpoint: $S3_ENDPOINT" >>"$CONF_FILE"
     fi
 
     # Create marker file
@@ -222,21 +236,38 @@ function debian_install_flink_jars() {
     fi
 
     # Download required JAR files if needed
-    (
-        cd "$ROOT_DIR/resources/flink/lib" || exit 1
-        bash download.sh
-    )
+    if [ $(find "$FLINK_HOME/lib/" -name "*.jar" | wc -l) -lt 15 ]; then
+        echo "[RESINKIT] 5 or fewer jars in $FLINK_HOME/lib/, downloading"
+        (
+            cd "$ROOT_DIR/resources/flink/lib" || exit 1
+            bash download.sh
+            cp -v $ROOT_DIR/resources/flink/lib/flink/*.jar "$FLINK_HOME/lib/"
+        )
+    else
+        echo "[RESINKIT] 15 or more jars found in $FLINK_HOME/lib/, skipping download"
+    fi
 
-    # Flink CDC JARs
-    cp -v $ROOT_DIR/resources/flink/lib/cdc/*.jar "$FLINK_CDC_HOME/lib/"
-    # Flink JARs
-    cp -v $ROOT_DIR/resources/flink/lib/*.jar "$FLINK_HOME/lib/"
+    if [ $(find "$FLINK_CDC_HOME/lib/" -name "*.jar" | wc -l) -lt 15 ]; then
+        echo "[RESINKIT] 5 or fewer jars in $FLINK_CDC_HOME/lib/, downloading"
+        (
+            cd "$ROOT_DIR/resources/flink/lib" || exit 1
+            bash download.sh
+            cp -v $ROOT_DIR/resources/flink/lib/cdc/*.jar "$FLINK_CDC_HOME/lib/"
+        )
+    else
+        echo "[RESINKIT] 15 or more jars found in $FLINK_CDC_HOME/lib/, skipping download"
+    fi
+
+    # Copy plugins jars
+    mkdir -p "$FLINK_HOME/plugins/"
+    echo "[RESINKIT] Copying plugins jars from $ROOT_DIR/resources/flink/lib/plugins/ to $FLINK_HOME/plugins/"
+    cp -rv "$ROOT_DIR/resources/flink/lib/plugins/" "$FLINK_HOME/"
 
     # Copy configuration files
-    mkdir -p /opt/flink/conf/ /opt/flink/cdc/
-    cp -v "$ROOT_DIR/resources/flink/conf/conf.yaml" /opt/flink/conf/config.yaml
-    cp -v "$ROOT_DIR/resources/flink/conf/log4j.properties" /opt/flink/conf/log4j.properties
-    cp -rv "$ROOT_DIR/resources/flink/cdc/" /opt/flink/cdc/
+    mkdir -p "$FLINK_HOME/conf/" "$FLINK_CDC_HOME/conf/"
+    cp -v "$ROOT_DIR/resources/flink/conf/conf.yaml" "$FLINK_HOME/conf/config.yaml"
+    cp -v "$ROOT_DIR/resources/flink/conf/log4j.properties" "$FLINK_HOME/conf/log4j.properties"
+    cp -rv "$ROOT_DIR/resources/flink/cdc/" "$FLINK_CDC_HOME/conf/"
 
     # Create marker file
     mkdir -p /opt/setup

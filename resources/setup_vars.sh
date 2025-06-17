@@ -7,6 +7,10 @@
 
 setup_vars() {
     # Validate critical environment variables if they're set from environment file
+    if [ -f /etc/environment.seed ]; then
+        . /etc/environment.seed
+    fi
+
     if [ -f /etc/environment ]; then
         . /etc/environment
     fi
@@ -27,7 +31,7 @@ setup_vars() {
     export FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
     export FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
     export FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
-    export FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.1.1}
+    export FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.0.1}
     export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}
     # ResInKit variables
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
@@ -77,30 +81,8 @@ setup_vars() {
         {
             echo ""
             echo "ARCH=$ARCH"
-            echo "FLINK_HOME=$FLINK_HOME"
-            echo "FLINK_VER_MAJOR=$FLINK_VER_MAJOR"
-            echo "FLINK_VER_MINOR=$FLINK_VER_MINOR"
-            echo "FLINK_CDC_VER=$FLINK_CDC_VER"
-            echo "FLINK_PAIMON_VER=$FLINK_PAIMON_VER"
-            echo "FLINK_CDC_HOME=$FLINK_CDC_HOME"
             echo "JAVA_HOME=$JAVA_HOME"
-            echo "KAFKA_HOME=$KAFKA_HOME"
-            echo "MINIO_API_PORT=$MINIO_API_PORT"
-            echo "MINIO_CONFIG_DIR=$MINIO_CONFIG_DIR"
-            echo "MINIO_CONSOLE_PORT=$MINIO_CONSOLE_PORT"
-            echo "MINIO_DATA_DIR=$MINIO_DATA_DIR"
-            echo "MINIO_ENDPOINT=$MINIO_ENDPOINT"
-            echo "MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD"
-            echo "MINIO_ROOT_USER=$MINIO_ROOT_USER"
-            echo "MYSQL_RESINKIT_PASSWORD=$MYSQL_RESINKIT_PASSWORD"
             echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:/opt/minio/bin:$PATH"
-            echo "RESINKIT_API_LOG_FILE=$RESINKIT_API_LOG_FILE"
-            echo "RESINKIT_API_PATH=$RESINKIT_API_PATH"
-            echo "RESINKIT_API_SERVICE_PORT=$RESINKIT_API_SERVICE_PORT"
-            echo "RESINKIT_API_VENV_DIR=$RESINKIT_API_VENV_DIR"
-            echo "RESINKIT_ENTRYPOINT_SH=$RESINKIT_ENTRYPOINT_SH"
-            echo "RESINKIT_ROLE_HOME=$RESINKIT_ROLE_HOME"
-            echo "RESINKIT_ROLE=$RESINKIT_ROLE"
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set"
     fi

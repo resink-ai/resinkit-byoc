@@ -1,45 +1,13 @@
 # Use Ubuntu as the base image
 FROM ubuntu:latest
 
-# Build arguments - can be customized at build time
-ARG RESINKIT_ROLE=resinkit
-ARG RESINKIT_ROLE_HOME=/home/resinkit
-ARG FLINK_HOME=/opt/flink
-ARG FLINK_CDC_HOME=/opt/flink-cdc
-ARG RESINKIT_API_PATH=/opt/resinkit/api
-ARG RESINKIT_API_SERVICE_PORT=8602
-ARG KAFKA_HOME=/opt/kafka
-ARG MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
-ARG MINIO_ROOT_USER=minio
-ARG MINIO_ROOT_PASSWORD=minio123
-ARG MINIO_DATA_DIR=/opt/minio/data
-ARG MINIO_CONFIG_DIR=/opt/minio/config
-ARG MINIO_CONSOLE_PORT=9001
-ARG MINIO_API_PORT=9000
-
-# Convert build arguments to environment variables so they persist in the container
-ENV RESINKIT_ROLE=${RESINKIT_ROLE}
-ENV RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME}
-ENV FLINK_HOME=${FLINK_HOME}
-ENV FLINK_CDC_HOME=${FLINK_CDC_HOME}
-ENV RESINKIT_API_PATH=${RESINKIT_API_PATH}
-ENV RESINKIT_API_SERVICE_PORT=${RESINKIT_API_SERVICE_PORT}
-ENV KAFKA_HOME=${KAFKA_HOME}
-ENV MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD}
-ENV MINIO_ROOT_USER=${MINIO_ROOT_USER}
-ENV MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-ENV MINIO_DATA_DIR=${MINIO_DATA_DIR}
-ENV MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR}
-ENV MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT}
-ENV MINIO_API_PORT=${MINIO_API_PORT}
-ENV MINIO_ENDPOINT=http://127.0.0.1:${MINIO_API_PORT}
-
 # Install dependencies (assuming this part is okay)
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
 RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
 
 # Change working directory
+COPY resources/environment.seed /etc/environment.seed
 WORKDIR /root/resinkit-byoc
 RUN make install
 
@@ -65,7 +33,6 @@ CMD [ "run_entrypoint", "-f" ]
 # docker stop resinkit
 # docker rm resinkit
 # docker buildx build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile .
-## docker build --platform linux/amd64,linux/arm64/v8 -t ai.resink.kit -f Dockerfile --build-arg RESINKIT_JAR=app/target/resinkit-0.0.1-SNAPSHOT.jar .
 # docker run -d --name resinkit -p 8000:8000 -p 9092:9092 -p 8083:8083 -p 8081:8081 ai.resink.kit
 
 # Examples of using build arguments:
