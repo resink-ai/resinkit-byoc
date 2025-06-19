@@ -15,6 +15,11 @@ RESINKIT_ENTRYPOINT_SH=/opt/resinkit/resources/entrypoint.sh
 RESINKIT_ROLE_HOME=/home/resinkit
 RESINKIT_ROLE=resinkit
 
+# Hadoop variables
+APACHE_HADOOP_URL=https://archive.apache.org/dist/hadoop/
+HADOOP_VERSION=2.8.5
+HADOOP_HOME=/opt/hadoop
+
 # MinIO variables (may not be needed)
 MINIO_API_PORT=9000
 MINIO_CONFIG_DIR=/opt/minio/config

@@ -33,6 +33,17 @@ setup_vars() {
     export FLINK_CDC_VER=${FLINK_CDC_VER:-3.4.0}
     export FLINK_PAIMON_VER=${FLINK_PAIMON_VER:-1.0.1}
     export FLINK_CDC_HOME=${FLINK_CDC_HOME:-/opt/flink-cdc}
+    # Hadoop variables
+    export HADOOP_HOME=${HADOOP_HOME:-/opt/hadoop}
+    export HADOOP_VERSION=${HADOOP_VERSION:-2.8.5}
+    export APACHE_HADOOP_URL=${APACHE_HADOOP_URL:-https://archive.apache.org/dist/hadoop/}
+
+    if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+        export HADOOP_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
+    else
+        echo "[RESINKIT] Hadoop not installed, skipping"
+    fi
+
     # ResInKit variables
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
     export RESINKIT_ROLE_HOME=${RESINKIT_ROLE_HOME:-/home/resinkit}

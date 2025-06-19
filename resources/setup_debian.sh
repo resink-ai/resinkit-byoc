@@ -76,6 +76,23 @@ function debian_install_java() {
     touch /opt/setup/.java_installed
 }
 
+function debian_install_hadoop() {
+    # Check if Hadoop is already installed
+    if [ -d "$HADOOP_HOME" ] && [ -f "/opt/setup/.hadoop_installed" ]; then
+        echo "[RESINKIT] Hadoop already installed, skipping"
+        return 0
+    fi
+
+    wget ${APACHE_HADOOP_URL}/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O /tmp/hadoop-${HADOOP_VERSION}.tar.gz
+    tar xzvf /tmp/hadoop-${HADOOP_VERSION}.tar.gz -C /opt/
+    mv /opt/hadoop-${HADOOP_VERSION} $HADOOP_HOME
+    rm /tmp/hadoop-${HADOOP_VERSION}.tar.gz
+
+    # Create marker file
+    mkdir -p /opt/setup
+    touch /opt/setup/.hadoop_installed
+}
+
 function debian_install_flink() {
     # Check if Flink is already installed
     if [ -d "$FLINK_HOME" ] && [ -f "/opt/setup/.flink_installed" ]; then
@@ -162,6 +179,9 @@ function debian_install_flink() {
         echo "" >>"$CONF_FILE"
         echo "s3.endpoint: $S3_ENDPOINT" >>"$CONF_FILE"
     fi
+
+    # Set hadoop classpath (for iceberg)
+    debian_install_hadoop
 
     # Create marker file
     mkdir -p /opt/setup

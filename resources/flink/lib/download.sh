@@ -154,7 +154,7 @@ PAIMON_JARS=(
 )
 
 # https://nightlies.apache.org/flink/flink-docs-release-$FLINK_VER_MAJOR/docs/connectors/table/jdbc/#dependencies
-FLINK_JDBC_SQL_CONNECTORS=(
+FLINK_MISC_JARS=(
     https://jdbc.postgresql.org/download/postgresql-42.7.5.jar
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-connector-jdbc/3.3.0-$FLINK_VER_MAJOR/flink-connector-jdbc-3.3.0-$FLINK_VER_MAJOR.jar
     https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar
@@ -162,30 +162,16 @@ FLINK_JDBC_SQL_CONNECTORS=(
 )
 
 # Needed for access object storage
+# iceberg: https://iceberg.apache.org/docs/nightly/flink/#preparation-when-using-flink-sql-client
 FLINK_FILES_JARS=(
     https://repo.maven.apache.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
     https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-$FLINK_VER_MAJOR/$FLINK_ICEBERG_VER/iceberg-flink-runtime-$FLINK_VER_MAJOR-$FLINK_ICEBERG_VER.jar
-)
-
-HIVE_JARS=(
     https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/hadoop-aws-3.3.6.jar
     https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.787/aws-java-sdk-bundle-1.12.787.jar
-)
-
-FLINK_PLUGINS_JARS_S3=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-hadoop/$FLINK_VER_MINOR/flink-s3-fs-hadoop-$FLINK_VER_MINOR.jar
     https://repo1.maven.org/maven2/org/apache/flink/flink-s3-fs-presto/$FLINK_VER_MINOR/flink-s3-fs-presto-$FLINK_VER_MINOR.jar
-)
-
-FLINK_PLUGINS_JARS_AZURE=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-azure-fs-hadoop/$FLINK_VER_MINOR/flink-azure-fs-hadoop-$FLINK_VER_MINOR.jar
-)
-
-FLINK_PLUGINS_JARS_GS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-gs-fs-hadoop/$FLINK_VER_MINOR/flink-gs-fs-hadoop-$FLINK_VER_MINOR.jar
-)
-
-FLINK_PLUGINS_JARS_OSS=(
     https://repo1.maven.org/maven2/org/apache/flink/flink-oss-fs-hadoop/$FLINK_VER_MINOR/flink-oss-fs-hadoop-$FLINK_VER_MINOR.jar
 )
 
@@ -203,7 +189,7 @@ function download_all {
         done
 
         echo "Downloading misc drivers"
-        for url in "${FLINK_JDBC_SQL_CONNECTORS[@]}"; do
+        for url in "${FLINK_MISC_JARS[@]}"; do
             download_and_extract "$url"
         done
 
@@ -214,42 +200,6 @@ function download_all {
 
         echo "Downloading flink files jars"
         for url in "${FLINK_FILES_JARS[@]}"; do
-            download_and_extract "$url"
-        done
-    )
-
-    mkdir -p plugins/s3
-    (
-        cd plugins/s3
-        echo "Downloading flink plugins jars for s3"
-        for url in "${FLINK_PLUGINS_JARS_S3[@]}"; do
-            download_and_extract "$url"
-        done
-    )
-
-    mkdir -p plugins/azure
-    (
-        cd plugins/azure
-        echo "Downloading flink plugins jars for azure"
-        for url in "${FLINK_PLUGINS_JARS_AZURE[@]}"; do
-            download_and_extract "$url"
-        done
-    )
-
-    mkdir -p plugins/gs
-    (
-        cd plugins/gs
-        echo "Downloading flink plugins jars for gs"
-        for url in "${FLINK_PLUGINS_JARS_GS[@]}"; do
-            download_and_extract "$url"
-        done
-    )
-
-    mkdir -p plugins/oss
-    (
-        cd plugins/oss
-        echo "Downloading flink plugins jars for oss"
-        for url in "${FLINK_PLUGINS_JARS_OSS[@]}"; do
             download_and_extract "$url"
         done
     )
