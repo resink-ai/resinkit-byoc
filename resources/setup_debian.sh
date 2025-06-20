@@ -83,10 +83,26 @@ function debian_install_hadoop() {
         return 0
     fi
 
+    echo "[RESINKIT] Installing Hadoop $HADOOP_VERSION for Iceberg integration (following official guide)"
+
+    # Download and extract Hadoop as per Iceberg guide
     wget ${APACHE_HADOOP_URL}/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O /tmp/hadoop-${HADOOP_VERSION}.tar.gz
     tar xzvf /tmp/hadoop-${HADOOP_VERSION}.tar.gz -C /opt/
     mv /opt/hadoop-${HADOOP_VERSION} $HADOOP_HOME
     rm /tmp/hadoop-${HADOOP_VERSION}.tar.gz
+
+    # Ensure proper permissions and ownership
+    chown -R $RESINKIT_ROLE:$RESINKIT_ROLE $HADOOP_HOME 2>/dev/null || true
+    chmod +x $HADOOP_HOME/bin/hadoop
+
+    # Verify installation
+    if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+        echo "[RESINKIT] Hadoop installed successfully at $HADOOP_HOME"
+        echo "[RESINKIT] Hadoop version: $($HADOOP_HOME/bin/hadoop version | head -1)"
+    else
+        echo "[RESINKIT] Error: Hadoop installation failed"
+        return 1
+    fi
 
     # Create marker file
     mkdir -p /opt/setup
@@ -103,9 +119,9 @@ function debian_install_flink() {
     apt-get -y install gpg libsnappy1v5 gettext-base libjemalloc-dev
     rm -rf /var/lib/apt/lists/*
     # skip install gosu
-    echo "[QQQ] FLINK_VER_MINOR: $FLINK_VER_MINOR"
+    echo "[RESINKIT] FLINK_VER_MINOR: $FLINK_VER_MINOR"
     FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
-    echo "[QQQ] FLINK_VER_MINOR: $FLINK_VER_MINOR"
+    echo "[RESINKIT] FLINK_VER_MINOR: $FLINK_VER_MINOR"
     # https://dlcdn.apache.org/flink/flink-1.20.1/flink-1.20.1-bin-scala_2.12.tgz
     export FLINK_TGZ_URL=https://dlcdn.apache.org/flink/flink-${FLINK_VER_MINOR}/flink-${FLINK_VER_MINOR}-bin-scala_2.12.tgz
     export RESINKIT_ROLE=${RESINKIT_ROLE:-resinkit}
@@ -180,7 +196,8 @@ function debian_install_flink() {
         echo "s3.endpoint: $S3_ENDPOINT" >>"$CONF_FILE"
     fi
 
-    # Set hadoop classpath (for iceberg)
+    # Install Hadoop and set hadoop classpath for Iceberg integration (following official Iceberg guide)
+    # This ensures: export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
     debian_install_hadoop
 
     # Create marker file

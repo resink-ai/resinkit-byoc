@@ -1,4 +1,7 @@
 #!/bin/bash
+# Usage:
+# 1. Set RESINKIT_API_USE_REPO=true to use the repository version of the Resinkit API
+# 2. Set FORCE_RESTART=true to restart the services
 
 # Ensure required environment variables are set
 if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_API_VENV_DIR}" ]; then
@@ -101,6 +104,7 @@ stop_flink() {
         echo "[RESINKIT] Stopping Flink SQL Gateway..."
         "${FLINK_HOME}/bin/sql-gateway.sh" stop
         sleep 3
+        pkill -f "org.apache.flink.table.gateway.SqlGateway" || echo "[RESINKIT] Flink SQL Gateway already stopped"
     fi
 
     # Stop Flink cluster
@@ -108,12 +112,23 @@ stop_flink() {
         echo "[RESINKIT] Stopping Flink cluster..."
         "${FLINK_HOME}/bin/stop-cluster.sh"
         sleep 5
+        pkill -f "org.apache.flink.runtime.taskexecutor.TaskManagerRunner" || echo "[RESINKIT] Flink TaskManagerRunner already stopped"
+        pkill -f "org.apache.flink.runtime.entrypoint.StandaloneSessionClusterEntrypoint" || echo "[RESINKIT] Flink StandaloneSessionClusterEntrypoint already stopped"
     fi
 }
 
 # Function to start Flink cluster and SQL gateway
 start_flink() {
     echo "[RESINKIT] Starting Flink cluster and SQL gateway..."
+
+    # Ensure HADOOP_CLASSPATH is set for Iceberg integration (following official Iceberg guide)
+    if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+        export HADOOP_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
+        echo "[RESINKIT] HADOOP_CLASSPATH set for Iceberg: $HADOOP_CLASSPATH"
+    else
+        echo "[RESINKIT] Warning: Hadoop not found, Iceberg integration may not work properly"
+    fi
+
     "${FLINK_HOME}/bin/start-cluster.sh"
     sleep 5 # Wait for cluster to start before starting SQL gateway
     "${FLINK_HOME}/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
@@ -144,7 +159,11 @@ if [ "$FORCE_RESTART" = true ]; then
 fi
 
 echo "[RESINKIT] Starting Resinkit API service..."
-./resources/resinkit-api/resinkit-api-entrypoint.sh start
+if [ "$RESINKIT_API_USE_REPO" = true ]; then
+    ./resources/resinkit-api/resinkit-api-entrypoint.sh start --repo
+else
+    ./resources/resinkit-api/resinkit-api-entrypoint.sh start
+fi
 
 echo "----------------------------------------"
 echo "Resinkit API started"

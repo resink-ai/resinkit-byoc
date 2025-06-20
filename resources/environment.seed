@@ -19,6 +19,8 @@ RESINKIT_ROLE=resinkit
 APACHE_HADOOP_URL=https://archive.apache.org/dist/hadoop/
 HADOOP_VERSION=2.8.5
 HADOOP_HOME=/opt/hadoop
+# Note: HADOOP_CLASSPATH is set dynamically at runtime using: export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
+# This follows the official Apache Iceberg setup guide for Flink integration
 
 # MinIO variables (may not be needed)
 MINIO_API_PORT=9000

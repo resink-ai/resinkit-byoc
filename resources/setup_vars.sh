@@ -38,10 +38,12 @@ setup_vars() {
     export HADOOP_VERSION=${HADOOP_VERSION:-2.8.5}
     export APACHE_HADOOP_URL=${APACHE_HADOOP_URL:-https://archive.apache.org/dist/hadoop/}
 
+    # Set HADOOP_CLASSPATH for Iceberg integration (following official Iceberg guide)
     if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
         export HADOOP_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
+        echo "[RESINKIT] HADOOP_CLASSPATH set for Iceberg integration"
     else
-        echo "[RESINKIT] Hadoop not installed, skipping"
+        echo "[RESINKIT] Hadoop binary not found at $HADOOP_HOME/bin/hadoop, HADOOP_CLASSPATH not set"
     fi
 
     # ResInKit variables
@@ -93,8 +95,12 @@ setup_vars() {
             echo ""
             echo "ARCH=$ARCH"
             echo "JAVA_HOME=$JAVA_HOME"
-            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:/opt/minio/bin:$PATH"
+            echo "HADOOP_HOME=$HADOOP_HOME"
+            if [ -n "$HADOOP_CLASSPATH" ]; then
+                echo "HADOOP_CLASSPATH=$HADOOP_CLASSPATH"
+            fi
+            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$HADOOP_HOME/bin:/opt/minio/bin:$PATH"
         } >>/etc/environment
-        echo "[RESINKIT] Environment variables set"
+        echo "[RESINKIT] Environment variables set (including Hadoop for Iceberg)"
     fi
 }
