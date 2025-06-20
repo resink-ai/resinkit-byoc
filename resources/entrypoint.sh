@@ -114,6 +114,15 @@ stop_flink() {
 # Function to start Flink cluster and SQL gateway
 start_flink() {
     echo "[RESINKIT] Starting Flink cluster and SQL gateway..."
+
+    # Ensure HADOOP_CLASSPATH is set for Iceberg integration (following official Iceberg guide)
+    if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+        export HADOOP_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
+        echo "[RESINKIT] HADOOP_CLASSPATH set for Iceberg: $HADOOP_CLASSPATH"
+    else
+        echo "[RESINKIT] Warning: Hadoop not found, Iceberg integration may not work properly"
+    fi
+
     "${FLINK_HOME}/bin/start-cluster.sh"
     sleep 5 # Wait for cluster to start before starting SQL gateway
     "${FLINK_HOME}/bin/sql-gateway.sh" start -Dsql-gateway.endpoint.rest.address=localhost
