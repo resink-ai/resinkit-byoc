@@ -103,9 +103,41 @@ verify_gpg_signature() {
     return $verify_result
 }
 
+run_jupyter() {
+    # start jupyterlab using the jupyter user's entrypoint script
+    echo "[RESINKIT] Starting Jupyter service..."
+
+    # Check if jupyter user exists
+    if ! id "jupyter" &>/dev/null; then
+        echo "[RESINKIT] Error: User 'jupyter' does not exist. Run setup_jupyter first."
+        return 1
+    fi
+
+    # Check if entrypoint script exists
+    if [ ! -f "/home/jupyter/bin/jupyter_entrypoint.sh" ]; then
+        echo "[RESINKIT] Error: Jupyter entrypoint script not found. Run setup_jupyter first."
+        return 1
+    fi
+
+    chown -R jupyter:jupyter /home/jupyter
+
+    # Start jupyter as the jupyter user
+    if [ "$(id -u)" = 0 ]; then
+        # Running as root, switch to jupyter user
+        gosu jupyter /home/jupyter/bin/jupyter_entrypoint.sh start
+    else
+        # Not running as root, check if we're the jupyter user
+        if [ "$(whoami)" = "jupyter" ]; then
+            /home/jupyter/bin/jupyter_entrypoint.sh start
+        else
+            echo "[RESINKIT] Error: Must run as root or jupyter user"
+            return 1
+        fi
+    fi
+}
+
 run_entrypoint() {
     # start or reload nginx with root
-
     if [ -f /.dockerenv ]; then
         echo "[RESINKIT] Running inside Docker"
         nginx || nginx -s reload || true
@@ -114,6 +146,9 @@ run_entrypoint() {
         systemctl enable nginx || true
         systemctl start nginx || true
     fi
+
+    # start jupyter
+    run_jupyter
 
     # Check if entrypoint.sh already exists
     if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then

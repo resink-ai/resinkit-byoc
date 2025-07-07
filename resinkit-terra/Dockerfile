@@ -20,10 +20,12 @@ EXPOSE 9092
 EXPOSE 8081
 # Flink SQL gateway
 EXPOSE 8083
-# MinIO
-EXPOSE 9000
-# MariaDB
-EXPOSE 3306
+# Jupyter
+EXPOSE 8888
+# # MinIO
+# EXPOSE 9000
+# # MariaDB
+# EXPOSE 3306
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]

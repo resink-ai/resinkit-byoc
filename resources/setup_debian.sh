@@ -139,7 +139,7 @@ function debian_install_flink() {
         if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
             mkdir -p "$RESINKIT_ROLE_HOME"
         fi
-        useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=9999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
+        useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
         # Ensure proper ownership and permissions after user creation
         chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME"
         chmod 755 "$RESINKIT_ROLE_HOME"
@@ -297,8 +297,12 @@ function debian_install_flink_jars() {
 
     # Copy plugins jars
     mkdir -p "$FLINK_HOME/plugins/"
-    echo "[RESINKIT] Copying plugins jars from $ROOT_DIR/resources/flink/lib/plugins/ to $FLINK_HOME/plugins/"
-    cp -rv "$ROOT_DIR/resources/flink/lib/plugins/" "$FLINK_HOME/"
+    if [ -d "$ROOT_DIR/resources/flink/lib/plugins/" ]; then
+        echo "[RESINKIT] Copying plugins jars from $ROOT_DIR/resources/flink/lib/plugins/ to $FLINK_HOME/plugins/"
+        cp -rv "$ROOT_DIR/resources/flink/lib/plugins/" "$FLINK_HOME/"
+    else
+        echo "[RESINKIT] No plugins jars found in $ROOT_DIR/resources/flink/lib/plugins/, skipping"
+    fi
 
     # Copy configuration files
     mkdir -p "$FLINK_HOME/conf/" "$FLINK_CDC_HOME/conf/"
@@ -352,6 +356,60 @@ function debian_install_resinkit() {
     touch /opt/setup/.resinkit_installed
 }
 
+debian_install_jupyter() {
+    # Check if jupyter is already installed
+    if [ -f "/opt/setup/.jupyter_installed" ]; then
+        echo "[RESINKIT] Jupyter already installed, skipping"
+        return 0
+    fi
+    echo "[RESINKIT] Setting up Jupyter user and environment..."
+
+    # step 1: create a user jupyter with home directory /home/jupyter
+    if id "jupyter" &>/dev/null; then
+        echo "[RESINKIT] User 'jupyter' already exists"
+    else
+        echo "[RESINKIT] Creating user 'jupyter'"
+        useradd --create-home --home-dir /home/jupyter --shell /bin/bash jupyter
+        echo "[RESINKIT] User 'jupyter' created with home directory /home/jupyter"
+    fi
+
+    # step 2: copy the resinkit_sample_project to /home/jupyter/workspace/resinkit_sample_project
+    echo "[RESINKIT] Setting up workspace directory"
+    mkdir -p /home/jupyter/workspace
+
+    if [ -d "/home/jupyter/workspace/resinkit_sample_project" ]; then
+        echo "[RESINKIT] Sample project already exists, backing up and replacing"
+        rm -rf "/home/jupyter/workspace/resinkit_sample_project.bak" 2>/dev/null || true
+        mv "/home/jupyter/workspace/resinkit_sample_project" "/home/jupyter/workspace/resinkit_sample_project.bak" 2>/dev/null || true
+    fi
+
+    echo "[RESINKIT] Copying resinkit_sample_project to /home/jupyter/workspace/"
+    cp -r "$ROOT_DIR/resources/jupyter/resinkit_sample_project" /home/jupyter/workspace/
+
+    # Copy the jupyter entrypoint script
+    echo "[RESINKIT] Copying jupyter entrypoint script"
+    mkdir -p /home/jupyter/bin
+    cp "$ROOT_DIR/resources/jupyter/jupyter_entrypoint.sh" /home/jupyter/bin/
+    chmod +x /home/jupyter/bin/jupyter_entrypoint.sh
+
+    # Set up environment variables for jupyter user
+    echo "[RESINKIT] Setting up environment variables"
+    {
+        echo "export PATH=/home/jupyter/.local/bin:\$PATH"
+    } >>/home/jupyter/.bashrc
+
+    # step 3: chown -R jupyter:jupyter /home/jupyter/
+    echo "[RESINKIT] Setting ownership of /home/jupyter to jupyter:jupyter"
+    chown -R jupyter:jupyter /home/jupyter/
+
+    echo "[RESINKIT] Jupyter setup completed successfully"
+    echo "[RESINKIT] To start Jupyter, run: sudo -u jupyter /home/jupyter/bin/jupyter_entrypoint.sh start"
+
+    # Create marker file
+    mkdir -p /opt/setup
+    touch /opt/setup/.jupyter_installed
+}
+
 function debian_install_nginx() {
     # Check if nginx is already setup
     if [ -f "/opt/setup/.nginx_setup_completed" ]; then
@@ -403,6 +461,7 @@ function debian_install_all() {
     debian_install_gosu
     debian_install_kafka
     debian_install_flink_jars
+    debian_install_jupyter
     debian_install_resinkit
     debian_install_nginx
     debian_install_admin_tools

@@ -1,0 +1,15 @@
+[project]
+name = "resinkit-sample-project"
+version = "0.1.0"
+description = "A sample resinkit project"
+readme = "README.md"
+authors = [{ name = "resink.ai", email = "contact@resink.ai" }]
+requires-python = ">=3.12"
+dependencies = ["resinkit-sdk-python", "jupyterlab"]
+
+[project.scripts]
+resinkit-sample-project = "resinkit_sample_project:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
