@@ -8,3 +8,7 @@ apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install
 
 # install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+if [[ "$PS1" != *'[%n]'* ]]; then
+    export PS1="[%n] $PS1"
+fi

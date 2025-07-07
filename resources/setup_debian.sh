@@ -139,7 +139,7 @@ function debian_install_flink() {
         if [ ! -d "$RESINKIT_ROLE_HOME" ]; then
             mkdir -p "$RESINKIT_ROLE_HOME"
         fi
-        useradd --system --home-dir "$RESINKIT_ROLE_HOME" --uid=999 --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
+        useradd --create-home --home-dir "$RESINKIT_ROLE_HOME" --gid="$RESINKIT_ROLE" "$RESINKIT_ROLE"
         # Ensure proper ownership and permissions after user creation
         chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_ROLE_HOME"
         chmod 755 "$RESINKIT_ROLE_HOME"
@@ -345,9 +345,21 @@ function debian_install_resinkit() {
         chmod -R 755 "$RESINKIT_ROLE_HOME/.local"
     fi
 
-    # copy resinkit-api to RESINKIT_API_PATH
-    cp -rv "$ROOT_DIR/resources/resinkit-api" "$RESINKIT_API_PATH"
-    echo "[RESINKIT] Resinkit API copied to $RESINKIT_API_PATH"
+    # Install resinkit-api
+    if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
+        echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN is set, cloning from GitHub repository"
+        # Clone the repository using GitHub PAT
+        git clone "https://$RESINKIT_API_GITHUB_TOKEN@github.com/resink-ai/resinkit-api-python.git" "$RESINKIT_API_PATH"
+        echo "[RESINKIT] Resinkit API cloned from GitHub to $RESINKIT_API_PATH"
+        # Copy entrypoint script to the API directory
+        cp -v "$ROOT_DIR/resources/resinkit-api/resinkit-api-entrypoint.sh" "$RESINKIT_API_PATH/"
+        echo "[RESINKIT] Entrypoint script copied to $RESINKIT_API_PATH"
+    else
+        echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN not set, using local resources"
+        # Copy from local resources (original behavior)
+        cp -rv "$ROOT_DIR/resources/resinkit-api" "$RESINKIT_API_PATH"
+        echo "[RESINKIT] Resinkit API copied from resources to $RESINKIT_API_PATH"
+    fi
 
     chown -R $RESINKIT_ROLE:$RESINKIT_ROLE "$RESINKIT_API_PATH"
 
@@ -449,6 +461,125 @@ function debian_install_nginx() {
     touch /opt/setup/.nginx_setup_completed
 }
 
+function debian_mount_s3_path() {
+    # Skip setup if not running on EC2
+    if [ "${IS_EC2:-false}" = "false" ]; then
+        echo "[RESINKIT] IS_EC2 is false, skipping S3 mount setup"
+        return 0
+    fi
+
+    # Use environment variables with fallbacks
+    local BUCKET_NAME="${BUCKET_NAME:-resinkit-data}"
+    local MOUNT_POINT="${MOUNT_POINT:-/mnt/resinkitdata}"
+
+    # Check if s3 path is already mounted
+    if mount | grep -q "$MOUNT_POINT"; then
+        echo "[RESINKIT] $MOUNT_POINT already mounted, skipping"
+        return 0
+    fi
+
+    # Check if UID environment variable is set
+    if [ -z "$USER_ID" ]; then
+        echo "[RESINKIT] Error: USER_ID environment variable is not set"
+        exit 1
+    fi
+
+    # Check if mount-s3 is already installed
+    if ! command -v mount-s3 >/dev/null 2>&1; then
+        echo "[RESINKIT] Installing mount-s3..."
+
+        # Detect architecture
+        ARCH=$(dpkg --print-architecture)
+        if [ "$ARCH" = "amd64" ]; then
+            MOUNT_S3_ARCH="x86_64"
+        elif [ "$ARCH" = "arm64" ]; then
+            MOUNT_S3_ARCH="arm64"
+        else
+            echo "[RESINKIT] Error: Unsupported architecture: $ARCH"
+            return 1
+        fi
+
+        # Download and install mount-s3
+        wget https://s3.amazonaws.com/mountpoint-s3-release/latest/${MOUNT_S3_ARCH}/mount-s3.deb -O /tmp/mount-s3.deb
+        apt-get update
+        apt-get install -y /tmp/mount-s3.deb
+        rm -f /tmp/mount-s3.deb
+    else
+        echo "[RESINKIT] mount-s3 is already installed"
+    fi
+
+    # Create mount point if it doesn't exist
+    if [ ! -d "$MOUNT_POINT" ]; then
+        echo "[RESINKIT] Creating mount point $MOUNT_POINT"
+        mkdir -p "$MOUNT_POINT"
+    fi
+
+    # Check if already mounted
+    if mount | grep -q "$MOUNT_POINT"; then
+        echo "[RESINKIT] $MOUNT_POINT is already mounted"
+    else
+        echo "[RESINKIT] Mounting with command: mount-s3 s3://$BUCKET_NAME/$USER_ID/ $MOUNT_POINT"
+        mount-s3 "s3://$BUCKET_NAME/$USER_ID/" "$MOUNT_POINT" || {
+            echo "[RESINKIT] Error: Failed to mount S3 path"
+            return 1
+        }
+        echo "[RESINKIT] Successfully mounted S3 path"
+    fi
+
+    # Add to fstab if not already present (mount-s3 fstab entry)
+    local FSTAB_ENTRY="s3://$BUCKET_NAME/$USER_ID/ $MOUNT_POINT fuse.mount-s3 _netdev 0 0"
+    if ! grep -q "$MOUNT_POINT" /etc/fstab; then
+        echo "[RESINKIT] Adding mount to /etc/fstab for persistence"
+        echo "$FSTAB_ENTRY" >>/etc/fstab
+        echo "[RESINKIT] Added to fstab: $FSTAB_ENTRY"
+    else
+        echo "[RESINKIT] Mount point already exists in /etc/fstab"
+    fi
+
+    echo "[RESINKIT] S3 mount setup completed successfully"
+}
+
+function debian_install_genai_toolbox() {
+    # Check if genai-toolbox is already installed
+    if [ -f "/opt/setup/.genai_toolbox_installed" ]; then
+        echo "[RESINKIT] genai-toolbox already installed, skipping"
+        return 0
+    fi
+
+    echo "[RESINKIT] Installing genai-toolbox"
+    
+    # Set version
+    local GENAI_TOOLBOX_VERSION=${GENAI_TOOLBOX_VERSION:-0.9.0}
+    
+    # Detect architecture
+    ARCH=$(dpkg --print-architecture)
+    if [ "$ARCH" = "amd64" ]; then
+        GENAI_TOOLBOX_ARCH="amd64"
+    elif [ "$ARCH" = "arm64" ]; then
+        GENAI_TOOLBOX_ARCH="arm64"
+    else
+        echo "[RESINKIT] Error: Unsupported architecture: $ARCH"
+        return 1
+    fi
+
+    # Download and install genai-toolbox
+    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/${GENAI_TOOLBOX_ARCH}/toolbox" -O /usr/local/bin/toolbox
+    chmod +x /usr/local/bin/toolbox
+    
+    # Verify installation
+    if [ -f "/usr/local/bin/toolbox" ]; then
+        echo "[RESINKIT] genai-toolbox installed successfully"
+        /usr/local/bin/toolbox --version || echo "[RESINKIT] genai-toolbox version check failed"
+    else
+        echo "[RESINKIT] Error: genai-toolbox installation failed"
+        return 1
+    fi
+
+    # Create marker file
+    mkdir -p /opt/setup
+    touch /opt/setup/.genai_toolbox_installed
+}
+
 function debian_install_admin_tools() {
     apt update
     apt install -y curl jq lsof net-tools
@@ -464,6 +595,8 @@ function debian_install_all() {
     debian_install_jupyter
     debian_install_resinkit
     debian_install_nginx
+    debian_mount_s3_path
+    debian_install_genai_toolbox
     debian_install_admin_tools
     set +x
     echo "----------------------------------------"

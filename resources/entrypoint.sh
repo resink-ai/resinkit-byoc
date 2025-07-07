@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage:
-# 1. Set RESINKIT_API_USE_REPO=true to use the repository version of the Resinkit API
+# 1. Set RESINKIT_API_GITHUB_TOKEN to use the repository version of the Resinkit API
 # 2. Set FORCE_RESTART=true to restart the services
 
 # Ensure required environment variables are set
@@ -150,6 +150,68 @@ else
     start_flink
 fi
 
+# Function to check if genai-toolbox is running
+is_genai_toolbox_running() {
+    # Check if genai-toolbox process is running
+    if pgrep -f "/usr/local/bin/toolbox" >/dev/null; then
+        return 0 # genai-toolbox is running
+    else
+        return 1 # genai-toolbox is not running
+    fi
+}
+
+# Function to stop genai-toolbox
+stop_genai_toolbox() {
+    echo "[RESINKIT] Stopping genai-toolbox..."
+    pkill -f "/usr/local/bin/toolbox" || echo "[RESINKIT] genai-toolbox already stopped"
+    sleep 2
+}
+
+# Function to start genai-toolbox
+start_genai_toolbox() {
+    echo "[RESINKIT] Starting genai-toolbox..."
+    
+    # Check if toolbox binary exists
+    if [ ! -f "/usr/local/bin/toolbox" ]; then
+        echo "[RESINKIT] Warning: genai-toolbox not found at /usr/local/bin/toolbox, skipping startup"
+        return 0
+    fi
+    
+    # Create a default tools.yaml if it doesn't exist
+    if [ ! -f "/opt/genai-toolbox/tools.yaml" ]; then
+        echo "[RESINKIT] Creating default tools.yaml configuration..."
+        mkdir -p /opt/genai-toolbox
+        cat > /opt/genai-toolbox/tools.yaml << 'EOF'
+# Default genai-toolbox configuration
+tools:
+  - name: "echo"
+    description: "Echo tool for testing"
+    path: "/bin/echo"
+EOF
+    fi
+    
+    # Start genai-toolbox in the background
+    cd /opt/genai-toolbox || return 1
+    nohup /usr/local/bin/toolbox --tools-file "tools.yaml" > /var/log/genai-toolbox.log 2>&1 &
+    echo "[RESINKIT] genai-toolbox started (logs at /var/log/genai-toolbox.log)"
+}
+
+# Check if genai-toolbox is already running and handle accordingly
+if is_genai_toolbox_running; then
+    echo "[RESINKIT] genai-toolbox is already running"
+    
+    if [ "$FORCE_RESTART" = true ]; then
+        echo "[RESINKIT] FORCE_RESTART is true, restarting genai-toolbox..."
+        stop_genai_toolbox
+        start_genai_toolbox
+    else
+        echo "[RESINKIT] Skipping genai-toolbox startup (already running). Set FORCE_RESTART=true to restart."
+    fi
+else
+    echo "[RESINKIT] genai-toolbox not running, starting service..."
+    start_genai_toolbox
+fi
+
 # Start Resinkit API service using the dedicated entrypoint script
 echo "[RESINKIT] Starting Resinkit API service..."
 
@@ -159,11 +221,7 @@ if [ "$FORCE_RESTART" = true ]; then
 fi
 
 echo "[RESINKIT] Starting Resinkit API service..."
-if [ "$RESINKIT_API_USE_REPO" = true ]; then
-    ./resources/resinkit-api/resinkit-api-entrypoint.sh start --repo
-else
-    ./resources/resinkit-api/resinkit-api-entrypoint.sh start
-fi
+./resources/resinkit-api/resinkit-api-entrypoint.sh start
 
 echo "----------------------------------------"
 echo "Resinkit API started"

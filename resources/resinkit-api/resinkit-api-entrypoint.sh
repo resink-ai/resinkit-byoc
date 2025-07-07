@@ -5,19 +5,27 @@ set -e
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop} [--repo]"
+    echo "Usage: $0 {start|stop}"
     echo "  start       Start the resinkit API service"
-    echo "  start --repo Start the service and install from local repo"
     echo "  stop        Stop the resinkit API service"
+    echo ""
+    echo "Environment variables:"
+    echo "  RESINKIT_API_GITHUB_TOKEN  If set, install from local repository instead of PyPI"
     exit 1
 }
 
 # Function to check required environment variables
 check_env_vars() {
-    local required_vars=("RESINKIT_API_VENV_DIR" "RESINKIT_API_SERVICE_PORT" "RESINKIT_API_LOG_FILE")
+    local required_vars=("RESINKIT_API_VENV_DIR" "RESINKIT_API_SERVICE_PORT" "RESINKIT_API_LOG_FILE" "RESINKIT_API_PATH" "RESINKIT_ROLE_HOME")
     for var in "${required_vars[@]}"; do
         if [[ -z "${!var}" ]]; then
             echo "Error: Environment variable $var is not set"
+            echo "Please check the environment.seed, example:"
+            echo "  RESINKIT_API_LOG_FILE=/opt/resinkit/api/resinkit_api.log"
+            echo "  RESINKIT_API_PATH=/opt/resinkit/api"
+            echo "  RESINKIT_API_SERVICE_PORT=8602"
+            echo "  RESINKIT_API_VENV_DIR=/opt/resinkit/api/.venv"
+            echo "  RESINKIT_ROLE_HOME=/home/resinkit"
             exit 1
         fi
     done
@@ -47,18 +55,16 @@ install_uv_venv_if_not_exists() {
 
     # Create virtual environment using uv if it doesn't exist
     if [[ ! -f "$RESINKIT_API_VENV_DIR/bin/activate" ]]; then
-        echo "[RESINKIT] Creating virtual environment with uv..."
+        echo "[RESINKIT] Creating virtual environment for resinkit-api at $RESINKIT_API_VENV_DIR with uv..."
         uv venv "$RESINKIT_API_VENV_DIR" --python 3.12
     fi
 }
 
 # Function to install dependencies
 install_dependencies() {
-    local use_repo=$1
-
     echo "[RESINKIT] Installing dependencies..."
 
-    if [[ "$use_repo" == "true" ]]; then
+    if [[ -n "$RESINKIT_API_GITHUB_TOKEN" ]]; then
         echo "[RESINKIT] Installing from local repository..."
         uv pip install -e . --python "$RESINKIT_API_VENV_DIR/bin/python"
     else
@@ -69,8 +75,6 @@ install_dependencies() {
 
 # Function to start the service
 start_service() {
-    local use_repo=$1
-
     # Check if service is already running
     if pgrep -f "uvicorn resinkit_api.main:app" >/dev/null; then
         echo "[RESINKIT] Resinkit API service is already running"
@@ -89,7 +93,7 @@ start_service() {
     source "$RESINKIT_API_VENV_DIR/bin/activate"
 
     echo "[RESINKIT] Installing dependencies if needed"
-    install_dependencies "$use_repo"
+    install_dependencies
 
     # Start the service
     echo "[RESINKIT] Starting resinkit_api service..."
@@ -143,23 +147,17 @@ main() {
     fi
 
     local command=$1
-    local use_repo=false
 
-    # Check for --repo flag
-    if [[ $# -eq 2 && "$2" == "--repo" ]]; then
-        use_repo=true
-    elif [[ $# -gt 2 || ($# -eq 2 && "$2" != "--repo") ]]; then
+    # Check for invalid arguments
+    if [[ $# -gt 1 ]]; then
         usage
     fi
 
     case "$command" in
     start)
-        start_service "$use_repo"
+        start_service
         ;;
     stop)
-        if [[ "$use_repo" == "true" ]]; then
-            echo "Warning: --repo flag is ignored for stop command"
-        fi
         stop_service
         ;;
     *)

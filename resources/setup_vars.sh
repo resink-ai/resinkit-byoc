@@ -1,9 +1,40 @@
 #!/bin/bash
-# shellcheck disable=SC1091
+# shellcheck disable=SC1091,SC2155
 
 # Set up and validate all required variables for the ResInKit setup
 
 [[ -z "$ROOT_DIR" ]] && echo "[RESINKIT] Error: ROOT_DIR is not set" && exit 1
+
+# Function to check if running inside a container
+is_container() {
+    if [ -f /.dockerenv ] || (grep -sq 'docker\|lxc' /proc/1/cgroup); then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# Function to check if running on an EC2 instance
+is_ec2() {
+    if curl -s --connect-timeout 2 http://169.254.169.254/latest/meta-data/ &>/dev/null; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+get_user_id() {
+    # if is_ec2 is true, USER_ID must be set, otherwise raise error, otherwise we can fallback to $(id -u)
+    if [ "$1" = "true" ]; then
+        if [ -z "$USER_ID" ]; then
+            echo "[RESINKIT] Error: USER_ID is not set"
+            exit 1
+        fi
+        echo "$USER_ID"
+    else
+        echo ${USER_ID:-$(id -u)}
+    fi
+}
 
 setup_vars() {
     # Validate critical environment variables if they're set from environment file
@@ -25,7 +56,12 @@ setup_vars() {
         echo "[RESINKIT] Environment variables validated"
     fi
 
-    # Set default paths if not already set
+    # Misc variables
+    export IS_CONTAINER=${IS_CONTAINER:-$(is_container)}
+    export IS_EC2=${IS_EC2:-$(is_ec2)}
+    export USER_ID=$(get_user_id $IS_EC2)
+    export X_RESINKIT_PAT=${X_RESINKIT_PAT:-pat_cnk8_}
+
     # Flink variables
     export FLINK_HOME=${FLINK_HOME:-/opt/flink}
     export FLINK_VER_MAJOR=${FLINK_VER_MAJOR:-1.20}
@@ -84,11 +120,11 @@ setup_vars() {
         echo "[RESINKIT] Creating .env.byoc"
         mkdir -p "$RESINKIT_API_PATH"
         echo "RESINKIT_API_PATH=$RESINKIT_API_PATH" >"$RESINKIT_API_PATH/.env.byoc"
-        echo "X_RESINKIT_PAT='pat_cnk8_'" >>"$RESINKIT_API_PATH/.env.byoc"
+        echo "X_RESINKIT_PAT=$X_RESINKIT_PAT" >>"$RESINKIT_API_PATH/.env.byoc"
         echo "[RESINKIT] .env.byoc created"
     fi
 
-    if [[ -f /etc/environment ]] && grep -q "RESINKIT_API_PATH" /etc/environment && grep -q "RESINKIT_API_SERVICE_PORT" /etc/environment; then
+    if [[ -f /etc/environment ]] && grep -q "ARCH" /etc/environment && grep -q "PATH" /etc/environment; then
         echo "[RESINKIT] Environment variables already saved to /etc/environment, skipping"
     else
         {
@@ -96,10 +132,16 @@ setup_vars() {
             echo "ARCH=$ARCH"
             echo "JAVA_HOME=$JAVA_HOME"
             echo "HADOOP_HOME=$HADOOP_HOME"
+            echo "IS_CONTAINER=$IS_CONTAINER"
+            echo "IS_EC2=$IS_EC2"
+            echo "USER_ID=$USER_ID"
             if [ -n "$HADOOP_CLASSPATH" ]; then
                 echo "HADOOP_CLASSPATH=$HADOOP_CLASSPATH"
             fi
             echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$HADOOP_HOME/bin:/opt/minio/bin:$PATH"
+            if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
+                echo "RESINKIT_API_GITHUB_TOKEN=$RESINKIT_API_GITHUB_TOKEN"
+            fi
         } >>/etc/environment
         echo "[RESINKIT] Environment variables set (including Hadoop for Iceberg)"
     fi

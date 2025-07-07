@@ -117,6 +117,9 @@ case $cmd in
 "debian_install_jupyter")
     debian_install_jupyter
     ;;
+"debian_mount_s3_path")
+    debian_mount_s3_path
+    ;;
 "run_entrypoint")
     run_entrypoint
     ;;

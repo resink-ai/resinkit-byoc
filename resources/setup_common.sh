@@ -113,11 +113,10 @@ run_jupyter() {
         return 1
     fi
 
-    # Check if entrypoint script exists
-    if [ ! -f "/home/jupyter/bin/jupyter_entrypoint.sh" ]; then
-        echo "[RESINKIT] Error: Jupyter entrypoint script not found. Run setup_jupyter first."
-        return 1
-    fi
+    # Always use the latest jupyter_entrypoint.sh
+    mkdir -p /home/jupyter/bin
+    cp -v "$ROOT_DIR/resources/jupyter/jupyter_entrypoint.sh" /home/jupyter/bin/
+    chmod +x /home/jupyter/bin/jupyter_entrypoint.sh
 
     chown -R jupyter:jupyter /home/jupyter
 
@@ -150,13 +149,9 @@ run_entrypoint() {
     # start jupyter
     run_jupyter
 
-    # Check if entrypoint.sh already exists
-    if [ ! -f "$RESINKIT_ENTRYPOINT_SH" ]; then
-        mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
-        cp -v "$ROOT_DIR/resources/entrypoint.sh" "$RESINKIT_ENTRYPOINT_SH"
-    else
-        echo "[RESINKIT] Entrypoint script already exists at $RESINKIT_ENTRYPOINT_SH, skipping copy"
-    fi
+    # Always use the latest entrypoint.sh
+    mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
+    cp -v "$ROOT_DIR/resources/entrypoint.sh" "$RESINKIT_ENTRYPOINT_SH"
 
     # /opt/flink, /opt/kafka, /opt/flink-cdc, /opt/resinkit
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$FLINK_HOME"

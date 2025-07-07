@@ -31,3 +31,7 @@ MINIO_ENDPOINT=http://127.0.0.1:9000
 MINIO_ROOT_PASSWORD=minio123
 MINIO_ROOT_USER=minio
 MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
+
+# S3 variables
+S3_BUCKET_NAME=resinkit-data
+S3_MOUNT_POINT=/mnt/resinkitdata

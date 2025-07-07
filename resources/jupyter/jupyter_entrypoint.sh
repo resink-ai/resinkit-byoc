@@ -38,8 +38,9 @@ install_uv_venv_if_not_exists() {
 
     # Create virtual environment using uv if it doesn't exist
     if [[ ! -f "$VENV_DIR/bin/activate" ]]; then
-        echo "[RESINKIT] Creating virtual environment with uv..."
-        uv venv "$VENV_DIR" --python 3.12
+        echo "[RESINKIT] Creating virtual environment for jupyter at $VENV_DIR with uv..."
+        echo "[RESINKIT] CMD: uv venv $VENV_DIR --python 3.12"
+        /home/jupyter/.local/bin/uv venv "$VENV_DIR" --python 3.12
     fi
 }
 
@@ -71,8 +72,11 @@ start_service() {
     echo "[RESINKIT] Starting jupyter service..."
     mkdir -p "$(dirname "$JUPYTER_LOG_FILE")"
 
+    jupyter_workspace_dir="/home/jupyter/workspace/resinkit_sample_project/notebooks"
+    mkdir -p "$jupyter_workspace_dir"
+
     nohup /home/jupyter/.local/bin/uv run --python "$VENV_DIR/bin/python3" jupyter lab \
-        --notebook-dir="/home/jupyter/workspace/resinkit_sample_project" \
+        --notebook-dir="$jupyter_workspace_dir" \
         --ip=0.0.0.0 \
         --port=8888 \
         --no-browser \

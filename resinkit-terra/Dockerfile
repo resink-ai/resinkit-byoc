@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 
 RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
 
+# Set container environment variable
+ENV IS_CONTAINER=true
+
 # Change working directory
 COPY resources/environment.seed /etc/environment.seed
 WORKDIR /root/resinkit-byoc
@@ -22,6 +25,8 @@ EXPOSE 8081
 EXPOSE 8083
 # Jupyter
 EXPOSE 8888
+# ResinKit API
+EXPOSE 8602
 # # MinIO
 # EXPOSE 9000
 # # MariaDB
