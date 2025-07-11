@@ -560,11 +560,26 @@ function debian_install_genai_toolbox() {
         echo "[RESINKIT] Creating default tools.yaml configuration..."
         mkdir -p ${GENAI_TOOLBOX_DIR}
         cat >${GENAI_TOOLBOX_TOOLS_YAML} <<'EOF'
-# Default genai-toolbox configuration
+sources:
+  my-sqlite-memory-db:
+    kind: "sqlite"
+    database: ":memory:"
 tools:
-  - name: "echo"
-    description: "Echo tool for testing"
-    path: "/bin/echo"
+  list_table:
+    kind: sqlite-sql
+    source: my-sqlite-memory-db
+    statement: |
+      SELECT * FROM {{.tableName}};
+    description: |
+      Use this tool to list all information from a specific table.
+      Example:
+      {{
+          "tableName": "flights",
+      }}
+    templateParameters:
+      - name: tableName
+        type: string
+        description: Table to select from
 EOF
     fi
 
