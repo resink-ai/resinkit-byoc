@@ -550,18 +550,6 @@ function debian_install_genai_toolbox() {
 
     # Set version
     local GENAI_TOOLBOX_VERSION=${GENAI_TOOLBOX_VERSION:-0.9.0}
-
-    # Detect architecture
-    ARCH=$(dpkg --print-architecture)
-    if [ "$ARCH" = "amd64" ]; then
-        GENAI_TOOLBOX_ARCH="amd64"
-    elif [ "$ARCH" = "arm64" ]; then
-        GENAI_TOOLBOX_ARCH="arm64"
-    else
-        echo "[RESINKIT] Error: Unsupported architecture: $ARCH"
-        return 1
-    fi
-
     # Download and install genai-toolbox
     wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/${GENAI_TOOLBOX_ARCH}/toolbox" -O ${GENAI_TOOLBOX_BIN}
     chmod +x ${GENAI_TOOLBOX_BIN}
