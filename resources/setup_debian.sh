@@ -547,10 +547,10 @@ function debian_install_genai_toolbox() {
     fi
 
     echo "[RESINKIT] Installing genai-toolbox"
-    
+
     # Set version
     local GENAI_TOOLBOX_VERSION=${GENAI_TOOLBOX_VERSION:-0.9.0}
-    
+
     # Detect architecture
     ARCH=$(dpkg --print-architecture)
     if [ "$ARCH" = "amd64" ]; then
@@ -563,9 +563,9 @@ function debian_install_genai_toolbox() {
     fi
 
     # Download and install genai-toolbox
-    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/${GENAI_TOOLBOX_ARCH}/toolbox" -O /usr/local/bin/toolbox
+    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/amd64/toolbox" -O /usr/local/bin/toolbox
     chmod +x /usr/local/bin/toolbox
-    
+
     # Verify installation
     if [ -f "/usr/local/bin/toolbox" ]; then
         echo "[RESINKIT] genai-toolbox installed successfully"
