@@ -153,11 +153,12 @@ run_entrypoint() {
     mkdir -p "$(dirname "$RESINKIT_ENTRYPOINT_SH")"
     cp -v "$ROOT_DIR/resources/entrypoint.sh" "$RESINKIT_ENTRYPOINT_SH"
 
-    # /opt/flink, /opt/kafka, /opt/flink-cdc, /opt/resinkit
+    # $FLINK_HOME, $KAFKA_HOME, $FLINK_CDC_HOME, $RESINKIT_API_PATH, $GENAI_TOOLBOX_DIR
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$FLINK_HOME"
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$KAFKA_HOME"
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$FLINK_CDC_HOME"
     chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$(dirname "$RESINKIT_API_PATH")"
+    chown -R "$RESINKIT_ROLE":"$RESINKIT_ROLE" "$GENAI_TOOLBOX_DIR"
     exec $(drop_privs_cmd) "$RESINKIT_ENTRYPOINT_SH"
 }
 

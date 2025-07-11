@@ -563,13 +563,27 @@ function debian_install_genai_toolbox() {
     fi
 
     # Download and install genai-toolbox
-    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/amd64/toolbox" -O /usr/local/bin/toolbox
-    chmod +x /usr/local/bin/toolbox
+    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/${GENAI_TOOLBOX_ARCH}/toolbox" -O ${GENAI_TOOLBOX_BIN}
+    chmod +x ${GENAI_TOOLBOX_BIN}
+
+    # Create a default tools.yaml if it doesn't exist
+    mkdir -p ${GENAI_TOOLBOX_DIR}/
+    if [ ! -f "${GENAI_TOOLBOX_TOOLS_YAML}" ]; then
+        echo "[RESINKIT] Creating default tools.yaml configuration..."
+        mkdir -p ${GENAI_TOOLBOX_DIR}
+        cat >${GENAI_TOOLBOX_TOOLS_YAML} <<'EOF'
+# Default genai-toolbox configuration
+tools:
+  - name: "echo"
+    description: "Echo tool for testing"
+    path: "/bin/echo"
+EOF
+    fi
 
     # Verify installation
-    if [ -f "/usr/local/bin/toolbox" ]; then
+    if [ -f "${GENAI_TOOLBOX_BIN}" ]; then
         echo "[RESINKIT] genai-toolbox installed successfully"
-        /usr/local/bin/toolbox --version || echo "[RESINKIT] genai-toolbox version check failed"
+        ${GENAI_TOOLBOX_BIN} --version || echo "[RESINKIT] genai-toolbox version check failed"
     else
         echo "[RESINKIT] Error: genai-toolbox installation failed"
         return 1

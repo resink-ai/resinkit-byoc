@@ -113,6 +113,9 @@ setup_vars() {
     export MINIO_API_PORT=${MINIO_API_PORT:-9000}
     export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:$MINIO_API_PORT}
 
+    # GenAI Toolbox configuration
+    export GENAI_TOOLBOX_DIR=${GENAI_TOOLBOX_DIR:-/opt/genai-toolbox}
+
     # setup .env.byoc in RESINKIT_API_PATH
     if [ -f "$RESINKIT_API_PATH/.env.byoc" ]; then
         echo "[RESINKIT] .env.byoc already exists, skipping"

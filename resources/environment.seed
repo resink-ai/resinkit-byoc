@@ -35,3 +35,10 @@ MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
 # S3 variables
 S3_BUCKET_NAME=resinkit-data
 S3_MOUNT_POINT=/mnt/resinkitdata
+
+# GenAI Toolbox variables
+GENAI_TOOLBOX_DIR=/opt/genai-toolbox
+GENAI_TOOLBOX_VERSION=0.9.0
+GENAI_TOOLBOX_ARCH=amd64
+GENAI_TOOLBOX_BIN=/usr/local/bin/toolbox
+GENAI_TOOLBOX_TOOLS_YAML=/opt/genai-toolbox/tools.yaml

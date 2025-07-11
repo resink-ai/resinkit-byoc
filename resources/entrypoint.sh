@@ -153,7 +153,7 @@ fi
 # Function to check if genai-toolbox is running
 is_genai_toolbox_running() {
     # Check if genai-toolbox process is running
-    if pgrep -f "/usr/local/bin/toolbox" >/dev/null; then
+    if pgrep -f "${GENAI_TOOLBOX_BIN}" >/dev/null; then
         return 0 # genai-toolbox is running
     else
         return 1 # genai-toolbox is not running
@@ -163,25 +163,25 @@ is_genai_toolbox_running() {
 # Function to stop genai-toolbox
 stop_genai_toolbox() {
     echo "[RESINKIT] Stopping genai-toolbox..."
-    pkill -f "/usr/local/bin/toolbox" || echo "[RESINKIT] genai-toolbox already stopped"
+    pkill -f "${GENAI_TOOLBOX_BIN}" || echo "[RESINKIT] genai-toolbox already stopped"
     sleep 2
 }
 
 # Function to start genai-toolbox
 start_genai_toolbox() {
     echo "[RESINKIT] Starting genai-toolbox..."
-    
+
     # Check if toolbox binary exists
-    if [ ! -f "/usr/local/bin/toolbox" ]; then
-        echo "[RESINKIT] Warning: genai-toolbox not found at /usr/local/bin/toolbox, skipping startup"
+    if [ ! -f "${GENAI_TOOLBOX_BIN}" ]; then
+        echo "[RESINKIT] Warning: genai-toolbox not found at ${GENAI_TOOLBOX_BIN}, skipping startup"
         return 0
     fi
-    
+
     # Create a default tools.yaml if it doesn't exist
-    if [ ! -f "/opt/genai-toolbox/tools.yaml" ]; then
+    if [ ! -f "${GENAI_TOOLBOX_TOOLS_YAML}" ]; then
         echo "[RESINKIT] Creating default tools.yaml configuration..."
-        mkdir -p /opt/genai-toolbox
-        cat > /opt/genai-toolbox/tools.yaml << 'EOF'
+        mkdir -p ${GENAI_TOOLBOX_DIR}
+        cat >${GENAI_TOOLBOX_TOOLS_YAML} <<'EOF'
 # Default genai-toolbox configuration
 tools:
   - name: "echo"
@@ -189,17 +189,17 @@ tools:
     path: "/bin/echo"
 EOF
     fi
-    
+
     # Start genai-toolbox in the background
-    cd /opt/genai-toolbox || return 1
-    nohup /usr/local/bin/toolbox --tools-file "tools.yaml" > /var/log/genai-toolbox.log 2>&1 &
+    cd ${GENAI_TOOLBOX_DIR} || return 1
+    nohup ${GENAI_TOOLBOX_BIN} --tools-file "tools.yaml" >/var/log/genai-toolbox.log 2>&1 &
     echo "[RESINKIT] genai-toolbox started (logs at /var/log/genai-toolbox.log)"
 }
 
 # Check if genai-toolbox is already running and handle accordingly
 if is_genai_toolbox_running; then
     echo "[RESINKIT] genai-toolbox is already running"
-    
+
     if [ "$FORCE_RESTART" = true ]; then
         echo "[RESINKIT] FORCE_RESTART is true, restarting genai-toolbox..."
         stop_genai_toolbox
