@@ -3,11 +3,9 @@
 # 1. Set RESINKIT_API_GITHUB_TOKEN to use the repository version of the Resinkit API
 # 2. Set FORCE_RESTART=true to restart the services
 
-# Ensure required environment variables are set
-if [ -z "${KAFKA_HOME}" ] || [ -z "${FLINK_HOME}" ] || [ -z "${RESINKIT_API_VENV_DIR}" ]; then
-    # shellcheck disable=SC1091
-    . /etc/environment
-fi
+# shellcheck disable=SC1091
+. /etc/environment.seed
+. /etc/environment
 
 # Function to check if Kafka is running
 is_kafka_running() {
@@ -153,7 +151,7 @@ fi
 # Function to check if genai-toolbox is running
 is_genai_toolbox_running() {
     # Check if genai-toolbox process is running
-    if pgrep -f "${GENAI_TOOLBOX_BIN}" >/dev/null; then
+    if pgrep -f "toolbox" >/dev/null; then
         return 0 # genai-toolbox is running
     else
         return 1 # genai-toolbox is not running
@@ -163,7 +161,7 @@ is_genai_toolbox_running() {
 # Function to stop genai-toolbox
 stop_genai_toolbox() {
     echo "[RESINKIT] Stopping genai-toolbox..."
-    pkill -f "${GENAI_TOOLBOX_BIN}" || echo "[RESINKIT] genai-toolbox already stopped"
+    pkill -f "toolbox" || echo "[RESINKIT] genai-toolbox already stopped"
     sleep 2
 }
 
@@ -177,23 +175,10 @@ start_genai_toolbox() {
         return 0
     fi
 
-    # Create a default tools.yaml if it doesn't exist
-    if [ ! -f "${GENAI_TOOLBOX_TOOLS_YAML}" ]; then
-        echo "[RESINKIT] Creating default tools.yaml configuration..."
-        mkdir -p ${GENAI_TOOLBOX_DIR}
-        cat >${GENAI_TOOLBOX_TOOLS_YAML} <<'EOF'
-# Default genai-toolbox configuration
-tools:
-  - name: "echo"
-    description: "Echo tool for testing"
-    path: "/bin/echo"
-EOF
-    fi
-
     # Start genai-toolbox in the background
     cd ${GENAI_TOOLBOX_DIR} || return 1
-    nohup ${GENAI_TOOLBOX_BIN} --tools-file "tools.yaml" >/var/log/genai-toolbox.log 2>&1 &
-    echo "[RESINKIT] genai-toolbox started (logs at /var/log/genai-toolbox.log)"
+    nohup ${GENAI_TOOLBOX_BIN} --tools-file ${GENAI_TOOLBOX_TOOLS_YAML} --address 0.0.0.0 >${GENAI_TOOLBOX_DIR}/genai-toolbox.log 2>&1 &
+    echo "[RESINKIT] genai-toolbox started (logs at ${GENAI_TOOLBOX_DIR}/genai-toolbox.log)"
 }
 
 # Check if genai-toolbox is already running and handle accordingly
@@ -217,11 +202,11 @@ echo "[RESINKIT] Starting Resinkit API service..."
 
 if [ "$FORCE_RESTART" = true ]; then
     echo "[RESINKIT] FORCE_RESTART is true, stopping service first..."
-    ./resources/resinkit-api/resinkit-api-entrypoint.sh stop
+    $RESINKIT_API_PATH/resinkit-api-entrypoint.sh stop
 fi
 
 echo "[RESINKIT] Starting Resinkit API service..."
-./resources/resinkit-api/resinkit-api-entrypoint.sh start
+$RESINKIT_API_PATH/resinkit-api-entrypoint.sh start
 
 echo "----------------------------------------"
 echo "Resinkit API started"

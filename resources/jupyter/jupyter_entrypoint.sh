@@ -62,6 +62,7 @@ start_service() {
         return 0
     fi
 
+    cd /home/jupyter/workspace/resinkit_sample_project
     echo "[RESINKIT] Installing uv if not exists"
     install_uv_venv_if_not_exists
 
