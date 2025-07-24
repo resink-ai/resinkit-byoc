@@ -310,6 +310,10 @@ function debian_install_flink_jars() {
     cp -v "$ROOT_DIR/resources/flink/conf/log4j.properties" "$FLINK_HOME/conf/log4j.properties"
     cp -rv "$ROOT_DIR/resources/flink/cdc/" "$FLINK_CDC_HOME/conf/"
 
+    # Set up /opt/flink/data/catalog-store
+    mkdir -p "$FLINK_HOME/data/catalog-store"
+    cp -v "$ROOT_DIR/resources/flink/data/catalog-store/default_catalog.yaml" "$FLINK_HOME/data/catalog-store/default_catalog.yaml"
+
     # Create marker file
     mkdir -p /opt/setup
     touch /opt/setup/.flink_jars_installed
@@ -612,7 +616,6 @@ function debian_install_all() {
     debian_install_jupyter
     debian_install_resinkit
     debian_install_nginx
-    debian_mount_s3_path
     debian_install_genai_toolbox
     debian_install_admin_tools
     set +x

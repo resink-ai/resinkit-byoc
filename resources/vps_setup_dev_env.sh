@@ -7,8 +7,12 @@
 apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git vim curl wget zsh ca-certificates kafkacat make unzip
 
 # install oh-my-zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --skip-chsh
+
+cat <<EOF >>~/.zshrc
 
 if [[ "$PS1" != *'[%n]'* ]]; then
     export PS1="[%n] $PS1"
 fi
+
+EOF

@@ -24,6 +24,11 @@ install:
 install_additional:
 	bash resources/setup.sh debian_install_additional
 
+run_production:
+	ENV=production bash resources/setup.sh run_entrypoint
+	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
+	bash resources/setup.sh run_curl_test || true
+
 run_byoc:
 	ENV=byoc bash resources/setup.sh run_entrypoint
 	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint

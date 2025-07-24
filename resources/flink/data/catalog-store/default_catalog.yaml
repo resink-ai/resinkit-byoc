@@ -1,0 +1,2 @@
+type: "paimon"
+warehouse: "file:///tmp/flink/catalog/default_paimon"
