@@ -24,7 +24,9 @@ def find_git_root() -> Path | None:
 
 def find_dotenv_path() -> Path | None:
     try:
-        dotenv_path = find_dotenv(filename=".env.common", usecwd=True, raise_error_if_not_found=False)
+        dotenv_path = find_dotenv(
+            filename=".env.common", usecwd=True, raise_error_if_not_found=False
+        )
     except Exception as e:
         print(f"(find_dotenv_path) An unexpected error occurred: {e}")
         return None

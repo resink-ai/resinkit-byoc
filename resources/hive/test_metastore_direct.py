@@ -5,10 +5,9 @@ Install: pip install pyhive thrift-sasl
 Run: HOST_HIVE_SERVER2=hiveserver2 HOST_METASTORE=hive-metastore uv run python3 test_metastore_direct.py
 """
 
+import os
 import socket
 from contextlib import contextmanager
-
-import os
 
 HOST_METASTORE = os.getenv("HOST_METASTORE")
 HOST_HIVE_SERVER2 = os.getenv("HOST_HIVE_SERVER2")
@@ -79,8 +78,8 @@ def test_with_manual_thrift():
         return False
 
     try:
-        from thrift.transport import TSocket, TTransport
         from thrift.protocol import TBinaryProtocol
+        from thrift.transport import TSocket, TTransport
 
         transport = TSocket.TSocket(HOST_METASTORE, 9083)
         transport = TTransport.TBufferedTransport(transport)
@@ -104,8 +103,8 @@ def test_with_manual_thrift():
 @contextmanager
 def suppress_output():
     """Suppress stdout/stderr for cleaner output"""
-    import sys
     import os
+    import sys
 
     with open(os.devnull, "w") as devnull:
         old_stdout = sys.stdout

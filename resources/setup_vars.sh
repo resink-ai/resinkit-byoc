@@ -134,6 +134,6 @@ setup_vars() {
                 echo "RESINKIT_API_GITHUB_TOKEN=$RESINKIT_API_GITHUB_TOKEN"
             fi
         } >>/etc/environment
-        echo "[RESINKIT] Environment variables set (including Hadoop for Iceberg)"
+        echo "[RESINKIT] Environment variables set"
     fi
 }

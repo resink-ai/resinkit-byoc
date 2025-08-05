@@ -1,36 +1,29 @@
+"""Configuration management for resinkit-byoc."""
+
 import os
 
-from pydantic import (
-    computed_field,
-)
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import find_dotenv, load_dotenv
+
+# Global flag to track if dotenvs have been loaded
+_dotenvs_loaded = False
 
 
+def load_dotenvs() -> None:
+    """
+    Load environment variables from .env files.
 
-_CURRENT_ENV = os.getenv("ENV", "dev")
+    Loads variables from:
+    - .env.common
+    - .env.{ENV} (where ENV defaults to 'dev')
 
+    This function should be called once at application startup.
+    """
+    global _dotenvs_loaded
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=(".env.common", f".env.{_CURRENT_ENV}"),
-        env_nested_delimiter="__",
-        env_file_encoding="utf-8",
-    )
+    if _dotenvs_loaded:
+        return
 
-    ##### Environment #####
-    @property
-    @computed_field
-    def IS_PRODUCTION(self) -> bool:
-        return _CURRENT_ENV.lower() == "production"
+    load_dotenv(find_dotenv(".env.common"))
+    load_dotenv(find_dotenv(f".env.{os.getenv('ENV', 'dev')}"))
 
-
-
-_settings: Settings | None = None
-
-
-def _get_settings() -> Settings:
-    global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
-
+    _dotenvs_loaded = True
