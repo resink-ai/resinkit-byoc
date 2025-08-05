@@ -27,8 +27,6 @@ EXPOSE 8083
 EXPOSE 8888
 # ResinKit API
 EXPOSE 8602
-# # MinIO
-# EXPOSE 9000
 # # MariaDB
 # EXPOSE 3306
 
@@ -45,7 +43,6 @@ CMD [ "run_entrypoint", "-f" ]
 # Examples of using build arguments:
 # docker buildx build --platform linux/amd64,linux/arm64/v8 \
 #   --build-arg RESINKIT_ROLE=customuser \
-#   --build-arg MINIO_ROOT_PASSWORD=mysecurepassword \
 #   --build-arg RESINKIT_API_SERVICE_PORT=8700 \
 #   -t ai.resink.kit -f Dockerfile .
 

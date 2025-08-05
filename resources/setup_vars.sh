@@ -104,18 +104,6 @@ setup_vars() {
     # MariaDB(MySQL) variables
     export MYSQL_RESINKIT_PASSWORD=${MYSQL_RESINKIT_PASSWORD:-resinkit_mysql_password}
 
-    # MinIO configuration
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
-    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
-    export MINIO_DATA_DIR=${MINIO_DATA_DIR:-/opt/minio/data}
-    export MINIO_CONFIG_DIR=${MINIO_CONFIG_DIR:-/opt/minio/config}
-    export MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT:-9001}
-    export MINIO_API_PORT=${MINIO_API_PORT:-9000}
-    export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:$MINIO_API_PORT}
-
-    # GenAI Toolbox configuration
-    export GENAI_TOOLBOX_DIR=${GENAI_TOOLBOX_DIR:-/opt/genai-toolbox}
-
     # setup .env.byoc in RESINKIT_API_PATH
     if [ -f "$RESINKIT_API_PATH/.env.byoc" ]; then
         echo "[RESINKIT] .env.byoc already exists, skipping"
@@ -141,7 +129,7 @@ setup_vars() {
             if [ -n "$HADOOP_CLASSPATH" ]; then
                 echo "HADOOP_CLASSPATH=$HADOOP_CLASSPATH"
             fi
-            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$HADOOP_HOME/bin:/opt/minio/bin:$PATH"
+            echo "PATH=$JAVA_HOME/bin:$FLINK_HOME/bin:$KAFKA_HOME/bin:$HADOOP_HOME/bin"
             if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
                 echo "RESINKIT_API_GITHUB_TOKEN=$RESINKIT_API_GITHUB_TOKEN"
             fi

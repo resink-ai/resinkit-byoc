@@ -148,54 +148,6 @@ else
     start_flink
 fi
 
-# Function to check if genai-toolbox is running
-is_genai_toolbox_running() {
-    # Check if genai-toolbox process is running
-    if pgrep -f "toolbox" >/dev/null; then
-        return 0 # genai-toolbox is running
-    else
-        return 1 # genai-toolbox is not running
-    fi
-}
-
-# Function to stop genai-toolbox
-stop_genai_toolbox() {
-    echo "[RESINKIT] Stopping genai-toolbox..."
-    pkill -f "toolbox" || echo "[RESINKIT] genai-toolbox already stopped"
-    sleep 2
-}
-
-# Function to start genai-toolbox
-start_genai_toolbox() {
-    echo "[RESINKIT] Starting genai-toolbox..."
-
-    # Check if toolbox binary exists
-    if [ ! -f "${GENAI_TOOLBOX_BIN}" ]; then
-        echo "[RESINKIT] Warning: genai-toolbox not found at ${GENAI_TOOLBOX_BIN}, skipping startup"
-        return 0
-    fi
-
-    # Start genai-toolbox in the background
-    cd ${GENAI_TOOLBOX_DIR} || return 1
-    nohup ${GENAI_TOOLBOX_BIN} --tools-file ${GENAI_TOOLBOX_TOOLS_YAML} --address 0.0.0.0 >${GENAI_TOOLBOX_DIR}/genai-toolbox.log 2>&1 &
-    echo "[RESINKIT] genai-toolbox started (logs at ${GENAI_TOOLBOX_DIR}/genai-toolbox.log)"
-}
-
-# Check if genai-toolbox is already running and handle accordingly
-if is_genai_toolbox_running; then
-    echo "[RESINKIT] genai-toolbox is already running"
-
-    if [ "$FORCE_RESTART" = true ]; then
-        echo "[RESINKIT] FORCE_RESTART is true, restarting genai-toolbox..."
-        stop_genai_toolbox
-        start_genai_toolbox
-    else
-        echo "[RESINKIT] Skipping genai-toolbox startup (already running). Set FORCE_RESTART=true to restart."
-    fi
-else
-    echo "[RESINKIT] genai-toolbox not running, starting service..."
-    start_genai_toolbox
-fi
 
 # Start Resinkit API service using the dedicated entrypoint script
 echo "[RESINKIT] Starting Resinkit API service..."

@@ -22,23 +22,8 @@ HADOOP_HOME=/opt/hadoop
 # Note: HADOOP_CLASSPATH is set dynamically at runtime using: export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
 # This follows the official Apache Iceberg setup guide for Flink integration
 
-# MinIO variables (may not be needed)
-MINIO_API_PORT=9000
-MINIO_CONFIG_DIR=/opt/minio/config
-MINIO_CONSOLE_PORT=9001
-MINIO_DATA_DIR=/opt/minio/data
-MINIO_ENDPOINT=http://127.0.0.1:9000
-MINIO_ROOT_PASSWORD=minio123
-MINIO_ROOT_USER=minio
 MYSQL_RESINKIT_PASSWORD=resinkit_mysql_password
 
 # S3 variables
 S3_BUCKET_NAME=resinkit-data
 S3_MOUNT_POINT=/mnt/resinkitdata
-
-# GenAI Toolbox variables
-GENAI_TOOLBOX_DIR=/opt/genai-toolbox
-GENAI_TOOLBOX_VERSION=0.9.0
-GENAI_TOOLBOX_ARCH=amd64
-GENAI_TOOLBOX_BIN=/usr/local/bin/toolbox
-GENAI_TOOLBOX_TOOLS_YAML=/opt/genai-toolbox/tools.yaml
