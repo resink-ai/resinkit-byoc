@@ -39,37 +39,25 @@ def run_script(
     if not full_script_path.exists():
         raise FileNotFoundError(f"Script not found: {full_script_path}")
 
-    # Read the script content
-    with open(full_script_path, "r") as f:
-        script_content = f.read()
-
     # Ensure dotenvs are loaded
     load_dotenvs()
 
     # Build environment variable prefix
-    env_prefix_lines = []
+
+    env_map = {}
     for env_var in envs:
         # Get the value from os.environ (loaded from .env files)
         env_value = os.getenv(env_var)
         if env_value is not None:
-            env_prefix_lines.append(f"export {env_var}='{env_value}'")
-        else:
-            # Add a comment for missing variables
-            env_prefix_lines.append(f"# Warning: {env_var} not found in environment")
-
-    # Combine environment variables with script content
-    if env_prefix_lines:
-        prefixed_script = "\\n".join(env_prefix_lines) + "\\n\\n" + script_content
-    else:
-        prefixed_script = script_content
+            env_map[env_var] = env_value
 
     # Generate operation name
     if name is None:
         name = f"Run script: {Path(script_path).name}"
 
     # Execute the script using pyinfra
-    server.shell(
+    server.script(
         name=name,
-        commands=[prefixed_script],
-        _shell_executable="/bin/bash",
+        src=full_script_path,
+        _env=env_map,
     )

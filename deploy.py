@@ -13,10 +13,10 @@ the resinkit_byoc.deploys package.
 """
 
 from resinkit_byoc.deploys.admin_tools import install_admin_tools
-from resinkit_byoc.deploys.flink import install_flink
 from resinkit_byoc.deploys.flink_jars import install_flink_jars
 from resinkit_byoc.deploys.install_00_prep import install_prep
 from resinkit_byoc.deploys.install_01_core import install_core
+from resinkit_byoc.deploys.install_02_flink import install_flink
 from resinkit_byoc.deploys.jupyter import install_jupyter
 from resinkit_byoc.deploys.mariadb import install_mariadb
 from resinkit_byoc.deploys.python_uv import python_uv

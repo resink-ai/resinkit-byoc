@@ -41,4 +41,4 @@ deploy:
 	# git clone https://github.com/resink-ai/resinkit-byoc.git
 	# cd resinkit-byoc
 	bash resources/setup_uv.sh
-	/opt/uv/bin/uv run pyinfra @local deploy.install_common_packages
+	/opt/uv/uv run pyinfra @local deploy.install_prep
