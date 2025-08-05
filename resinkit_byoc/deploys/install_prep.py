@@ -5,7 +5,7 @@ import os
 from pyinfra.operations import apt, server
 
 
-def install_prep():
+def install_00_prep():
     """Install common packages and prepare for installation."""
 
     # Check if already installed
