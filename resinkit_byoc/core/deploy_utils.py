@@ -68,4 +68,8 @@ def run_script(
         name = f"Run script: {Path(script_path).name}"
 
     # Execute the script using pyinfra
-    server.shell(name=name, commands=[prefixed_script])
+    server.shell(
+        name=name,
+        commands=[prefixed_script],
+        _shell_executable="/bin/bash",
+    )

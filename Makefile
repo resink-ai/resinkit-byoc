@@ -33,3 +33,8 @@ run_byoc:
 	ENV=byoc bash resources/setup.sh run_entrypoint
 	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
 	bash resources/setup.sh run_curl_test || true
+
+
+# Deploy with pyinfra
+deploy:
+	/opt/uv/bin/uv run pyinfra @local deploy.install_common_packages
