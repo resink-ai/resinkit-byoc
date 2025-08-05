@@ -64,6 +64,7 @@ function debian_install_java() {
 
     ARCH=$(dpkg --print-architecture)
     export ARCH
+    apt-get update
     apt-get install -y openjdk-17-jdk openjdk-17-jre
     update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java"
     update-alternatives --set javac "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/javac"

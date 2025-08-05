@@ -92,6 +92,7 @@ function _install_flink_jars() {
     cp -v "$ROOT_DIR/resources/flink/conf/conf.yaml" "/opt/flink/conf/config.yaml"
     cp -v "$ROOT_DIR/resources/flink/conf/log4j.properties" "/opt/flink/conf/log4j.properties"
     cp -rv "$ROOT_DIR/resources/flink/cdc/" "/opt/flink-cdc/conf/"
+    chown -R resinkit:resinkit /opt/flink-cdc
 
     # Set up /opt/flink/data/catalog-store
     mkdir -p "/opt/flink/data/catalog-store"
@@ -109,15 +110,30 @@ function _install_flink_entrypoint() {
 
 function install_flink() {
     # Check if Flink is already installed
-    if [ -d "/opt/flink" ] && [ -f "/opt/setup/.flink_installed" ]; then
-        echo "[RESINKIT] Flink already installed, skipping"
-        return 0
+    if [ -d "/opt/flink" ] && [ $(find "/opt/flink/lib/" -name "*.jar" | wc -l) -gt 5 ]; then
+        echo "[RESINKIT] Flink folder installed and jars are not empty"
+        if  [ -d "/opt/flink-cdc/conf/" ]; then
+            echo "[RESINKIT] Flink CDC folder installed"
+            if [ -f "/home/resinkit/.local/bin/flink_entrypoint.sh" ]; then
+                echo "[RESINKIT] Flink entrypoint already installed"
+                return 0
+            fi
+        fi
     fi
+
+    ARCH=$(dpkg --print-architecture)
+    export ARCH
+
+    # Check if Java is already installed by checking /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+    if [ ! -f "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java" ]; then
+        echo "[RESINKIT] Java is not installed, skipping Flink installation"
+        return 1
+    fi
+
+    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}
 
     apt-get -y install gpg libsnappy1v5 gettext-base libjemalloc-dev
     rm -rf /var/lib/apt/lists/*
-    # skip install gosu
-    echo "[RESINKIT] FLINK_VER_MINOR: $FLINK_VER_MINOR"
     FLINK_VER_MINOR=${FLINK_VER_MINOR:-1.20.1}
     echo "[RESINKIT] FLINK_VER_MINOR: $FLINK_VER_MINOR"
     # https://dlcdn.apache.org/flink/flink-1.20.1/flink-1.20.1-bin-scala_2.12.tgz
@@ -176,17 +192,14 @@ function install_flink() {
 
     # Install Hadoop and set hadoop classpath for Iceberg integration (following official Iceberg guide)
     # This ensures: export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
-    _install_hadoop
 
-    _install_flink_jars
+    # TODO: reenable this
+    # _install_hadoop
+    # _install_flink_jars
+
+    _install_flink_entrypoint
 
     chown -R resinkit:resinkit /opt/flink
-    chown -R resinkit:resinkit /opt/flink-cdc
-    chown -R resinkit:resinkit /home/resinkit
-
-    # Create marker file
-    mkdir -p /opt/setup
-    touch /opt/setup/.flink_installed
 }
 
 install_flink

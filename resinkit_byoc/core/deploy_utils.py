@@ -11,7 +11,9 @@ from .find_root import find_project_root
 
 
 def run_script(
-    script_path: str, envs: Optional[List[str]] = None, name: Optional[str] = None
+    script_path: str,
+    envs: Optional[List[str]] = None,
+    name: Optional[str] = None,
 ) -> None:
     """
     Create a pyinfra deployment by reading a bash script and prefixing it with environment variables.

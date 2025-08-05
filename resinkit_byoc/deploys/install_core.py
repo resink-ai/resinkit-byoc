@@ -8,11 +8,11 @@ def install_01_core():
     run_script(
         "resinkit_byoc/scripts/install_core.sh",
         name="Install core components: Java, gosu, nginx, kafka",
-        envs=["ROOT_DIR", "RESINKIT_ROLE"],
+        envs=["ROOT_DIR", "RESINKIT_ROLE", "RESINKIT_API_GITHUB_TOKEN"],
     )
 
 
-def install_02_flink():
+def install_03_flink():
     """Install Apache Flink."""
 
     run_script(
@@ -28,7 +28,7 @@ def install_02_flink():
     )
 
 
-def install_03_core_su():
+def install_02_core_su():
     """Install core components for su user."""
 
     run_script(
@@ -41,5 +41,4 @@ def install_03_core_su():
             "FLINK_CDC_VER",
             "FLINK_VER_MINOR",
         ],
-        _su_user="resinkit",
     )

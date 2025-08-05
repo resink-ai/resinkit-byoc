@@ -1,0 +1,128 @@
+#!/bin/bash
+
+# entrypoint for all services
+## flink_entrypoint.sh
+## jupyter_entrypoint.sh
+## kafka_entrypoint.sh
+## resinkit-api-entrypoint.sh
+
+# Parameters:
+# - jupyter_enabled: boolean
+# - kafka_enabled: boolean
+# - exp_vars: dict of environment variables to export
+
+# Exit on any error
+set -e
+
+# Export environment variables
+{% if exp_vars %}
+{% for key, value in exp_vars.items() %}
+export {{ key }}="{{ value }}"
+{% endfor %}
+{% endif %}
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 {start|stop}"
+    echo "  start       Start all enabled services"
+    echo "  stop        Stop all enabled services"
+    echo ""
+    echo "Services controlled:"
+    echo "  - Flink (always enabled)"
+    echo "  - Resinkit API (always enabled)"
+{% if jupyter_enabled %}
+    echo "  - Jupyter (enabled)"
+{% else %}
+    echo "  - Jupyter (disabled)"
+{% endif %}
+{% if kafka_enabled %}
+    echo "  - Kafka (enabled)"
+{% else %}
+    echo "  - Kafka (disabled)"
+{% endif %}
+    exit 1
+}
+
+# Function to start all services
+start_services() {
+    echo "[RESINKIT] Starting all enabled services..."
+    
+    # Start Flink (always enabled)
+    echo "[RESINKIT] Starting Flink..."
+    /opt/resinkit/flink/flink_entrypoint.sh start
+    
+    # Start Resinkit API (always enabled)
+    echo "[RESINKIT] Starting Resinkit API..."
+    /opt/resinkit/resinkit-api/resinkit-api-entrypoint.sh start
+    
+{% if jupyter_enabled %}
+    # Start Jupyter (conditionally enabled)
+    echo "[RESINKIT] Starting Jupyter..."
+    /opt/resinkit/jupyter/jupyter_entrypoint.sh start
+{% endif %}
+
+{% if kafka_enabled %}
+    # Start Kafka (conditionally enabled)
+    echo "[RESINKIT] Starting Kafka..."
+    KAFKA_HOME=/opt/kafka /opt/resinkit/kafka/kafka_entrypoint.sh start
+{% endif %}
+    
+    echo "[RESINKIT] All enabled services started successfully"
+}
+
+# Function to stop all services
+stop_services() {
+    echo "[RESINKIT] Stopping all services..."
+    
+{% if kafka_enabled %}
+    # Stop Kafka first (conditionally enabled)
+    echo "[RESINKIT] Stopping Kafka..."
+    KAFKA_HOME=/opt/kafka /opt/resinkit/kafka/kafka_entrypoint.sh stop || true
+{% endif %}
+
+{% if jupyter_enabled %}
+    # Stop Jupyter (conditionally enabled)
+    echo "[RESINKIT] Stopping Jupyter..."
+    /opt/resinkit/jupyter/jupyter_entrypoint.sh stop || true
+{% endif %}
+
+    # Stop Resinkit API (always enabled)
+    echo "[RESINKIT] Stopping Resinkit API..."
+    /opt/resinkit/resinkit-api/resinkit-api-entrypoint.sh stop || true
+    
+    # Stop Flink last (always enabled)
+    echo "[RESINKIT] Stopping Flink..."
+    /opt/resinkit/flink/flink_entrypoint.sh stop || true
+    
+    echo "[RESINKIT] All services stopped"
+}
+
+# Main script logic
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+    fi
+
+    local command=$1
+
+    # Check for invalid arguments
+    if [[ $# -gt 1 ]]; then
+        usage
+    fi
+
+    case "$command" in
+    start)
+        start_services
+        ;;
+    stop)
+        stop_services
+        ;;
+    *)
+        echo "Error: Unknown command '$command'"
+        usage
+        ;;
+    esac
+}
+
+# Run the main function with all arguments
+main "$@"

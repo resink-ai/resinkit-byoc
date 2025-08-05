@@ -14,51 +14,21 @@ usage() {
     exit 1
 }
 
-# Function to check required environment variables
-check_env_vars() {
-    local required_vars=("RESINKIT_API_VENV_DIR" "RESINKIT_API_SERVICE_PORT" "RESINKIT_API_LOG_FILE" "RESINKIT_API_PATH" "RESINKIT_ROLE_HOME")
-    for var in "${required_vars[@]}"; do
-        if [[ -z "${!var}" ]]; then
-            echo "Error: Environment variable $var is not set"
-            echo "Please check the environment.seed, example:"
-            echo "  RESINKIT_API_LOG_FILE=/opt/resinkit/api/resinkit_api.log"
-            echo "  RESINKIT_API_PATH=/opt/resinkit/api"
-            echo "  RESINKIT_API_SERVICE_PORT=8602"
-            echo "  RESINKIT_API_VENV_DIR=/opt/resinkit/api/.venv"
-            echo "  RESINKIT_ROLE_HOME=/home/resinkit"
-            exit 1
-        fi
-    done
-}
+export RESINKIT_API_PATH="${RESINKIT_API_PATH:-/opt/resinkit/api}"
+export RESINKIT_API_LOG_FILE="${RESINKIT_API_LOG_FILE:-/opt/resinkit/api/resinkit_api.log}"
+export RESINKIT_API_SERVICE_PORT="${RESINKIT_API_SERVICE_PORT:-8602}"
 
 export INSTALLER_NO_MODIFY_PATH=1
-export UV_CACHE_DIR="$RESINKIT_ROLE_HOME/.uv/cache"
-export UV_CONFIG_DIR="$RESINKIT_ROLE_HOME/.uv/config"
-export UV_DATA_DIR="$RESINKIT_ROLE_HOME/.uv/data"
+export UV_CACHE_DIR="/home/resinkit/.uv/cache"
+export UV_CONFIG_DIR="/home/resinkit/.uv/config"
+export UV_DATA_DIR="/home/resinkit/.uv/data"
 mkdir -p "$UV_CACHE_DIR" "$UV_CONFIG_DIR" "$UV_DATA_DIR"
 
-install_uv_venv_if_not_exists() {
-    # Install uv if not already installed
-    if ! command -v uv &>/dev/null; then
-        echo "[RESINKIT] Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh || true
-        # Add uv to PATH for current session
-        export PATH="$RESINKIT_ROLE_HOME/.local/bin:$PATH"
-        # source "$RESINKIT_ROLE_HOME/.local/bin/env"
-        echo "[RESINKIT] UV_HOME: $RESINKIT_ROLE_HOME/.local/bin"
-        echo "[RESINKIT] UV_CACHE_DIR: $UV_CACHE_DIR"
-        echo "[RESINKIT] UV_CONFIG_DIR: $UV_CONFIG_DIR"
-        echo "[RESINKIT] UV_DATA_DIR: $UV_DATA_DIR"
-        echo "[RESINKIT] PATH: $PATH"
-        echo "[RESINKIT] uv --version: $(uv --version)"
-    fi
-
-    # Create virtual environment using uv if it doesn't exist
-    if [[ ! -f "$RESINKIT_API_VENV_DIR/bin/activate" ]]; then
-        echo "[RESINKIT] Creating virtual environment for resinkit-api at $RESINKIT_API_VENV_DIR with uv..."
-        uv venv "$RESINKIT_API_VENV_DIR" --python 3.12
-    fi
-}
+UV_BIN="/home/resinkit/.local/bin/uv"
+if [ ! -f "$UV_BIN" ]; then
+    echo "[RESINKIT] UV not installed"
+    exit 1
+fi
 
 # Function to install dependencies
 install_dependencies() {
@@ -66,10 +36,10 @@ install_dependencies() {
 
     if [[ -n "$RESINKIT_API_GITHUB_TOKEN" ]]; then
         echo "[RESINKIT] Installing from local repository..."
-        uv pip install -e . --python "$RESINKIT_API_VENV_DIR/bin/python"
+        $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 sync
     else
         echo "[RESINKIT] Installing from PyPI..."
-        uv pip install uvicorn resinkit-api-python -U --python "$RESINKIT_API_VENV_DIR/bin/python"
+        $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 pip install uvicorn resinkit-api-python -U
     fi
 }
 
@@ -81,8 +51,6 @@ start_service() {
         return 0
     fi
 
-    echo "[RESINKIT] Checking environment variables..."
-    check_env_vars
 
     cd "$RESINKIT_API_PATH"
 
@@ -99,7 +67,7 @@ start_service() {
     echo "[RESINKIT] Starting resinkit_api service..."
     mkdir -p "$(dirname "$RESINKIT_API_LOG_FILE")"
 
-    nohup uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    nohup $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 
     # Get the PID and save it
     local pid=$!

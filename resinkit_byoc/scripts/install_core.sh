@@ -149,8 +149,12 @@ function install_nginx() {
 function install_kafka() {
     # Check if Kafka is already installed by checking if /opt/kafka exists and /opt/kafka/config/server.properties exists
     if [ -d "/opt/kafka" ] && [ -f "/opt/kafka/config/server.properties" ]; then
-        echo "[RESINKIT] Kafka already installed, skipping"
-        return 0
+        echo "[RESINKIT] Kafka already installed (1/2)"
+        # check if kafka_entrypoint.sh is installed
+        if [ -f "/home/resinkit/.local/bin/kafka_entrypoint.sh" ]; then
+            echo "[RESINKIT] Kafka entrypoint already installed (2/2)"
+            return 0
+        fi
     fi
 
     wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz &&
@@ -158,7 +162,10 @@ function install_kafka() {
         mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
         rm /tmp/kafka.tgz
 
+    # copy properties and entrypoint
     cp -v "$ROOT_DIR/resources/kafka/server.properties" "/opt/kafka/config/server.properties"
+    cp -v "$ROOT_DIR/resources/kafka/kafka_entrypoint.sh" "/home/resinkit/.local/bin/kafka_entrypoint.sh"
+    chmod +x /home/resinkit/.local/bin/kafka_entrypoint.sh
 
     mkdir -p /opt/kafka/logs
     chown -R resinkit:resinkit /opt/kafka
@@ -176,22 +183,35 @@ function install_jupyter() {
 }
 
 function install_resinkit_api() {
+    # Check if resinkit-api is already installed
+    if [ -d "/opt/resinkit/api" ] && [ -f "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh" ]; then
+        echo "[RESINKIT] Resinkit API already installed (1/2)"
+        # check if resinkit-api-entrypoint.sh is installed
+        if [ -f "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh" ]; then
+            echo "[RESINKIT] Resinkit API entrypoint already installed (2/2)"
+            return 0
+        fi
+    fi
+
     if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
         echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN is set, cloning from GitHub repository"
         # Clone the repository using GitHub PAT
-        git clone "https://$RESINKIT_API_GITHUB_TOKEN@github.com/resink-ai/resinkit-api-python.git" /opt/resinkit-api-python
-        echo "[RESINKIT] Resinkit API cloned from GitHub to /opt/resinkit-api-python"
-        # Copy entrypoint script to the API directory
-        cp -v "$ROOT_DIR/resources/resinkit-api/resinkit-api-entrypoint.sh" "/home/resinkit/.local/bin/"
-        echo "[RESINKIT] Entrypoint script copied to /home/resinkit/.local/bin/"
+        git clone "https://$RESINKIT_API_GITHUB_TOKEN@github.com/resink-ai/resinkit-api-python.git" /opt/resinkit/api
+        echo "[RESINKIT] Resinkit API cloned from GitHub to /opt/resinkit/api"
     else
         echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN not set, using local resources"
         # Copy from local resources (original behavior)
-        cp -rv "$ROOT_DIR/resources/resinkit-api" "/opt/resinkit-api-python"
-        echo "[RESINKIT] Resinkit API copied from resources to /opt/resinkit-api-python"
+        mkdir -p /opt/resinkit/api
+        cp -rv "$ROOT_DIR/resources/resinkit-api" "/opt/resinkit/api"
+        echo "[RESINKIT] Resinkit API copied from resources to /opt/resinkit/api"
     fi
-}
 
+    # Copy entrypoint script to the API directory
+    cp -v "$ROOT_DIR/resources/resinkit-api/resinkit-api-entrypoint.sh" "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
+    echo "[RESINKIT] Entrypoint script copied to /home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
+    chmod +x /home/resinkit/.local/bin/resinkit-api-entrypoint.sh
+    chown -R resinkit:resinkit /opt/resinkit/api
+}
 
 
 install_gosu
