@@ -7,7 +7,7 @@ name = "resinkit-byoc"
 dynamic = ["version"]
 description = "ResinKit BYOC (Bring Your Own Cloud) package"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 license = { file = "LICENSE" }
 authors = [{ name = "ResinKit Team" }]
 classifiers = [
@@ -21,10 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = [
-    "python-dotenv>=1.1",
-    "pyinfra>=3.4.1",
-]
+dependencies = ["python-dotenv>=1.1", "pyinfra>=3.4.1"]
 
 [project.urls]
 Homepage = "https://github.com/resink-ai/resinkit"

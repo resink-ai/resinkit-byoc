@@ -4,6 +4,11 @@ import os
 
 from dotenv import find_dotenv, load_dotenv
 
+from resinkit_byoc.core.find_root import find_project_root
+
+# Import warnings filter to suppress non-critical container warnings
+from . import warnings_filter  # noqa: F401
+
 # Global flag to track if dotenvs have been loaded
 _dotenvs_loaded = False
 
@@ -25,5 +30,8 @@ def load_dotenvs() -> None:
 
     load_dotenv(find_dotenv(".env.common"))
     load_dotenv(find_dotenv(f".env.{os.getenv('ENV', 'dev')}"))
+
+    # Set the project root
+    os.environ["ROOT_DIR"] = str(find_project_root())
 
     _dotenvs_loaded = True

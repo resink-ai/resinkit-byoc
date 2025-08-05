@@ -37,4 +37,8 @@ run_byoc:
 
 # Deploy with pyinfra
 deploy:
+	# apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
+	# git clone https://github.com/resink-ai/resinkit-byoc.git
+	# cd resinkit-byoc
+	bash resources/setup_uv.sh
 	/opt/uv/bin/uv run pyinfra @local deploy.install_common_packages

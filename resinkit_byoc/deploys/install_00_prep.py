@@ -1,10 +1,12 @@
 """Install common packages deployment for resinkit-byoc."""
 
-from pyinfra.operations import apt, files, server
+import os
+
+from pyinfra.operations import apt, server
 
 
-def install_common_packages():
-    """Install common packages required for resinkit-byoc."""
+def install_prep():
+    """Install common packages and prepare for installation."""
 
     # Check if already installed
     # Update package list
@@ -24,6 +26,7 @@ def install_common_packages():
         "make",
         "curl",
         "zsh",
+        "zip",
     ]
 
     apt.packages(
@@ -54,4 +57,13 @@ def install_common_packages():
         packages=dev_packages,
         present=True,
         extra_install_args="--no-install-recommends",
+    )
+
+    # add resinkit user
+    resinkit_role = os.getenv("RESINKIT_ROLE", "resinkit")
+    server.user(
+        name="Ensure resinkit user exists",
+        user=resinkit_role,
+        home=f"/home/{resinkit_role}",
+        create_home=True,
     )
