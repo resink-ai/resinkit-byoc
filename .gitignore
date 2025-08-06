@@ -68,3 +68,7 @@ archive.zip
 # macOS
 .DS_Store
 logs/*
+
+# pyinfra
+.inventory.py
+pyinfra-debug.log
