@@ -4,6 +4,8 @@ SHELL = /bin/bash -x
 
 all: download resinkit-terra
 
+CURRENT_DIR := $(shell pwd)
+
 download:
 	cd resources/flink/lib && bash download.sh
 
@@ -18,18 +20,11 @@ resinkit-terra-mysql-mionio:
 	docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
 
 install:
-	cp -v resources/environment.seed /etc/environment.seed
-	bash resources/setup.sh debian_install_all
-
-install_additional:
-	bash resources/setup.sh debian_install_additional
+	ROOT_DIR=$(CURRENT_DIR) RESINKIT_BYOC_RELEASE_BRANCH=feature bash resinkit_byoc/scripts/pre_install.sh
+	/opt/uv/uv run pyinfra @local deploy.deploy_all -y
 
 run_production:
-	ENV=production bash resources/setup.sh run_entrypoint
-	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
-	bash resources/setup.sh run_curl_test || true
+	bash resinkit_byoc/scripts/drop_privs_run.sh
 
 run_byoc:
-	ENV=byoc bash resources/setup.sh run_entrypoint
-	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
-	bash resources/setup.sh run_curl_test || true
+	ENV=byoc bash resinkit_byoc/scripts/drop_privs_run.sh

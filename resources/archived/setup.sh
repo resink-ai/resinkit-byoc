@@ -104,15 +104,11 @@ case $cmd in
 "debian_install_mariadb")
     debian_install_mariadb
     ;;
-"debian_install_minio")
-    debian_install_minio
-    ;;
 "debian_install_all")
     debian_install_all
     ;;
 "debian_install_additional")
     debian_install_mariadb
-    debian_install_minio
     ;;
 "debian_install_jupyter")
     debian_install_jupyter

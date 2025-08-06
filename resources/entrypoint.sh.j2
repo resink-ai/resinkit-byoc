@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# entrypoint for all services
+## flink_entrypoint.sh
+## jupyter_entrypoint.sh
+## kafka_entrypoint.sh
+## resinkit-api-entrypoint.sh
+
+# Parameters:
+# - jupyter_enabled: boolean
+# - kafka_enabled: boolean
+# - exp_vars: dict of environment variables to export
+
+# Exit on any error
+set -e
+
+# Export environment variables
+{% if exp_vars %}
+{% for key, value in exp_vars.items() %}
+export {{ key }}="{{ value }}"
+{% endfor %}
+{% endif %}
+
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)
+export KAFKA_HOME=/opt/kafka
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 {start|stop|status} [-f]"
+    echo "  start       Start all enabled services"
+    echo "  start -f    Start all enabled services and keep container running in foreground"
+    echo "  stop        Stop all enabled services"
+    echo "  status      Check status of all enabled services"
+    echo ""
+    echo "Services controlled:"
+    echo "  - Flink (always enabled)"
+    echo "  - Resinkit API (always enabled)"
+{% if jupyter_enabled %}
+    echo "  - Jupyter (enabled)"
+{% else %}
+    echo "  - Jupyter (disabled)"
+{% endif %}
+{% if kafka_enabled %}
+    echo "  - Kafka (enabled)"
+{% else %}
+    echo "  - Kafka (disabled)"
+{% endif %}
+    exit 1
+}
+
+# Function to start all services
+start_services() {
+    local foreground_mode=$1
+    echo "[RESINKIT] Starting all enabled services..."
+    
+    # Start Flink (always enabled)
+    echo "[RESINKIT] Starting Flink..."
+    /home/resinkit/.local/bin/flink_entrypoint.sh start
+    
+    # Start Resinkit API (always enabled)
+    echo "[RESINKIT] Starting Resinkit API..."
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh start
+    
+{% if jupyter_enabled %}
+    # Start Jupyter (conditionally enabled)
+    echo "[RESINKIT] Starting Jupyter..."
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh start
+{% endif %}
+
+{% if kafka_enabled %}
+    # Start Kafka (conditionally enabled)
+    echo "[RESINKIT] Starting Kafka..."
+    /home/resinkit/.local/bin/kafka_entrypoint.sh start
+{% endif %}
+    
+    echo "[RESINKIT] All enabled services started successfully"
+    
+    # If foreground mode is enabled, keep container running
+    if [[ "$foreground_mode" == "true" ]]; then
+        echo "[RESINKIT] Running in foreground mode, keeping container alive..."
+        tail -f /dev/null
+    fi
+}
+
+# Function to stop all services
+stop_services() {
+    echo "[RESINKIT] Stopping all services..."
+    
+{% if kafka_enabled %}
+    # Stop Kafka first (conditionally enabled)
+    echo "[RESINKIT] Stopping Kafka..."
+    /home/resinkit/.local/bin/kafka_entrypoint.sh stop || true
+{% endif %}
+
+{% if jupyter_enabled %}
+    # Stop Jupyter (conditionally enabled)
+    echo "[RESINKIT] Stopping Jupyter..."
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh stop || true
+{% endif %}
+
+    # Stop Resinkit API (always enabled)
+    echo "[RESINKIT] Stopping Resinkit API..."
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh stop || true
+    
+    # Stop Flink last (always enabled)
+    echo "[RESINKIT] Stopping Flink..."
+    /home/resinkit/.local/bin/flink_entrypoint.sh stop || true
+    
+    echo "[RESINKIT] All services stopped"
+}
+
+# Function to check status of all services
+status_services() {
+    echo "[RESINKIT] Checking status of all enabled services..."
+    echo ""
+    
+    # Check Flink status (always enabled)
+    echo "=== FLINK STATUS ==="
+    /home/resinkit/.local/bin/flink_entrypoint.sh status || true
+    echo ""
+    
+    # Check Resinkit API status (always enabled)
+    echo "=== RESINKIT API STATUS ==="
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh status || true
+    echo ""
+    
+{% if jupyter_enabled %}
+    # Check Jupyter status (conditionally enabled)
+    echo "=== JUPYTER STATUS ==="
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh status || true
+    echo ""
+{% endif %}
+
+{% if kafka_enabled %}
+    # Check Kafka status (conditionally enabled)
+    echo "=== KAFKA STATUS ==="
+    /home/resinkit/.local/bin/kafka_entrypoint.sh status || true
+    echo ""
+{% endif %}
+    
+    echo "[RESINKIT] Status check completed for all enabled services"
+}
+
+# Main script logic
+main() {
+    if [[ $# -eq 0 ]]; then
+        usage
+    fi
+
+    local command=$1
+    local foreground_mode="false"
+
+    # Parse arguments
+    if [[ $# -eq 2 && "$2" == "-f" ]]; then
+        foreground_mode="true"
+    elif [[ $# -gt 2 || ($# -eq 2 && "$2" != "-f") ]]; then
+        usage
+    fi
+
+    case "$command" in
+    start)
+        start_services "$foreground_mode"
+        ;;
+    stop)
+        stop_services
+        ;;
+    status)
+        status_services
+        ;;
+    *)
+        echo "Error: Unknown command '$command'"
+        usage
+        ;;
+    esac
+}
+
+# Run the main function with all arguments
+main "$@"

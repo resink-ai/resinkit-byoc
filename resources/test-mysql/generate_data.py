@@ -7,15 +7,16 @@ Generates data for the MySQL database.
 
 """
 
-from os import system
-import os
-import mysql.connector
-from mysql.connector import Error
-from faker import Faker
-import random
-from datetime import datetime, timedelta
 import json
+import os
+import random
 import uuid
+from datetime import datetime, timedelta
+from os import system
+
+import mysql.connector
+from faker import Faker
+from mysql.connector import Error
 
 fake = Faker()
 

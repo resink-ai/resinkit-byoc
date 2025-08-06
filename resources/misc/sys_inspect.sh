@@ -38,29 +38,6 @@ function inspect_flink() {
     echo "================================================"
 }
 
-function inspect_minio() {
-    export MINIO_MC_BIN=${MINIO_MC_BIN:-/opt/minio/bin/mc}
-    export MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:9000}
-    export MINIO_ROOT_USER=${MINIO_ROOT_USER:-minio}
-    export MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minio123}
-    echo "================================================"
-    echo "Minio:"
-    "$MINIO_MC_BIN" alias set localminio "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-    echo "================================================"
-    echo "Minio Buckets:"
-    "$MINIO_MC_BIN" ls localminio
-    echo "================================================"
-    echo "Minio create bucket test-bucket:"
-    "$MINIO_MC_BIN" mb localminio/test-bucket
-    echo "================================================"
-    echo "Minio upload file to bucket test-bucket:"
-    "$MINIO_MC_BIN" cp $MINIO_MC_BIN localminio/test-bucket/mc
-    echo "================================================"
-    echo "Minio list bucket test-bucket:"
-    "$MINIO_MC_BIN" ls localminio/test-bucket
-    echo "================================================"
-}
-
 function inspect_mariadb() {
     echo "================================================"
     echo "Mariadb status:"

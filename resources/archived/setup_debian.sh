@@ -64,6 +64,7 @@ function debian_install_java() {
 
     ARCH=$(dpkg --print-architecture)
     export ARCH
+    apt-get update
     apt-get install -y openjdk-17-jdk openjdk-17-jre
     update-alternatives --set java "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/java"
     update-alternatives --set javac "/usr/lib/jvm/java-17-openjdk-${ARCH}/bin/javac"
@@ -543,63 +544,6 @@ function debian_mount_s3_path() {
     echo "[RESINKIT] S3 mount setup completed successfully"
 }
 
-function debian_install_genai_toolbox() {
-    # Check if genai-toolbox is already installed
-    if [ -f "/opt/setup/.genai_toolbox_installed" ]; then
-        echo "[RESINKIT] genai-toolbox already installed, skipping"
-        return 0
-    fi
-
-    echo "[RESINKIT] Installing genai-toolbox"
-
-    # Set version
-    local GENAI_TOOLBOX_VERSION=${GENAI_TOOLBOX_VERSION:-0.9.0}
-    # Download and install genai-toolbox
-    wget "https://storage.googleapis.com/genai-toolbox/v${GENAI_TOOLBOX_VERSION}/linux/${GENAI_TOOLBOX_ARCH}/toolbox" -O ${GENAI_TOOLBOX_BIN}
-    chmod +x ${GENAI_TOOLBOX_BIN}
-
-    # Create a default tools.yaml if it doesn't exist
-    mkdir -p ${GENAI_TOOLBOX_DIR}/
-    if [ ! -f "${GENAI_TOOLBOX_TOOLS_YAML}" ]; then
-        echo "[RESINKIT] Creating default tools.yaml configuration..."
-        mkdir -p ${GENAI_TOOLBOX_DIR}
-        cat >${GENAI_TOOLBOX_TOOLS_YAML} <<'EOF'
-sources:
-  my-sqlite-memory-db:
-    kind: "sqlite"
-    database: ":memory:"
-tools:
-  list_table:
-    kind: sqlite-sql
-    source: my-sqlite-memory-db
-    statement: |
-      SELECT * FROM {{.tableName}};
-    description: |
-      Use this tool to list all information from a specific table.
-      Example:
-      {{
-          "tableName": "flights",
-      }}
-    templateParameters:
-      - name: tableName
-        type: string
-        description: Table to select from
-EOF
-    fi
-
-    # Verify installation
-    if [ -f "${GENAI_TOOLBOX_BIN}" ]; then
-        echo "[RESINKIT] genai-toolbox installed successfully"
-        ${GENAI_TOOLBOX_BIN} --version || echo "[RESINKIT] genai-toolbox version check failed"
-    else
-        echo "[RESINKIT] Error: genai-toolbox installation failed"
-        return 1
-    fi
-
-    # Create marker file
-    mkdir -p /opt/setup
-    touch /opt/setup/.genai_toolbox_installed
-}
 
 function debian_install_admin_tools() {
     apt update
@@ -616,7 +560,6 @@ function debian_install_all() {
     debian_install_jupyter
     debian_install_resinkit
     debian_install_nginx
-    debian_install_genai_toolbox
     debian_install_admin_tools
     set +x
     echo "----------------------------------------"

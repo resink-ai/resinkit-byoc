@@ -4,14 +4,13 @@ FROM ubuntu:latest
 # Install dependencies (assuming this part is okay)
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
-RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
+RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /opt/resinkit-byoc
 
 # Set container environment variable
 ENV IS_CONTAINER=true
 
 # Change working directory
-COPY resources/environment.seed /etc/environment.seed
-WORKDIR /root/resinkit-byoc
+WORKDIR /opt/resinkit-byoc
 RUN make install
 
 # Expose necessary ports
@@ -27,15 +26,13 @@ EXPOSE 8083
 EXPOSE 8888
 # ResinKit API
 EXPOSE 8602
-# # MinIO
-# EXPOSE 9000
 # # MariaDB
 # EXPOSE 3306
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
-ENTRYPOINT [ "/root/resinkit-byoc/resources/setup.sh" ]
-CMD [ "run_entrypoint", "-f" ]
+ENTRYPOINT [ "/home/resinkit/.local/bin/entrypoint.sh" ]
+CMD [ "start", "-f" ]
 
 # docker stop resinkit
 # docker rm resinkit
@@ -45,7 +42,6 @@ CMD [ "run_entrypoint", "-f" ]
 # Examples of using build arguments:
 # docker buildx build --platform linux/amd64,linux/arm64/v8 \
 #   --build-arg RESINKIT_ROLE=customuser \
-#   --build-arg MINIO_ROOT_PASSWORD=mysecurepassword \
 #   --build-arg RESINKIT_API_SERVICE_PORT=8700 \
 #   -t ai.resink.kit -f Dockerfile .
 
