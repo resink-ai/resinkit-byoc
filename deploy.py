@@ -14,10 +14,11 @@ the resinkit_byoc.deploys package.
 
 from resinkit_byoc.deploys.install_core import (
     install_01_core,
-    install_03_flink,
     install_02_core_su,
+    install_03_flink,
 )
 from resinkit_byoc.deploys.install_extras import install_admin_tools, install_mariadb
+from resinkit_byoc.deploys.post_install import post_install
 from resinkit_byoc.deploys.pre_install import install_00_prep
 
 # Export all deploy functions for direct access
@@ -37,3 +38,4 @@ def deploy_all():
     install_01_core()
     install_02_core_su()
     install_03_flink()
+    post_install()

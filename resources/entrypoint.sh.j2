@@ -21,6 +21,9 @@ export {{ key }}="{{ value }}"
 {% endfor %}
 {% endif %}
 
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)
+export KAFKA_HOME=/opt/kafka
+
 # Function to display usage
 usage() {
     echo "Usage: $0 {start|stop}"
@@ -49,22 +52,22 @@ start_services() {
     
     # Start Flink (always enabled)
     echo "[RESINKIT] Starting Flink..."
-    /opt/resinkit/flink/flink_entrypoint.sh start
+    /home/resinkit/.local/bin/flink_entrypoint.sh start
     
     # Start Resinkit API (always enabled)
     echo "[RESINKIT] Starting Resinkit API..."
-    /opt/resinkit/resinkit-api/resinkit-api-entrypoint.sh start
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh start
     
 {% if jupyter_enabled %}
     # Start Jupyter (conditionally enabled)
     echo "[RESINKIT] Starting Jupyter..."
-    /opt/resinkit/jupyter/jupyter_entrypoint.sh start
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh start
 {% endif %}
 
 {% if kafka_enabled %}
     # Start Kafka (conditionally enabled)
     echo "[RESINKIT] Starting Kafka..."
-    KAFKA_HOME=/opt/kafka /opt/resinkit/kafka/kafka_entrypoint.sh start
+    /home/resinkit/.local/bin/kafka_entrypoint.sh start
 {% endif %}
     
     echo "[RESINKIT] All enabled services started successfully"
@@ -77,22 +80,22 @@ stop_services() {
 {% if kafka_enabled %}
     # Stop Kafka first (conditionally enabled)
     echo "[RESINKIT] Stopping Kafka..."
-    KAFKA_HOME=/opt/kafka /opt/resinkit/kafka/kafka_entrypoint.sh stop || true
+    /home/resinkit/.local/bin/kafka_entrypoint.sh stop || true
 {% endif %}
 
 {% if jupyter_enabled %}
     # Stop Jupyter (conditionally enabled)
     echo "[RESINKIT] Stopping Jupyter..."
-    /opt/resinkit/jupyter/jupyter_entrypoint.sh stop || true
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh stop || true
 {% endif %}
 
     # Stop Resinkit API (always enabled)
     echo "[RESINKIT] Stopping Resinkit API..."
-    /opt/resinkit/resinkit-api/resinkit-api-entrypoint.sh stop || true
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh stop || true
     
     # Stop Flink last (always enabled)
     echo "[RESINKIT] Stopping Flink..."
-    /opt/resinkit/flink/flink_entrypoint.sh stop || true
+    /home/resinkit/.local/bin/flink_entrypoint.sh stop || true
     
     echo "[RESINKIT] All services stopped"
 }
