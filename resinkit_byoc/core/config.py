@@ -4,11 +4,6 @@ import os
 
 from dotenv import find_dotenv, load_dotenv
 
-from resinkit_byoc.core.find_root import find_project_root
-
-# Import warnings filter to suppress non-critical container warnings
-from . import warnings_filter  # noqa: F401
-
 # Global flag to track if dotenvs have been loaded
 _dotenvs_loaded = False
 
