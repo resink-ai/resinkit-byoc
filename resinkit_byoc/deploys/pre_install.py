@@ -3,6 +3,7 @@
 import os
 
 from pyinfra.operations import apt, server
+from resinkit_byoc.core.deploy_utils import run_script
 
 
 def install_00_prep():
@@ -66,4 +67,10 @@ def install_00_prep():
         user=resinkit_role,
         home=f"/home/{resinkit_role}",
         create_home=True,
+    )
+
+    run_script(
+        "resinkit_byoc/scripts/pre_install.sh",
+        name="Ensure resinkit-byoc repo exists",
+        envs=["ROOT_DIR", "RESINKIT_BYOC_RELEASE_BRANCH"],
     )

@@ -8,7 +8,7 @@ def install_01_core():
     run_script(
         "resinkit_byoc/scripts/install_core.sh",
         name="Install core components: Java, gosu, nginx, kafka",
-        envs=["ROOT_DIR", "RESINKIT_ROLE", "RESINKIT_API_GITHUB_TOKEN"],
+        envs=["ROOT_DIR", "RESINKIT_API_GITHUB_TOKEN"],
     )
 
 
