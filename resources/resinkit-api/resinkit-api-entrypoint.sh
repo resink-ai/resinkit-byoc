@@ -5,9 +5,10 @@ set -e
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop|status}"
     echo "  start       Start the resinkit API service"
     echo "  stop        Stop the resinkit API service"
+    echo "  status      Check status of resinkit API service"
     echo ""
     echo "Environment variables:"
     echo "  RESINKIT_API_GITHUB_TOKEN  If set, install from local repository instead of PyPI"
@@ -108,6 +109,55 @@ stop_service() {
     echo "[RESINKIT] Resinkit API service stopped"
 }
 
+# Function to check status of resinkit API service
+status_service() {
+    echo "[RESINKIT] Checking resinkit API service status..."
+    
+    # Check if resinkit API is running
+    local pids=$(pgrep -f "uvicorn resinkit_api.main:app" || true)
+    
+    if [[ -n "$pids" ]]; then
+        echo "[RESINKIT] ✓ Resinkit API service is running"
+        echo "[RESINKIT]   API PIDs: $pids"
+        echo "[RESINKIT]   Service port: $RESINKIT_API_SERVICE_PORT"
+        echo "[RESINKIT]   Log file: $RESINKIT_API_LOG_FILE"
+        
+        # Test API accessibility
+        if curl -s --connect-timeout 5 http://localhost:$RESINKIT_API_SERVICE_PORT/health >/dev/null 2>&1; then
+            echo "[RESINKIT] ✅ Resinkit API accessible at http://localhost:$RESINKIT_API_SERVICE_PORT"
+        elif curl -s --connect-timeout 5 http://localhost:$RESINKIT_API_SERVICE_PORT >/dev/null 2>&1; then
+            echo "[RESINKIT] ✅ Resinkit API accessible at http://localhost:$RESINKIT_API_SERVICE_PORT"
+        else
+            echo "[RESINKIT] ❌ Resinkit API not accessible at http://localhost:$RESINKIT_API_SERVICE_PORT"
+        fi
+        
+        # Check log file
+        if [[ -f "$RESINKIT_API_LOG_FILE" ]]; then
+            echo "[RESINKIT] ✅ Log file exists: $RESINKIT_API_LOG_FILE"
+            local log_size=$(du -h "$RESINKIT_API_LOG_FILE" | cut -f1)
+            echo "[RESINKIT]   Log file size: $log_size"
+        else
+            echo "[RESINKIT] ❌ Log file missing: $RESINKIT_API_LOG_FILE"
+        fi
+    else
+        echo "[RESINKIT] ❌ Resinkit API service is not running"
+    fi
+    
+    # Check UV binary
+    if [[ -f "$UV_BIN" ]]; then
+        echo "[RESINKIT] ✅ UV binary found: $UV_BIN"
+    else
+        echo "[RESINKIT] ❌ UV binary missing: $UV_BIN"
+    fi
+    
+    # Check API path
+    if [[ -d "$RESINKIT_API_PATH" ]]; then
+        echo "[RESINKIT] ✅ API path exists: $RESINKIT_API_PATH"
+    else
+        echo "[RESINKIT] ❌ API path missing: $RESINKIT_API_PATH"
+    fi
+}
+
 # Main script logic
 main() {
     if [[ $# -eq 0 ]]; then
@@ -127,6 +177,9 @@ main() {
         ;;
     stop)
         stop_service
+        ;;
+    status)
+        status_service
         ;;
     *)
         echo "Error: Unknown command '$command'"

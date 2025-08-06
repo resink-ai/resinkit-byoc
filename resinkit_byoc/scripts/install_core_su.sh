@@ -1,14 +1,14 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2086,SC2046,SC1090
 set -eo pipefail
-: "${ROOT_DIR:?}" "${RESINKIT_ROLE:?}"
+: "${ROOT_DIR:?}"
 
 # Install Core components for resinkit user
 
 function install_uv() {
     if ! command -v uv &>/dev/null; then
         echo "[RESINKIT] Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/$RESINKIT_ROLE/.local/bin/env" sh
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/resinkit/.local/bin" sh
     fi
 }
 

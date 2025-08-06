@@ -5,9 +5,10 @@ set -e
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop|status}"
     echo "  start       Start Kafka and Zookeeper services"
     echo "  stop        Stop Kafka and Zookeeper services"
+    echo "  status      Check status of Kafka and Zookeeper services"
     echo ""
     echo "Environment variables:"
     echo "  KAFKA_HOME    Path to Kafka installation (default: /opt/kafka)"
@@ -156,6 +157,47 @@ start_kafka_zookeeper() {
     echo "[RESINKIT] Kafka and Zookeeper services are running"
 }
 
+# Function to check status of Kafka and Zookeeper services
+status_kafka_zookeeper() {
+    echo "[RESINKIT] Checking Kafka and Zookeeper services status..."
+    
+    # Check Zookeeper status
+    if is_zookeeper_running; then
+        echo "[RESINKIT] ✅ Zookeeper is running"
+        local zk_pids=$(pgrep -f "org.apache.zookeeper.server.quorum.QuorumPeerMain" || true)
+        echo "[RESINKIT]   Zookeeper PIDs: $zk_pids"
+    else
+        echo "[RESINKIT] ❌ Zookeeper is not running"
+    fi
+    
+    # Check Kafka status
+    if is_kafka_running; then
+        echo "[RESINKIT] ✅ Kafka is running"
+        local kafka_pids=$(pgrep -f "kafka.Kafka" || true)
+        echo "[RESINKIT]   Kafka PIDs: $kafka_pids"
+        
+        # Test Kafka connectivity if kcat is available
+        if command -v kcat >/dev/null 2>&1; then
+            echo "[RESINKIT]   Testing Kafka connectivity..."
+            if timeout 5 kcat -L -b localhost:9092 >/dev/null 2>&1; then
+                echo "[RESINKIT] ✅ Kafka broker accessible at localhost:9092"
+            else
+                echo "[RESINKIT] ❌ Kafka broker not accessible at localhost:9092"
+            fi
+        fi
+    else
+        echo "[RESINKIT] ❌ Kafka is not running"
+    fi
+}
+
+# Function to check status with environment validation
+status_service() {
+    echo "[RESINKIT] Checking environment variables..."
+    check_env_vars
+    
+    status_kafka_zookeeper
+}
+
 # Function to start the services
 start_service() {
     echo "[RESINKIT] Checking environment variables..."
@@ -191,6 +233,9 @@ main() {
         ;;
     stop)
         stop_service
+        ;;
+    status)
+        status_service
         ;;
     *)
         echo "Error: Unknown command '$command'"

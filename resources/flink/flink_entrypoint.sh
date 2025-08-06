@@ -6,9 +6,10 @@ set -e
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop|status}"
     echo "  start       Start Flink cluster and SQL Gateway services"
     echo "  stop        Stop Flink cluster and SQL Gateway services"
+    echo "  status      Check status of Flink services"
     echo ""
     exit 1
 }
@@ -147,6 +148,46 @@ start_flink() {
     echo "[RESINKIT] Flink cluster and SQL Gateway services are running"
 }
 
+# Function to check status of Flink services
+status_flink() {
+    echo "[RESINKIT] Checking Flink services status..."
+    
+    # Check Flink cluster status
+    if is_flink_running; then
+        echo "[RESINKIT] ✅ Flink cluster is running"
+        # Get TaskManager and JobManager PIDs
+        local tm_pids=$(pgrep -f "org.apache.flink.runtime.taskexecutor.TaskManagerRunner" || true)
+        local jm_pids=$(pgrep -f "org.apache.flink.runtime.entrypoint.StandaloneSessionClusterEntrypoint" || true)
+        echo "[RESINKIT]   TaskManager PIDs: $tm_pids"
+        echo "[RESINKIT]   JobManager PIDs: $jm_pids"
+        
+        # Check Flink Job Manager API
+        if curl -s --connect-timeout 5 http://localhost:8081/config >/dev/null 2>&1; then
+            echo "[RESINKIT] ✅ Flink Job Manager API accessible at http://localhost:8081"
+        else
+            echo "[RESINKIT] ❌ Flink Job Manager API not accessible at http://localhost:8081"
+        fi
+    else
+        echo "[RESINKIT] ❌ Flink cluster is not running"
+    fi
+    
+    # Check Flink SQL Gateway status
+    if is_flink_sql_gateway_running; then
+        echo "[RESINKIT] ✅ Flink SQL Gateway is running"
+        local gateway_pids=$(pgrep -f "org.apache.flink.table.gateway.SqlGateway" || true)
+        echo "[RESINKIT]   SQL Gateway PIDs: $gateway_pids"
+        
+        # Check Flink SQL Gateway API
+        if curl -s --connect-timeout 5 http://localhost:8083/info >/dev/null 2>&1; then
+            echo "[RESINKIT] ✅ Flink SQL Gateway API accessible at http://localhost:8083"
+        else
+            echo "[RESINKIT] ❌ Flink SQL Gateway API not accessible at http://localhost:8083"
+        fi
+    else
+        echo "[RESINKIT] ❌ Flink SQL Gateway is not running"
+    fi
+}
+
 # Main script logic
 main() {
     if [[ $# -eq 0 ]]; then
@@ -166,6 +207,9 @@ main() {
         ;;
     stop)
         stop_flink
+        ;;
+    status)
+        status_flink
         ;;
     *)
         echo "Error: Unknown command '$command'"

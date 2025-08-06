@@ -5,13 +5,15 @@ set -e
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop|status}"
     echo "  start       Start the jupyterlab service"
     echo "  stop        Stop the jupyterlab service"
+    echo "  status      Check status of Jupyter service"
     exit 1
 }
 
-RESINKIT_ROLE="resinkit"
+JUPYTER_PORT="${JUPYTER_PORT:-8888}"
+JUPYTER_WORKSPACE_DIR="/home/resinkit/resinkit_sample_project/notebooks"
 
 # Function to start the service
 start_service() {
@@ -26,14 +28,14 @@ start_service() {
     # Start the service
     echo "[RESINKIT] Starting jupyter service..."
 
-    jupyter_workspace_dir="/home/$RESINKIT_ROLE/resinkit_sample_project/notebooks"
-    mkdir -p "$jupyter_workspace_dir"
+    
+    mkdir -p "$JUPYTER_WORKSPACE_DIR"
 
-    cd /home/$RESINKIT_ROLE/resinkit_sample_project
-    nohup /home/$RESINKIT_ROLE/.local/bin/uv run --directory /home/$RESINKIT_ROLE/resinkit_sample_project jupyter lab \
-        --notebook-dir="$jupyter_workspace_dir" \
+    cd /home/resinkit/resinkit_sample_project
+    nohup /home/resinkit/.local/bin/uv run --directory /home/resinkit/resinkit_sample_project jupyter lab \
+        --notebook-dir="$JUPYTER_WORKSPACE_DIR" \
         --ip=0.0.0.0 \
-        --port=8888 \
+        --port=$JUPYTER_PORT \
         --no-browser \
         --NotebookApp.terminals_enabled=False \
         --NotebookApp.token="" /dev/null 2>&1 &
@@ -77,6 +79,35 @@ stop_service() {
     echo "[RESINKIT] Jupyter service stopped"
 }
 
+# Function to check status of Jupyter service
+status_service() {
+    echo "[RESINKIT] Checking Jupyter service status..."
+    
+    # Check if Jupyter is running
+    local pids=$(pgrep -f "jupyter lab" || true)
+    
+    if [[ -n "$pids" ]]; then
+        echo "[RESINKIT] ✅ Jupyter service is running"
+        echo "[RESINKIT]   Jupyter PIDs: $pids"
+        
+        # Test Jupyter accessibility
+        if curl -s --connect-timeout 5 http://localhost:$JUPYTER_PORT >/dev/null 2>&1; then
+            echo "[RESINKIT] ✅ Jupyter accessible at http://localhost:$JUPYTER_PORT"
+        else
+            echo "[RESINKIT] ❌ Jupyter not accessible at http://localhost:$JUPYTER_PORT"
+        fi
+        
+        # Check workspace directory
+        if [[ -d "$JUPYTER_WORKSPACE_DIR" ]]; then
+            echo "[RESINKIT] ✅ Jupyter workspace directory exists: $JUPYTER_WORKSPACE_DIR"
+        else
+            echo "[RESINKIT] ❌ Jupyter workspace directory missing: $JUPYTER_WORKSPACE_DIR"
+        fi
+    else
+        echo "[RESINKIT] ❌ Jupyter service is not running"
+    fi
+}
+
 # Main script logic
 main() {
     if [[ $# -eq 0 ]]; then
@@ -91,6 +122,9 @@ main() {
         ;;
     stop)
         stop_service
+        ;;
+    status)
+        status_service
         ;;
     *)
         echo "Error: Unknown command '$command'"

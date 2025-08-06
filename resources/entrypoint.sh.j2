@@ -26,9 +26,10 @@ export KAFKA_HOME=/opt/kafka
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop|status}"
     echo "  start       Start all enabled services"
     echo "  stop        Stop all enabled services"
+    echo "  status      Check status of all enabled services"
     echo ""
     echo "Services controlled:"
     echo "  - Flink (always enabled)"
@@ -100,6 +101,38 @@ stop_services() {
     echo "[RESINKIT] All services stopped"
 }
 
+# Function to check status of all services
+status_services() {
+    echo "[RESINKIT] Checking status of all enabled services..."
+    echo ""
+    
+    # Check Flink status (always enabled)
+    echo "=== FLINK STATUS ==="
+    /home/resinkit/.local/bin/flink_entrypoint.sh status || true
+    echo ""
+    
+    # Check Resinkit API status (always enabled)
+    echo "=== RESINKIT API STATUS ==="
+    /home/resinkit/.local/bin/resinkit-api-entrypoint.sh status || true
+    echo ""
+    
+{% if jupyter_enabled %}
+    # Check Jupyter status (conditionally enabled)
+    echo "=== JUPYTER STATUS ==="
+    /home/resinkit/.local/bin/jupyter_entrypoint.sh status || true
+    echo ""
+{% endif %}
+
+{% if kafka_enabled %}
+    # Check Kafka status (conditionally enabled)
+    echo "=== KAFKA STATUS ==="
+    /home/resinkit/.local/bin/kafka_entrypoint.sh status || true
+    echo ""
+{% endif %}
+    
+    echo "[RESINKIT] Status check completed for all enabled services"
+}
+
 # Main script logic
 main() {
     if [[ $# -eq 0 ]]; then
@@ -119,6 +152,9 @@ main() {
         ;;
     stop)
         stop_services
+        ;;
+    status)
+        status_services
         ;;
     *)
         echo "Error: Unknown command '$command'"

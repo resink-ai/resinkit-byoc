@@ -1,6 +1,7 @@
 """Install Java deployment for resinkit-byoc."""
 
 import os
+
 from pyinfra.operations import files, server
 
 from resinkit_byoc.core.config import load_dotenvs
