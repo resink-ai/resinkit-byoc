@@ -72,3 +72,6 @@ logs/*
 # pyinfra
 .inventory.py
 pyinfra-debug.log
+
+# Large files
+resources/kafka/kafka.tgz

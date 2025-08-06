@@ -38,3 +38,13 @@ def install_admin_tools():
         present=True,
         success_exit_codes=[0, 100],  # Allow some packages to fail
     )
+
+
+def install_mount_s3():
+    """Install mount-s3."""
+
+    run_script(
+        "resinkit_byoc/scripts/mount_s3.sh",
+        name="Install mount-s3",
+        envs=["BUCKET_NAME", "MOUNT_POINT"],
+    )

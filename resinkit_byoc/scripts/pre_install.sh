@@ -17,4 +17,11 @@ else
     true
 fi
 
-cd "$ROOT_DIR"
+# install git lfs if not installed
+if ! command -v git-lfs &> /dev/null; then
+    apt-get update
+    apt-get install git-lfs -y --no-install-recommends
+fi
+
+# install git lfs
+git lfs install || true

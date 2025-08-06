@@ -24,6 +24,7 @@ def install_00_prep():
         "telnet",
         "ca-certificates",
         "git",
+        "git-lfs",
         "make",
         "curl",
         "zsh",
