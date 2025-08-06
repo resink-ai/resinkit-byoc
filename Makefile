@@ -18,31 +18,11 @@ resinkit-terra-mysql-mionio:
 	docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
 
 install:
-	cp -v resources/environment.seed /etc/environment.seed
-	bash resources/setup.sh debian_install_all
-
-install_additional:
-	bash resources/setup.sh debian_install_additional
+	ROOT_DIR=/opt/resinkit-byoc RESINKIT_BYOC_RELEASE_BRANCH=feature bash resinkit_byoc/scripts/pre_install.sh
+	/opt/uv/uv run pyinfra @local deploy.deploy_all -y
 
 run_production:
-	ENV=production bash resources/setup.sh run_entrypoint
-	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
-	bash resources/setup.sh run_curl_test || true
+	bash resinkit_byoc/scripts/drop_privs_run.sh
 
 run_byoc:
-	ENV=byoc bash resources/setup.sh run_entrypoint
-	# FORCE_RESTART=true ENV=byoc bash resources/setup.sh run_entrypoint
-	bash resources/setup.sh run_curl_test || true
-
-
-# Deploy with pyinfra
-deploy:
-	# apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
-	# git clone https://github.com/resink-ai/resinkit-byoc.git
-	# cd resinkit-byoc
-	bash resinkit_byoc/scripts/pre_install.sh
-	/opt/uv/uv run pyinfra @local deploy.deploy_all
-	# /opt/uv/uv run pyinfra @local deploy.install_00_prep
-	# /opt/uv/uv run pyinfra @local deploy.install_01_core
-	# /opt/uv/uv run pyinfra @local deploy.install_02_core_su
-	# /opt/uv/uv run pyinfra @local deploy.install_03_flink
+	ENV=byoc bash resinkit_byoc/scripts/drop_privs_run.sh

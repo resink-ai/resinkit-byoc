@@ -57,6 +57,14 @@ def post_install():
     ]
 
     for folder in folders_to_chown:
+        files.directory(
+            path=folder,
+            user="resinkit",
+            group="resinkit",
+            recursive=True,
+            present=True,
+            name=f"Create directory {folder}",
+        )
         server.shell(
             commands=[f"chown -R resinkit:resinkit {folder}"],
             name=f"Change ownership of {folder} to resinkit:resinkit",

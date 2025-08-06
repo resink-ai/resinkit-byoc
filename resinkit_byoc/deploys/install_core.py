@@ -12,12 +12,12 @@ def install_01_core():
     )
 
 
-def install_03_flink():
-    """Install Apache Flink."""
+def install_02_core_su():
+    """Install core components for su user."""
 
     run_script(
-        "resinkit_byoc/scripts/install_flink.sh",
-        name="Install Flink",
+        "resinkit_byoc/scripts/install_core_su.sh",
+        name="Install core components for su user",
         envs=[
             "ROOT_DIR",
             "HADOOP_VERSION",
@@ -28,12 +28,12 @@ def install_03_flink():
     )
 
 
-def install_02_core_su():
-    """Install core components for su user."""
+def install_03_flink():
+    """Install Apache Flink."""
 
     run_script(
-        "resinkit_byoc/scripts/install_core_su.sh",
-        name="Install core components for su user",
+        "resinkit_byoc/scripts/install_flink.sh",
+        name="Install Flink",
         envs=[
             "ROOT_DIR",
             "HADOOP_VERSION",

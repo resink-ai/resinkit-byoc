@@ -193,10 +193,8 @@ function install_flink() {
     # Install Hadoop and set hadoop classpath for Iceberg integration (following official Iceberg guide)
     # This ensures: export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
 
-    # TODO: reenable this
-    # _install_hadoop
-    # _install_flink_jars
-
+    _install_hadoop
+    _install_flink_jars
     _install_flink_entrypoint
 
     chown -R resinkit:resinkit /opt/flink

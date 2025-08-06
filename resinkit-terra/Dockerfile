@@ -4,14 +4,13 @@ FROM ubuntu:latest
 # Install dependencies (assuming this part is okay)
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
 
-RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /root/resinkit-byoc
+RUN GIT_TERMINAL_PROMPT=0 git clone https://github.com/resink-ai/resinkit-byoc.git /opt/resinkit-byoc
 
 # Set container environment variable
 ENV IS_CONTAINER=true
 
 # Change working directory
-COPY resources/environment.seed /etc/environment.seed
-WORKDIR /root/resinkit-byoc
+WORKDIR /opt/resinkit-byoc
 RUN make install
 
 # Expose necessary ports
@@ -32,8 +31,8 @@ EXPOSE 8602
 
 # Keep container running with tail -f
 # CMD ["tail", "-f", "/dev/null"]
-ENTRYPOINT [ "/root/resinkit-byoc/resources/setup.sh" ]
-CMD [ "run_entrypoint", "-f" ]
+ENTRYPOINT [ "/home/resinkit/.local/bin/entrypoint.sh" ]
+CMD [ "start", "-f" ]
 
 # docker stop resinkit
 # docker rm resinkit

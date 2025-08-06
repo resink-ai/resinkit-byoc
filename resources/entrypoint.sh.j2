@@ -26,8 +26,9 @@ export KAFKA_HOME=/opt/kafka
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 {start|stop|status}"
+    echo "Usage: $0 {start|stop|status} [-f]"
     echo "  start       Start all enabled services"
+    echo "  start -f    Start all enabled services and keep container running in foreground"
     echo "  stop        Stop all enabled services"
     echo "  status      Check status of all enabled services"
     echo ""
@@ -49,6 +50,7 @@ usage() {
 
 # Function to start all services
 start_services() {
+    local foreground_mode=$1
     echo "[RESINKIT] Starting all enabled services..."
     
     # Start Flink (always enabled)
@@ -72,6 +74,12 @@ start_services() {
 {% endif %}
     
     echo "[RESINKIT] All enabled services started successfully"
+    
+    # If foreground mode is enabled, keep container running
+    if [[ "$foreground_mode" == "true" ]]; then
+        echo "[RESINKIT] Running in foreground mode, keeping container alive..."
+        tail -f /dev/null
+    fi
 }
 
 # Function to stop all services
@@ -140,15 +148,18 @@ main() {
     fi
 
     local command=$1
+    local foreground_mode="false"
 
-    # Check for invalid arguments
-    if [[ $# -gt 1 ]]; then
+    # Parse arguments
+    if [[ $# -eq 2 && "$2" == "-f" ]]; then
+        foreground_mode="true"
+    elif [[ $# -gt 2 || ($# -eq 2 && "$2" != "-f") ]]; then
         usage
     fi
 
     case "$command" in
     start)
-        start_services
+        start_services "$foreground_mode"
         ;;
     stop)
         stop_services

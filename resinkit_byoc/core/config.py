@@ -31,7 +31,4 @@ def load_dotenvs() -> None:
     load_dotenv(find_dotenv(".env.common"))
     load_dotenv(find_dotenv(f".env.{os.getenv('ENV', 'dev')}"))
 
-    # Set the project root
-    os.environ["ROOT_DIR"] = str(find_project_root())
-
     _dotenvs_loaded = True

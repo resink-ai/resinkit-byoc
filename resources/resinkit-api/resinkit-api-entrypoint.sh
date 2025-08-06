@@ -123,14 +123,15 @@ status_service() {
         else
             echo "[RESINKIT] ❌ Resinkit API not accessible at http://localhost:$RESINKIT_API_SERVICE_PORT"
         fi
-        
-        # Check log file if not /dev/null
-        if [[ -f "$RESINKIT_API_LOG_FILE" && "$RESINKIT_API_LOG_FILE" != "/dev/null" ]]; then
-            echo "[RESINKIT] ✅ Log file exists: $RESINKIT_API_LOG_FILE"
-            local log_size=$(du -h "$RESINKIT_API_LOG_FILE" | cut -f1)
-            echo "[RESINKIT]   Log file size: $log_size"
-        else
-            echo "[RESINKIT] ❌ Log file missing: $RESINKIT_API_LOG_FILE"
+
+        if [[ "$RESINKIT_API_LOG_FILE" != "/dev/null" ]]; then
+            if [[ -f "$RESINKIT_API_LOG_FILE" ]]; then
+                echo "[RESINKIT] ✅ Log file exists: $RESINKIT_API_LOG_FILE"
+                local log_size=$(du -h "$RESINKIT_API_LOG_FILE" | cut -f1)
+                echo "[RESINKIT]   Log file size: $log_size"
+            else
+                echo "[RESINKIT] ❌ Log file missing: $RESINKIT_API_LOG_FILE"
+            fi
         fi
     else
         echo "[RESINKIT] ❌ Resinkit API service is not running"

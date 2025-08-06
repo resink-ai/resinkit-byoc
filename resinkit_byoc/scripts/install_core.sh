@@ -164,6 +164,7 @@ function install_kafka() {
 
     # copy properties and entrypoint
     cp -v "$ROOT_DIR/resources/kafka/server.properties" "/opt/kafka/config/server.properties"
+    mkdir -p /home/resinkit/.local/bin
     cp -v "$ROOT_DIR/resources/kafka/kafka_entrypoint.sh" "/home/resinkit/.local/bin/kafka_entrypoint.sh"
     chmod +x /home/resinkit/.local/bin/kafka_entrypoint.sh
 
@@ -207,6 +208,7 @@ function install_resinkit_api() {
     fi
 
     # Copy entrypoint script to the API directory
+    mkdir -p /home/resinkit/.local/bin
     cp -v "$ROOT_DIR/resources/resinkit-api/resinkit-api-entrypoint.sh" "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
     echo "[RESINKIT] Entrypoint script copied to /home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
     chmod +x /home/resinkit/.local/bin/resinkit-api-entrypoint.sh
