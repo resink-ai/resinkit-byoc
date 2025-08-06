@@ -35,12 +35,14 @@ install_dependencies() {
         $UV_BIN --directory "$RESINKIT_API_PATH" sync
     else
         echo "[RESINKIT] Installing from PyPI..."
+        $UV_BIN --directory "$RESINKIT_API_PATH" venv --python 3.12 "$RESINKIT_API_PATH/.venv"
         $UV_BIN --directory "$RESINKIT_API_PATH" pip install uvicorn resinkit-api-python -U
     fi
 }
 
 # Function to start the service
 start_service() {
+    set -x
     # Check if service is already running
     if pgrep -f "uvicorn resinkit_api.main:app" >/dev/null; then
         echo "[RESINKIT] Resinkit API service is already running"
@@ -59,13 +61,13 @@ start_service() {
         touch "$RESINKIT_API_LOG_FILE"
     fi
 
-    nohup $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    nohup $UV_BIN --directory "$RESINKIT_API_PATH" run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 
     # Get the PID and save it
     local pid=$!
     echo "[RESINKIT] Resinkit API service started with PID: $pid"
     echo "[RESINKIT] Logs are being written to: $RESINKIT_API_LOG_FILE"
-
+    set +x
 }
 
 # Function to stop the service
@@ -122,8 +124,8 @@ status_service() {
             echo "[RESINKIT] ❌ Resinkit API not accessible at http://localhost:$RESINKIT_API_SERVICE_PORT"
         fi
         
-        # Check log file
-        if [[ -f "$RESINKIT_API_LOG_FILE" ]]; then
+        # Check log file if not /dev/null
+        if [[ -f "$RESINKIT_API_LOG_FILE" && "$RESINKIT_API_LOG_FILE" != "/dev/null" ]]; then
             echo "[RESINKIT] ✅ Log file exists: $RESINKIT_API_LOG_FILE"
             local log_size=$(du -h "$RESINKIT_API_LOG_FILE" | cut -f1)
             echo "[RESINKIT]   Log file size: $log_size"
