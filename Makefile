@@ -20,7 +20,7 @@ resinkit-terra-mysql-mionio:
 	docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
 
 install:
-	ROOT_DIR=$(CURRENT_DIR) RESINKIT_BYOC_RELEASE_BRANCH=feature bash resinkit_byoc/scripts/pre_install.sh
+	ROOT_DIR=$(CURRENT_DIR) RESINKIT_BYOC_RELEASE_BRANCH=release-2025.08.06 bash resinkit_byoc/scripts/pre_install.sh
 	/opt/uv/uv run pyinfra @local deploy.deploy_all -y
 
 run_production:
