@@ -36,6 +36,16 @@ def post_install():
         exp_vars=exp_vars,
         name="Install entrypoint.sh from template",
     )
+    
+    files.template(
+        src="resources/env.exports.j2",
+        dest="/home/resinkit/env.exports",
+        user="resinkit",
+        group="resinkit",
+        mode="644",
+        exp_vars=exp_vars,
+        name="Install env.exports from template",
+    )
 
     folders_to_chown = [
         "/opt/flink",
@@ -43,6 +53,7 @@ def post_install():
         "/opt/resinkit",
         "/opt/resinkit/api",
         "/home/resinkit",
+        "/var/log/resinkit",
     ]
 
     for folder in folders_to_chown:

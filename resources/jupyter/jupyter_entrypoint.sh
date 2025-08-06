@@ -38,7 +38,7 @@ start_service() {
         --port=$JUPYTER_PORT \
         --no-browser \
         --NotebookApp.terminals_enabled=False \
-        --NotebookApp.token="" /dev/null 2>&1 &
+        --NotebookApp.token="" > /dev/null 2>&1 &
 
     # Get the PID and save it
     local pid=$!

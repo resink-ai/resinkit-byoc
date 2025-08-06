@@ -15,15 +15,10 @@ usage() {
     exit 1
 }
 
-export RESINKIT_API_PATH="${RESINKIT_API_PATH:-/opt/resinkit/api}"
-export RESINKIT_API_LOG_FILE="${RESINKIT_API_LOG_FILE:-/opt/resinkit/api/resinkit_api.log}"
-export RESINKIT_API_SERVICE_PORT="${RESINKIT_API_SERVICE_PORT:-8602}"
 
-export INSTALLER_NO_MODIFY_PATH=1
-export UV_CACHE_DIR="/home/resinkit/.uv/cache"
-export UV_CONFIG_DIR="/home/resinkit/.uv/config"
-export UV_DATA_DIR="/home/resinkit/.uv/data"
-mkdir -p "$UV_CACHE_DIR" "$UV_CONFIG_DIR" "$UV_DATA_DIR"
+export RESINKIT_API_SERVICE_PORT="${RESINKIT_API_SERVICE_PORT:-8602}"
+export RESINKIT_API_LOG_FILE="${RESINKIT_API_LOG_FILE:-/dev/null}"
+export RESINKIT_API_PATH="${RESINKIT_API_PATH:-/opt/resinkit/api}"
 
 UV_BIN="/home/resinkit/.local/bin/uv"
 if [ ! -f "$UV_BIN" ]; then
@@ -37,10 +32,10 @@ install_dependencies() {
 
     if [[ -n "$RESINKIT_API_GITHUB_TOKEN" ]]; then
         echo "[RESINKIT] Installing from local repository..."
-        $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 sync
+        $UV_BIN --directory "$RESINKIT_API_PATH" sync
     else
         echo "[RESINKIT] Installing from PyPI..."
-        $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 pip install uvicorn resinkit-api-python -U
+        $UV_BIN --directory "$RESINKIT_API_PATH" pip install uvicorn resinkit-api-python -U
     fi
 }
 
@@ -52,21 +47,17 @@ start_service() {
         return 0
     fi
 
-
     cd "$RESINKIT_API_PATH"
 
-    echo "[RESINKIT] Installing uv if not exists"
-    install_uv_venv_if_not_exists
-
-    echo "[RESINKIT] Activating virtual environment..."
-    source "$RESINKIT_API_VENV_DIR/bin/activate"
-
-    echo "[RESINKIT] Installing dependencies if needed"
     install_dependencies
 
     # Start the service
     echo "[RESINKIT] Starting resinkit_api service..."
-    mkdir -p "$(dirname "$RESINKIT_API_LOG_FILE")"
+
+    if [[ "$RESINKIT_API_LOG_FILE" != "/dev/null" ]]; then
+        mkdir -p "$(dirname "$RESINKIT_API_LOG_FILE")"
+        touch "$RESINKIT_API_LOG_FILE"
+    fi
 
     nohup $UV_BIN --directory "$RESINKIT_API_PATH" --python 3.12 run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
 
@@ -117,7 +108,7 @@ status_service() {
     local pids=$(pgrep -f "uvicorn resinkit_api.main:app" || true)
     
     if [[ -n "$pids" ]]; then
-        echo "[RESINKIT] ✓ Resinkit API service is running"
+        echo "[RESINKIT] ✅ Resinkit API service is running"
         echo "[RESINKIT]   API PIDs: $pids"
         echo "[RESINKIT]   Service port: $RESINKIT_API_SERVICE_PORT"
         echo "[RESINKIT]   Log file: $RESINKIT_API_LOG_FILE"
