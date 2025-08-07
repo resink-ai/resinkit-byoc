@@ -4,7 +4,7 @@ from pyinfra.operations import server
 
 def start_service():
     """Start service."""
-    server.sh(
+    server.shell(
         name="Start service",
         commands=[
             "bash /home/resinkit/.local/bin/entrypoint.sh start",

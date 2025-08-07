@@ -6,7 +6,7 @@ set -eo pipefail
 # Install Core components for resinkit user
 
 function install_uv() {
-    if ! command -v uv &>/dev/null; then
+    if [ ! -f "/home/resinkit/.local/bin/uv" ]; then
         echo "[RESINKIT] Installing uv..."
         curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/resinkit/.local/bin" sh
     fi

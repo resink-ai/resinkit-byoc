@@ -24,14 +24,12 @@ cd resinkit-byoc
 make resinkit-terra
 ```
 
-## VPS (Debian based Image)
+## VPS / Docker
 
 ```bash
-apt-get update && apt-get install -y --no-install-recommends git ca-certificates make curl unzip wget
-git clone https://github.com/resink-ai/resinkit-byoc.git
-cd resinkit-byoc
-make install
-make run_byoc
+docker run -d --name my-ubuntu -p 8080:8080 -p 9092:9092 -p 8081:8081 -p 8083:8083 -p 8888:8888 -p 8602:8602 -p 5000:5000 ubuntu tail -f /dev/null
+# docker exec -it my-ubuntu bash
+uv run pyinfra --sudo  -vvv --debug -y @docker/my-ubuntu deploy.all_in_one
 ```
 
 ## Developement Guide
