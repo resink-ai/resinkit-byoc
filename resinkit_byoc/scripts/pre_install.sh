@@ -23,5 +23,8 @@ if ! command -v git-lfs &> /dev/null; then
     apt-get install git-lfs -y --no-install-recommends
 fi
 
-# install git lfs
+# install git lfs and pull resources
+cd "$ROOT_DIR"
 git lfs install || true
+git lfs pull || true
+
