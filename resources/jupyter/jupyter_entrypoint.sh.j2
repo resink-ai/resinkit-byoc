@@ -36,6 +36,9 @@ start_service() {
         --notebook-dir="$JUPYTER_WORKSPACE_DIR" \
         --ip=0.0.0.0 \
         --port=$JUPYTER_PORT \
+        --ServerApp.allow_remote_access=True \
+        --ServerApp.base_url={% if RESINKIT_ID %}/resinkit-lab/{{ RESINKIT_ID }}/{% else %}/lab/{% endif %} \
+        --NotebookApp.allow_origin='*' \
         --no-browser \
         --NotebookApp.terminals_enabled=False \
         --NotebookApp.token="" > /dev/null 2>&1 &

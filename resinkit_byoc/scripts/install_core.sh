@@ -217,5 +217,5 @@ function install_resinkit_api() {
 install_gosu
 install_nginx
 install_kafka
-install_jupyter
+# install_jupyter
 install_resinkit_api
