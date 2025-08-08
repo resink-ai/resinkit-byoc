@@ -14,6 +14,7 @@ the resinkit_byoc.deploys package.
 
 from resinkit_byoc.deploys.install_core import (
     install_01_core,
+    install_01_core_jupyter,
     install_02_core_su,
     install_03_flink,
 )
@@ -26,6 +27,7 @@ from resinkit_byoc.deploys.start_service import start_service
 __all__ = [
     "install_00_prep",
     "install_01_core",
+    "install_01_core_jupyter",
     "install_02_core_su",
     "install_03_flink",
     "post_install",
@@ -39,6 +41,7 @@ def deploy_all():
     """Deploy all components."""
     install_00_prep()
     install_01_core()
+    install_01_core_jupyter()
     install_02_core_su()
     install_03_flink()
     post_install()

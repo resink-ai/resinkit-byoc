@@ -2,7 +2,7 @@
 
 import os
 
-from pyinfra.operations import apt, server
+from pyinfra.operations import apt, files, server
 from resinkit_byoc.core.deploy_utils import run_script
 
 
@@ -68,6 +68,15 @@ def install_00_prep():
         user=resinkit_role,
         home=f"/home/{resinkit_role}",
         create_home=True,
+    )
+    
+    # create /var/log/resinkit directory
+    files.directory(
+        name="Create /var/log/resinkit directory",
+        path="/var/log/resinkit",
+        user="resinkit",
+        group="resinkit",
+        present=True,
     )
 
     run_script(
