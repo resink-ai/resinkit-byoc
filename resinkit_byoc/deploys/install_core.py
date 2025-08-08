@@ -1,5 +1,6 @@
 """Install Java deployment for resinkit-byoc."""
 
+import os
 from pyinfra.operations import files, server
 
 from resinkit_byoc.core.config import load_dotenvs
@@ -51,24 +52,14 @@ def install_03_flink():
 def install_01_core_jupyter():
     """Install Jupyter components."""
     load_dotenvs()
-    project_root = find_project_root()
+    ROOT_DIR = os.getenv("ROOT_DIR")
+    RESINKIT_ID = os.getenv("RESINKIT_ID")
     
-    # Copy resinkit_sample_project to /home/resinkit/
-    files.rsync(
+    server.shell(
         name="Copy resinkit_sample_project to /home/resinkit/",
-        src=str(project_root / "resources/jupyter/resinkit_sample_project/"),
-        dest="/home/resinkit/resinkit_sample_project/",
-        user="resinkit",
-        group="resinkit",
-    )
-    
-    # Create /home/resinkit/.local/bin directory
-    files.directory(
-        name="Create /home/resinkit/.local/bin directory",
-        path="/home/resinkit/.local/bin",
-        user="resinkit",
-        group="resinkit",
-        present=True,
+        commands=[
+            f"cp -r {ROOT_DIR}/resources/jupyter/resinkit_sample_project /home/resinkit/",
+        ],
     )
     
     # Render and install jupyter_entrypoint.sh from template
@@ -79,6 +70,8 @@ def install_01_core_jupyter():
         user="resinkit",
         group="resinkit",
         mode="755",
+        create_remote_dir=True,
+        RESINKIT_ID=RESINKIT_ID,
     )
     
     # Change ownership of resinkit_sample_project to resinkit:resinkit
