@@ -68,3 +68,10 @@ archive.zip
 # macOS
 .DS_Store
 logs/*
+
+# env files
+.env.production
+
+# pyinfra
+.inventory.py
+pyinfra-debug.log

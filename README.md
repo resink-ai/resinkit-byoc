@@ -1,72 +1,50 @@
-# Service Operations
+# Quick start
 
-## Quick Start
+## Docker
 
+### From published docker image
 
+Pre-requisite: docker and logged in to ghcr.io: `docker login ghcr.io`
 
-# MySQL to Kafka
+```bash
+# Download image from ghcr.io and run
+docker run -d ghcr.io/resink-ai/resinkit-byoc:ai.resink.it.terra
 
-1. `make jar build-mysql2kafka`
-2. Wait until docker containers up fully up and running, test if Kafka is running with `kcat -b localhost:9092 -L`
-3. Add some test data and kick off the job:
-   - `make test-mysql2kafka`
-4. Connect to kafka and view the messages:
-   - `kcat -C -b localhost:9092 -t mydatabase.User` or
-   - `kcat -b localhost:9092 -G my_consumer -o earliest '^mydatabase.*'`
-5. Add more data: 
-   - `docker exec -it resinkit-testmysql-mysql-1 python /usr/local/bin/generate_data.py`
-
-
-# MySQL to Kafka to Flink SQL
-
-1. open sql-client.sh: `sql-client.sh --jar flink-connector-kafka-3.3.0-1.19.jar --jar kafka-clients-3.4.0.jar`
-2. Execute the following:
-
-```sql
-CREATE TABLE mydatabase_User (
-  `event_time` TIMESTAMP_LTZ(3) METADATA FROM 'value.source.timestamp' VIRTUAL,  -- from Debezium format
-  `origin_table` STRING METADATA FROM 'value.source.table' VIRTUAL, -- from Debezium format
-  `partition_id` BIGINT METADATA FROM 'partition' VIRTUAL,  -- from Kafka connector
-  `offset` BIGINT METADATA VIRTUAL,  -- from Kafka connector
-  `id` STRING,
-  `name` STRING,
-  `email` STRING,
-  `email_verified` TIMESTAMP_LTZ(3),
-  `image` STRING,
-  `invalid_login_attempts` INT,
-  `locked_at` TIMESTAMP_LTZ(3),
-  `password` STRING,
-  `created_at` TIMESTAMP_LTZ(3),
-  `updated_at` TIMESTAMP_LTZ(3)
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'mydatabase.User',
-    'properties.bootstrap.servers' = 'localhost:9092',
-    'properties.group.id' = 'mydatabase_user_consumer_group',
-    'scan.startup.mode' = 'earliest-offset',
-    'format' = 'debezium-json'
-);
-
-
-select * from mydatabase_User;
+# start a container without starting services
+docker run -d ghcr.io/resink-ai/resinkit-byoc:ai.resink.it.terra run_tail_f
 ```
 
-# BYOC NGROK 
+### Build docker locally
 
-```shell 
-# 1. install ngrok, see https://ngrok.com/docs/getting-started/#step-5-secure-your-app
+Pre-requisite: `docker` and `git` command installed.
 
-# 2. open a tunnel (one port per account)
-ngrok http http://localhost:8000
-NG_HOST=c47b-4-14-32-22.ngrok-free.app
+```bash
+git clone https://github.com/resink-ai/resinkit-byoc.git
+cd resinkit-byoc
+make resinkit-terra
+```
 
-# 3. verify the connectivity
-curl -H "Content-Type: application/json" https://$NG_HOST/api-docs
-curl https://$NG_HOST/hello
+## Docker (locall-->Docker)
 
-# test flink-sql connectivity
-curl -X POST https://$NG_HOST/api/v0/flink/runsql \
-     -H "Content-Type: text/plain" \
-     -d "select 1"
+```bash
+docker run -d --name my-ubuntu -p 8080:8080 -p 9092:9092 -p 8081:8081 -p 8083:8083 -p 8888:8888 -p 8602:8602 -p 5678:5678 ubuntu tail -f /dev/null
+# docker exec -it my-ubuntu bash
+uv run pyinfra -vvv --debug -y @docker/my-ubuntu deploy.all_in_one
+```
 
+## VPS (locall-->VPS)
+
+```bash
+# 1. Create .inventory.py (define ubuntu user)
+# 2. Run:
+uv run pyinfra --sudo -vvv --debug -y .inventory.py deploy.install_00_prep  # NOTE: --sudo
+```
+
+## Developement Guide
+
+### Publish new docker image
+
+```shell
+release_tag=release-1.19.alpha20250504
+git tag $release_tag && git push origin $release_tag -f
 ```

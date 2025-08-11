@@ -1,0 +1,41 @@
+services:
+  flink:
+    build:
+      context: ..
+      dockerfile: resinkit-terra/Dockerfile
+      args:
+        RESINKIT_JAR: "N/A"
+    ports:
+      - "8080:8080"
+      - "9092:9092"
+      - "8081:8081"
+      - "8083:8083"
+    volumes:
+      - flink_data:/data/flink
+    networks:
+      - resinkit-network
+
+  starrocks:
+    image: starrocks/allin1-ubuntu:3.5-latest
+    ports:
+      - "8030:8030"
+      - "9020:9020"
+      - "9030:9030"
+    volumes:
+      - starrocks_data:/opt/starrocks
+    networks:
+      - resinkit-network
+
+networks:
+  resinkit-network:
+    driver: bridge
+    name: resinkit-network
+
+volumes:
+  flink_data:
+  starrocks_data:
+# #########################################################
+
+## docker-compose -f resinkit-terra/docker-compose-starrocks.yaml -p resinkit-starrocks up -d
+## docker-compose -f resinkit-terra/docker-compose-starrocks.yaml -p resinkit-starrocks down
+##

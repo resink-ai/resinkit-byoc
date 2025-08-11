@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "resinkit-byoc"
+dynamic = ["version"]
+description = "ResinKit BYOC (Bring Your Own Cloud) package"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "ResinKit Team" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = ["python-dotenv>=1.1", "pyinfra>=3.4.1"]
+
+[project.urls]
+Homepage = "https://github.com/resink-ai/resinkit"
+Repository = "https://github.com/resink-ai/resinkit"
+Issues = "https://github.com/resink-ai/resinkit/issues"
+
+[tool.hatch.version]
+path = "resinkit_byoc/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["resinkit_byoc"]

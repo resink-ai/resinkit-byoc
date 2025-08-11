@@ -1,0 +1,68 @@
+# /etc/nginx/sites-available/default
+
+# HTTPS Server Block (Port 443)
+server {
+    # SSL Configuration and Server Name
+    server_name wumiq.com www.wumiq.com;
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/wumiq.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/wumiq.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+    # Webroot for Let's Encrypt and static files (if any)
+    root /var/www/html;
+    index index.html index.htm;
+
+    # Let's Encrypt ACME challenge location
+    location /.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/html; # Ensure this path is correct for your Certbot setup
+    }
+
+    # Include resinkit location configurations
+    include sites-available/resinkit_locations.conf;
+
+    # Simple test location
+    location / {
+        return 200 "Resinkit is working!\n";
+        add_header Content-Type text/plain;
+    }
+}
+
+# HTTP Server Block (Port 8080)
+server {
+    listen 8080;
+    server_name _; # Catch all requests to this IP/port
+
+    # Include resinkit location configurations
+    include sites-available/resinkit_locations.conf;
+
+    # Default location
+    location / {
+        return 404 "Not found";
+    }
+}
+
+# HTTP to HTTPS redirection server block (Port 80) - managed by Certbot
+server {
+    if ($host = www.wumiq.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    if ($host = wumiq.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    listen [::]:80;
+
+    server_name wumiq.com www.wumiq.com;
+
+    # Certbot may add a specific location block here for /.well-known/acme-challenge/
+    # during HTTP-01 challenge. Keeping the `return 404` ensures that other non-matching
+    # requests to port 80 are not processed if not redirected.
+    return 404; # managed by Certbot
+} 

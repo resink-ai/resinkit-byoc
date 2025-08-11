@@ -1,0 +1,15 @@
+# /etc/nginx/sites-available/default
+
+server {
+    listen 8080;
+    server_name _; # Catch all requests to this IP/port
+
+    # Include resinkit location configurations
+    include sites-available/resinkit_locations.conf;
+
+    # Default location
+    location / {
+        return 200 "Resinkit is working!\n";
+        add_header Content-Type text/plain;
+    }
+}

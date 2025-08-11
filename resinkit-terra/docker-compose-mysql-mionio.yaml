@@ -1,0 +1,56 @@
+services:
+  mysql:
+    build:
+      context: ..
+      dockerfile: resinkit-shared/Dockerfile.testmysql
+    environment:
+      MYSQL_DATABASE: mydatabase
+      MYSQL_ROOT_PASSWORD: resinkit_mysql_password
+      MYSQL_TCP_PORT: 3307
+      MYSQLX_TCP_PORT: 33070
+    ports:
+      - "3307:3307"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  flink:
+    build:
+      context: ..
+      dockerfile: resinkit-terra/Dockerfile
+      args:
+        RESINKIT_JAR: "N/A"
+    ports:
+      - "8080:8080"
+      - "9092:9092"
+      - "8081:8081"
+      - "8083:8083"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3307
+      - MYSQL_DATABASE=mydatabase
+      - MYSQL_USER=resinkit
+      - MYSQL_PASSWORD=resinkit_mysql_password
+    depends_on:
+      - mysql
+    volumes:
+      - flink_data:/data/flink
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  mysql_data:
+  flink_data:
+  minio_data:
+## docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio up -d
+## docker-compose -f resinkit-terra/docker-compose-mysql-mionio.yaml -p resinkit-mysql-mionio down
+##

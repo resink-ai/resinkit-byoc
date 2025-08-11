@@ -1,0 +1,92 @@
+services:
+  mysql:
+    build:
+      context: ..
+      dockerfile: resinkit-shared/Dockerfile.testmysql
+    environment:
+      MYSQL_DATABASE: mydatabase
+      MYSQL_ROOT_PASSWORD: resinkit_mysql_password
+      MYSQL_TCP_PORT: 3307
+      MYSQLX_TCP_PORT: 33070
+    ports:
+      - "3307:3307"
+    networks:
+      - resinkit-network
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  flink:
+    build:
+      context: ..
+      dockerfile: resinkit-terra/Dockerfile
+      args:
+        RESINKIT_JAR: "N/A"
+    ports:
+      - "8080:8080"
+      - "9092:9092"
+      - "8081:8081"
+      - "8083:8083"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3307
+      - MYSQL_DATABASE=mydatabase
+      - MYSQL_USER=resinkit
+      - MYSQL_PASSWORD=resinkit_mysql_password
+    depends_on:
+      - mysql
+    volumes:
+      - flink_data:/data/flink
+    networks:
+      - resinkit-network
+
+  starrocks:
+    image: starrocks/allin1-ubuntu:3.5-latest
+    ports:
+      - "8030:8030"
+      - "9020:9020"
+      - "9030:9030"
+    volumes:
+      - starrocks_data:/opt/starrocks
+    networks:
+      - resinkit-network
+
+  hive-metastore:
+    image: apache/hive:4.0.1
+    container_name: hive-metastore
+    environment:
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=mysql
+      - SERVICE_OPTS=-Djavax.jdo.option.ConnectionDriverName=com.mysql.cj.jdbc.Driver -Djavax.jdo.option.ConnectionURL=jdbc:mysql://mysql:3307/metastore_db?createDatabaseIfNotExist=true&serverTimezone=UTC -Djavax.jdo.option.ConnectionUserName=root -Djavax.jdo.option.ConnectionPassword=resinkit_mysql_password
+      - DB_DRIVER=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3307
+      - DB_NAME=metastore_db
+      - DB_USER=root
+      - DB_PASSWORD=resinkit_mysql_password
+    depends_on:
+      - mysql
+    ports:
+      - "9083:9083"
+    volumes:
+      - hive_metastore_data:/opt/hive/data
+      - ~/.m2/repository/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar:/opt/hive/lib/mysql-connector-java.jar:ro
+      - ~/.m2/repository/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar:/opt/hive/lib/hadoop-aws.jar:ro
+    networks:
+      - resinkit-network
+
+networks:
+  resinkit-network:
+    driver: bridge
+    name: resinkit-network
+
+volumes:
+  mysql_data:
+  flink_data:
+  starrocks_data:
+  hive_metastore_data:
+# #########################################################
+
+## [Download Jar locally] mvn dependency:get -Dartifact=com.mysql:mysql-connector-j:8.4.0
+## docker-compose -f resinkit-terra/docker-compose-starrocks-hms.yaml -p resinkit-starrocks-hms up -d
+## docker-compose -f resinkit-terra/docker-compose-starrocks-hms.yaml -p resinkit-starrocks-hms down
+##
