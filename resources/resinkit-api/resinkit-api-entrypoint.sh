@@ -12,7 +12,7 @@ usage() {
     echo ""
     echo "Environment variables:"
     echo "  RESINKIT_API_GITHUB_TOKEN  If set, install from local repository instead of PyPI"
-    echo "  RESINKIT_API_DEBUG_PORT    If set, run in debug mode, default is 5000"
+    echo "  RESINKIT_API_DEBUG_PORT    If set, run in debug mode, usually 5678"
     exit 1
 }
 
