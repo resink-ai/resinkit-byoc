@@ -20,6 +20,7 @@ def post_install():
         "APACHE_HADOOP_URL",
         "HADOOP_VERSION",
         "MYSQL_RESINKIT_PASSWORD",
+        "ENV",
     ]:
         if k in os.environ:
             exp_vars[k] = os.getenv(k)

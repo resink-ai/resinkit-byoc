@@ -47,6 +47,11 @@ install_dependencies() {
     fi
 }
 
+run_alembic_migrations() {
+    echo "[RESINKIT] Running alembic migrations..."
+    $UV_BIN --directory "$RESINKIT_API_PATH" alembic upgrade head
+}
+
 # Function to start the service
 start_service() {
     set -x
@@ -60,6 +65,8 @@ start_service() {
 
     install_dependencies
 
+    run_alembic_migrations
+
     # Start the service
     echo "[RESINKIT] Starting resinkit_api service..."
 
@@ -70,7 +77,7 @@ start_service() {
 
     # if debug port is set, run uvicorn with debugpy, otherwise run uvicorn directly
     if [[ -n "$RESINKIT_API_DEBUG_PORT" ]]; then
-        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "-m" "debugpy" "--listen" "0.0.0.0:$RESINKIT_API_DEBUG_PORT" --wait-for-client "-m" "uvicorn" "resinkit_api.main:app" "--host" "0.0.0.0" "--port" "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "-m" "debugpy" "--listen" "0.0.0.0:$RESINKIT_API_DEBUG_PORT" "-m" "uvicorn" "resinkit_api.main:app" "--host" "0.0.0.0" "--port" "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
     else
         nohup "$RESINKIT_API_PATH/.venv/bin/python3" "$RESINKIT_API_PATH/.venv/bin/uvicorn" resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
     fi
