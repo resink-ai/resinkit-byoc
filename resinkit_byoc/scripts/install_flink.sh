@@ -96,7 +96,7 @@ function _install_flink_jars() {
 
     # Set up /opt/flink/data/catalog-store
     mkdir -p "/opt/flink/data/catalog-store"
-    cp -v "$ROOT_DIR/resources/flink/data/catalog-store/default_catalog.yaml" "/opt/flink/data/catalog-store/default_catalog.yaml"
+    cp -v "$ROOT_DIR/resources/flink/data/catalog-store/paimon_example.yaml" "/opt/flink/data/catalog-store/paimon_example.yaml"
 
     # Create marker file
     mkdir -p /opt/setup
