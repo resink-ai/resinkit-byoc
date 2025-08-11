@@ -10,9 +10,6 @@ on:
   #   - cron: '43 11 * * *'
   push:
     tags: ["release-*"]
-  pull_request:
-    branches: ["master"]
-
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
