@@ -171,51 +171,7 @@ function install_kafka() {
     chmod -R 755 /opt/kafka/logs
 }
 
-function install_jupyter() {
-    # copy resinkit_sample_project to /home/resinkit/
-    cp -r "$ROOT_DIR/resources/jupyter/resinkit_sample_project" /home/resinkit/
-    # copy jupyter_entrypoint.sh to /home/resinkit/.local/bin/
-    mkdir -p /home/resinkit/.local/bin
-    cp "$ROOT_DIR/resources/jupyter/jupyter_entrypoint.sh" /home/resinkit/.local/bin/
-    chmod +x /home/resinkit/.local/bin/jupyter_entrypoint.sh
-    chown -R resinkit:resinkit /home/resinkit/resinkit_sample_project
-}
-
-function install_resinkit_api() {
-    # Check if resinkit-api is already installed
-    if [ -d "/opt/resinkit/api" ] && [ -f "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh" ]; then
-        echo "[RESINKIT] Resinkit API already installed (1/2)"
-        # check if resinkit-api-entrypoint.sh is installed
-        if [ -f "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh" ]; then
-            echo "[RESINKIT] Resinkit API entrypoint already installed (2/2)"
-            return 0
-        fi
-    fi
-
-    if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
-        echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN is set, cloning from GitHub repository"
-        # Clone the repository using GitHub PAT
-        git clone "https://$RESINKIT_API_GITHUB_TOKEN@github.com/resink-ai/resinkit-api-python.git" /opt/resinkit/api
-        echo "[RESINKIT] Resinkit API cloned from GitHub to /opt/resinkit/api"
-    else
-        echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN not set, using local resources"
-        # Copy from local resources (original behavior)
-        mkdir -p /opt/resinkit/api
-        cp -rv "$ROOT_DIR/resources/resinkit-api" "/opt/resinkit/api"
-        echo "[RESINKIT] Resinkit API copied from resources to /opt/resinkit/api"
-    fi
-
-    # Copy entrypoint script to the API directory
-    mkdir -p /home/resinkit/.local/bin
-    cp -v "$ROOT_DIR/resources/resinkit-api/resinkit-api-entrypoint.sh" "/home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
-    echo "[RESINKIT] Entrypoint script copied to /home/resinkit/.local/bin/resinkit-api-entrypoint.sh"
-    chmod +x /home/resinkit/.local/bin/resinkit-api-entrypoint.sh
-    chown -R resinkit:resinkit /opt/resinkit/api
-}
-
-
 install_gosu
 install_nginx
 install_kafka
-# install_jupyter
-install_resinkit_api
+

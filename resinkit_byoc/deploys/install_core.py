@@ -49,7 +49,7 @@ def install_03_flink():
     )
 
 
-def install_01_core_jupyter():
+def install_011_core_jupyter():
     """Install Jupyter components."""
     load_dotenvs()
     ROOT_DIR = os.getenv("ROOT_DIR")
@@ -78,4 +78,13 @@ def install_01_core_jupyter():
     server.shell(
         name="Change ownership of resinkit_sample_project to resinkit:resinkit",
         commands=["chown -R resinkit:resinkit /home/resinkit/resinkit_sample_project"],
+    )
+
+
+def install_012_core_resinkit_api():
+    """Install resinkit-api."""
+    run_script(
+        "resinkit_byoc/scripts/install_resinkit_api.sh",
+        name="Install resinkit-api",
+        envs=["ROOT_DIR", "RESINKIT_API_GITHUB_TOKEN"],
     )

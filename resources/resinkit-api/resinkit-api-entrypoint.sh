@@ -12,6 +12,7 @@ usage() {
     echo ""
     echo "Environment variables:"
     echo "  RESINKIT_API_GITHUB_TOKEN  If set, install from local repository instead of PyPI"
+    echo "  RESINKIT_API_DEBUG_PORT    If set, run in debug mode, default is 5000"
     exit 1
 }
 
@@ -29,14 +30,20 @@ fi
 # Function to install dependencies
 install_dependencies() {
     echo "[RESINKIT] Installing dependencies..."
-
-    if [[ -n "$RESINKIT_API_GITHUB_TOKEN" ]]; then
-        echo "[RESINKIT] Installing from local repository..."
+    # Check if pyproject.toml exists in the resinkit-api folder
+    if [[ -f "$RESINKIT_API_PATH/pyproject.toml" ]]; then
+        echo "[RESINKIT] Installing from local repository (pyproject.toml found)..."
         $UV_BIN --directory "$RESINKIT_API_PATH" sync
     else
-        echo "[RESINKIT] Installing from PyPI..."
+        echo "[RESINKIT] Installing from PyPI (pyproject.toml not found)..."
         $UV_BIN --directory "$RESINKIT_API_PATH" venv --python 3.12 "$RESINKIT_API_PATH/.venv"
         $UV_BIN --directory "$RESINKIT_API_PATH" pip install uvicorn resinkit-api-python -U
+    fi
+
+    # install debugpy if debug port is set
+    if [[ -n "$RESINKIT_API_DEBUG_PORT" ]]; then
+        echo "[RESINKIT] Debug port is set: $RESINKIT_API_DEBUG_PORT, installing debugpy..."
+        $UV_BIN --directory "$RESINKIT_API_PATH" pip install debugpy
     fi
 }
 
@@ -61,7 +68,12 @@ start_service() {
         touch "$RESINKIT_API_LOG_FILE"
     fi
 
-    nohup $UV_BIN --directory "$RESINKIT_API_PATH" run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    # if debug port is set, run uvicorn with debugpy, otherwise run uvicorn directly
+    if [[ -n "$RESINKIT_API_DEBUG_PORT" ]]; then
+        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "-m" "debugpy" "--listen" "0.0.0.0:$RESINKIT_API_DEBUG_PORT" --wait-for-client "-m" "uvicorn" "resinkit_api.main:app" "--host" "0.0.0.0" "--port" "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    else
+        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "$RESINKIT_API_PATH/.venv/bin/uvicorn" resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    fi
 
     # Get the PID and save it
     local pid=$!
