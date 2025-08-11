@@ -1,7 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2046
 
-: "${ROOT_DIR:?}" "${RESINKIT_BYOC_RELEASE_BRANCH:?}"
+: "${ROOT_DIR:?}"
 
 set -eo pipefail
 
@@ -10,6 +10,7 @@ if [ ! -f "/opt/uv/bin/uv" ]; then
 fi
 
 if [ ! -d "$ROOT_DIR" ]; then
+    : "${RESINKIT_BYOC_RELEASE_BRANCH:?}"
     # clone resinkit-byoc repo
     git clone --branch "$RESINKIT_BYOC_RELEASE_BRANCH" https://github.com/resink-ai/resinkit-byoc.git "$ROOT_DIR"
 else
@@ -17,14 +18,4 @@ else
     true
 fi
 
-# install git lfs if not installed
-if ! command -v git-lfs &> /dev/null; then
-    apt-get update
-    apt-get install git-lfs -y --no-install-recommends
-fi
-
-# install git lfs and pull resources
-cd "$ROOT_DIR"
-git lfs install || true
-git lfs pull || true
 
