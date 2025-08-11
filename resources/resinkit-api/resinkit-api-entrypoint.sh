@@ -49,7 +49,7 @@ install_dependencies() {
 
 run_alembic_migrations() {
     echo "[RESINKIT] Running alembic migrations..."
-    $UV_BIN --directory "$RESINKIT_API_PATH" alembic upgrade head
+    $UV_BIN --directory "$RESINKIT_API_PATH" run alembic -c "$RESINKIT_API_PATH/resinkit_api/db/alembic.ini" upgrade head
 }
 
 # Function to start the service
