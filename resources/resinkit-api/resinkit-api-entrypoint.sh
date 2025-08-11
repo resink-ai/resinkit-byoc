@@ -12,6 +12,7 @@ usage() {
     echo ""
     echo "Environment variables:"
     echo "  RESINKIT_API_GITHUB_TOKEN  If set, install from local repository instead of PyPI"
+    echo "  RESINKIT_API_DEBUG_PORT    If set, run in debug mode, default is 5000"
     exit 1
 }
 
@@ -38,6 +39,12 @@ install_dependencies() {
         $UV_BIN --directory "$RESINKIT_API_PATH" venv --python 3.12 "$RESINKIT_API_PATH/.venv"
         $UV_BIN --directory "$RESINKIT_API_PATH" pip install uvicorn resinkit-api-python -U
     fi
+
+    # install debugpy if debug mode is enabled
+    if [[ "$RESINKIT_API_DEBUG_PORT" == "true" ]]; then
+        echo "[RESINKIT] Installing debugpy..."
+        $UV_BIN --directory "$RESINKIT_API_PATH" pip install debugpy
+    fi
 }
 
 # Function to start the service
@@ -61,7 +68,12 @@ start_service() {
         touch "$RESINKIT_API_LOG_FILE"
     fi
 
-    nohup $UV_BIN --directory "$RESINKIT_API_PATH" run uvicorn resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    # if production env, run uvicorn directly, otherwise run application using debuggy 
+    if [[ "$RESINKIT_API_DEBUG_PORT" == "true" ]]; then
+        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "-m" "debugpy" "--listen" "0.0.0.0:$RESINKIT_API_DEBUG_PORT" "-m" "uvicorn" "resinkit_api.main:app" "--host" "0.0.0.0" "--port" "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    else
+        nohup "$RESINKIT_API_PATH/.venv/bin/python3" "$RESINKIT_API_PATH/.venv/bin/uvicorn" resinkit_api.main:app --host 0.0.0.0 --port "$RESINKIT_API_SERVICE_PORT" >"$RESINKIT_API_LOG_FILE" 2>&1 &
+    fi
 
     # Get the PID and save it
     local pid=$!

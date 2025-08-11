@@ -192,6 +192,9 @@ function install_resinkit_api() {
         fi
     fi
 
+    # clean up old resinkit-api folder
+    rm -rf /opt/resinkit/api || true
+
     if [ -n "$RESINKIT_API_GITHUB_TOKEN" ]; then
         echo "[RESINKIT] RESINKIT_API_GITHUB_TOKEN is set, cloning from GitHub repository"
         # Clone the repository using GitHub PAT
