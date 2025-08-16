@@ -1,7 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2046
 
-: "${ROOT_DIR:?}" "${RESINKIT_BYOC_RELEASE_BRANCH:?}"
+: "${ROOT_DIR:?}"
 
 set -eo pipefail
 
@@ -16,15 +16,3 @@ else
     echo "[RESINKIT] resinkit-byoc repo already exists, skip cloning or pulling to avoid overwriting local changes"
     true
 fi
-
-# install git lfs if not installed
-if ! command -v git-lfs &> /dev/null; then
-    apt-get update
-    apt-get install git-lfs -y --no-install-recommends
-fi
-
-# install git lfs and pull resources
-cd "$ROOT_DIR"
-git lfs install || true
-git lfs pull || true
-
