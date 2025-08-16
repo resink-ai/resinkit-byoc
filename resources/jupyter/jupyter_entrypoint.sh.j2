@@ -24,20 +24,23 @@ start_service() {
         return 0
     fi
 
-    
     # Start the service
     echo "[RESINKIT] Starting jupyter service..."
 
-    
     mkdir -p "$JUPYTER_WORKSPACE_DIR"
 
     cd /home/resinkit/resinkit_sample_project
+
+    # uv sync
+    /home/resinkit/.local/bin/uv --directory /home/resinkit/resinkit_sample_project sync
+
+    # run jupyter lab
     nohup /home/resinkit/.local/bin/uv run --directory /home/resinkit/resinkit_sample_project jupyter lab \
         --notebook-dir="$JUPYTER_WORKSPACE_DIR" \
         --ip=0.0.0.0 \
         --port=$JUPYTER_PORT \
         --ServerApp.allow_remote_access=True \
-        --ServerApp.base_url={% if RESINKIT_ID %}/resinkit-lab/{{ RESINKIT_ID }}/{% else %}/lab/{% endif %} \
+        --ServerApp.base_url={% if RESINKIT_ID %}/resinkit-lab/{{ RESINKIT_ID }}/{% else %}/{% endif %} \
         --NotebookApp.allow_origin='*' \
         --no-browser \
         --NotebookApp.terminals_enabled=False \

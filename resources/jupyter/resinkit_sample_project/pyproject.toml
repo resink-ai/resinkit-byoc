@@ -5,7 +5,7 @@ description = "A sample resinkit project"
 readme = "README.md"
 authors = [{ name = "resink.ai", email = "contact@resink.ai" }]
 requires-python = ">=3.10"
-dependencies = ["resinkit-sdk-python", "jupyterlab"]
+dependencies = ["resinkit-sdk-python", "jupyterlab==4.1.8"]
 
 [project.scripts]
 resinkit-sample-project = "resinkit_sample_project:main"
@@ -13,3 +13,6 @@ resinkit-sample-project = "resinkit_sample_project:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true

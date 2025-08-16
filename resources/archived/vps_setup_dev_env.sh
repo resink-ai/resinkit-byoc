@@ -15,4 +15,6 @@ if [[ "$PS1" != *'[%n]'* ]]; then
     export PS1="[%n] $PS1"
 fi
 
+alias ll="ls -tralhF --color"
+
 EOF
