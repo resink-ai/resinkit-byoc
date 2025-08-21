@@ -15,6 +15,8 @@ usage() {
     exit 1
 }
 
+export KAFKA_HOME="${KAFKA_HOME:-/opt/kafka}"
+
 # Function to check required environment variables
 check_env_vars() {
     local required_vars=("KAFKA_HOME")
@@ -26,13 +28,7 @@ check_env_vars() {
             exit 1
         fi
     done
-    
-    # Check if Kafka installation exists
-    if [[ ! -d "$KAFKA_HOME" ]]; then
-        echo "Error: Kafka installation not found at $KAFKA_HOME"
-        exit 1
-    fi
-    
+
     if [[ ! -f "$KAFKA_HOME/bin/kafka-server-start.sh" ]]; then
         echo "Error: Kafka scripts not found at $KAFKA_HOME/bin/"
         exit 1

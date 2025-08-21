@@ -157,13 +157,13 @@ function install_kafka() {
         fi
     fi
 
-    wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz &&
-        tar -xzf /tmp/kafka.tgz -C /opt &&
-        mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
-        rm /tmp/kafka.tgz
-
-    # tar -xzf "$ROOT_DIR/resources/kafka/kafka.tgz" -C /opt
-    # mv /opt/kafka_2.12-3.4.0 /opt/kafka
+    if [ ! -f "/opt/kafka/config/server.properties" ]; then
+        echo "[RESINKIT] Installing Kafka"
+        wget https://archive.apache.org/dist/kafka/3.4.0/kafka_2.12-3.4.0.tgz -O /tmp/kafka.tgz &&
+            tar -xzf /tmp/kafka.tgz -C /opt &&
+            mv /opt/kafka_2.12-3.4.0 /opt/kafka &&
+            rm /tmp/kafka.tgz
+    fi
 
     # copy properties and entrypoint
     cp -v "$ROOT_DIR/resources/kafka/server.properties" "/opt/kafka/config/server.properties"

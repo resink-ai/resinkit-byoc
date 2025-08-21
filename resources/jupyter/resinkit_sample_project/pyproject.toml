@@ -5,7 +5,7 @@ description = "A sample resinkit project"
 readme = "README.md"
 authors = [{ name = "resink.ai", email = "contact@resink.ai" }]
 requires-python = ">=3.10"
-dependencies = ["resinkit-sdk-python", "jupyterlab==4.1.8"]
+dependencies = ["jupyterlab==4.1.8", "resinkit-sdk-python"]
 
 [project.scripts]
 resinkit-sample-project = "resinkit_sample_project:main"
